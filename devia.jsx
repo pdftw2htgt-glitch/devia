@@ -17,6 +17,99 @@ woodDk:   “#8b5e2e”,
 ok:       “#3ecf8e”,
 };
 
+// ─── BASE ZONES EUROCODE (France + pays limitrophes) ────────────────────────
+// Sources : NF EN 1991-1-3 (neige), NF EN 1991-1-4 (vent), NF EN 1998-1 (sismique)
+const ZONES_DB = {
+// Format: “mot_clé_commune”: { neige, vent, sismique, country }
+// FRANCE — régions principales
+“paris”:          { neige:“A1”, vent:“2”, sismique:“1”, pays:“FR” },
+“ile-de-france”:  { neige:“A1”, vent:“2”, sismique:“1”, pays:“FR” },
+“lyon”:           { neige:“A2”, vent:“2”, sismique:“1”, pays:“FR” },
+“marseille”:      { neige:“A1”, vent:“3”, sismique:“2”, pays:“FR” },
+“bordeaux”:       { neige:“A1”, vent:“2”, sismique:“2”, pays:“FR” },
+“toulouse”:       { neige:“A2”, vent:“2”, sismique:“3”, pays:“FR” },
+“nantes”:         { neige:“A1”, vent:“3”, sismique:“1”, pays:“FR” },
+“strasbourg”:     { neige:“B1”, vent:“1”, sismique:“3”, pays:“FR” },
+“lille”:          { neige:“A1”, vent:“3”, sismique:“1”, pays:“FR” },
+“nice”:           { neige:“A2”, vent:“3”, sismique:“4”, pays:“FR” },
+“grenoble”:       { neige:“C1”, vent:“2”, sismique:“4”, pays:“FR” },
+“clermont”:       { neige:“B2”, vent:“2”, sismique:“2”, pays:“FR” },
+“limoges”:        { neige:“A2”, vent:“2”, sismique:“2”, pays:“FR” },
+“rennes”:         { neige:“A1”, vent:“3”, sismique:“1”, pays:“FR” },
+“rouen”:          { neige:“A1”, vent:“3”, sismique:“1”, pays:“FR” },
+“dijon”:          { neige:“B1”, vent:“1”, sismique:“1”, pays:“FR” },
+“metz”:           { neige:“B1”, vent:“1”, sismique:“2”, pays:“FR” },
+“nancy”:          { neige:“B1”, vent:“1”, sismique:“2”, pays:“FR” },
+“reims”:          { neige:“A2”, vent:“2”, sismique:“1”, pays:“FR” },
+“le havre”:       { neige:“A1”, vent:“4”, sismique:“1”, pays:“FR” },
+“brest”:          { neige:“A1”, vent:“4”, sismique:“1”, pays:“FR” },
+“toulon”:         { neige:“A1”, vent:“3”, sismique:“3”, pays:“FR” },
+“montpellier”:    { neige:“A1”, vent:“3”, sismique:“3”, pays:“FR” },
+“perpignan”:      { neige:“A1”, vent:“4”, sismique:“4”, pays:“FR” },
+“pau”:            { neige:“B1”, vent:“2”, sismique:“4”, pays:“FR” },
+“bayonne”:        { neige:“A2”, vent:“3”, sismique:“4”, pays:“FR” },
+“chamonix”:       { neige:“C2”, vent:“2”, sismique:“4”, pays:“FR” },
+“annecy”:         { neige:“C1”, vent:“2”, sismique:“4”, pays:“FR” },
+“chambery”:       { neige:“C1”, vent:“2”, sismique:“4”, pays:“FR” },
+“ajaccio”:        { neige:“A1”, vent:“3”, sismique:“3”, pays:“FR” },
+“bastia”:         { neige:“A2”, vent:“3”, sismique:“3”, pays:“FR” },
+// DOM-TOM
+“martinique”:     { neige:”—”,  vent:“4”, sismique:“5”, pays:“FR-DOM” },
+“guadeloupe”:     { neige:”—”,  vent:“4”, sismique:“5”, pays:“FR-DOM” },
+“reunion”:        { neige:”—”,  vent:“4”, sismique:“2”, pays:“FR-DOM” },
+“guyane”:         { neige:”—”,  vent:“3”, sismique:“2”, pays:“FR-DOM” },
+“mayotte”:        { neige:”—”,  vent:“3”, sismique:“3”, pays:“FR-DOM” },
+// BELGIQUE
+“bruxelles”:      { neige:”—”,  vent:“3”, sismique:“1”, pays:“BE” },
+“liege”:          { neige:“A1”, vent:“2”, sismique:“2”, pays:“BE” },
+“bruges”:         { neige:”—”,  vent:“3”, sismique:“1”, pays:“BE” },
+“gand”:           { neige:”—”,  vent:“3”, sismique:“1”, pays:“BE” },
+“namur”:          { neige:“A1”, vent:“2”, sismique:“1”, pays:“BE” },
+// SUISSE
+“geneve”:         { neige:“B1”, vent:“2”, sismique:“2”, pays:“CH” },
+“lausanne”:       { neige:“B1”, vent:“2”, sismique:“2”, pays:“CH” },
+“zurich”:         { neige:“C1”, vent:“2”, sismique:“2”, pays:“CH” },
+“bale”:           { neige:“B1”, vent:“1”, sismique:“3”, pays:“CH” },
+“berne”:          { neige:“C1”, vent:“2”, sismique:“2”, pays:“CH” },
+“sion”:           { neige:“C2”, vent:“2”, sismique:“3”, pays:“CH” },
+// LUXEMBOURG
+“luxembourg”:     { neige:“B1”, vent:“2”, sismique:“1”, pays:“LU” },
+};
+
+// Charges neige de base sk (kN/m²) selon zone + altitude (EN 1991-1-3 Annexe nationale FR)
+const CHARGES_NEIGE = {
+“A1”: (alt) => alt<=200?0.20:alt<=500?0.35:0.45,
+“A2”: (alt) => alt<=200?0.25:alt<=500?0.40:0.55,
+“B1”: (alt) => alt<=200?0.45:alt<=500?0.65:0.90,
+“B2”: (alt) => alt<=200?0.55:alt<=500?0.80:1.10,
+“C1”: (alt) => alt<=200?0.65:alt<=500?1.00:1.50,
+“C2”: (alt) => alt<=200?0.90:alt<=500?1.40:2.10,
+“—”:  ()    => 0,
+};
+
+// Pression dynamique de référence qb (Pa) selon zone vent (NF EN 1991-1-4)
+const PRESSION_VENT = { “1”:280, “2”:400, “3”:500, “4”:700 };
+
+// Accélération sismique ag/g selon zone (NF EN 1998-1 AN FR)
+const ACCEL_SISMIQUE = { “1”:0.4, “2”:0.7, “3”:1.1, “4”:1.6, “5”:3.0 };
+
+function getZones(commune, altitude=100) {
+if (!commune) return null;
+const key = commune.toLowerCase().normalize(“NFD”).replace(/[\u0300-\u036f]/g,””).trim();
+// Recherche exacte puis partielle
+let zone = ZONES_DB[key];
+if (!zone) {
+const found = Object.keys(ZONES_DB).find(k => key.includes(k) || k.includes(key));
+zone = found ? ZONES_DB[found] : null;
+}
+if (!zone) return null;
+const alt = parseInt(altitude) || 100;
+const sk = CHARGES_NEIGE[zone.neige] ? CHARGES_NEIGE[zone.neige](alt) : 0;
+const qb = PRESSION_VENT[zone.vent] || 400;
+const ag = ACCEL_SISMIQUE[zone.sismique] || 0.4;
+return { …zone, altitude: alt, sk, qb, ag };
+}
+
 // ─── 3D VIEWER ──────────────────────────────────────────────────────────────
 function Viewer3D({ params, active }) {
 const mountRef = useRef(null);
@@ -209,10 +302,13 @@ return (
 export default function Devia() {
 const [prompt, setPrompt]     = useState(””);
 const [files, setFiles]       = useState([]);
-const [state, setState]       = useState(“idle”); // idle | loading | done | error
-const [result, setResult]     = useState(null);   // { devis, params, description }
+const [state, setState]       = useState(“idle”);
+const [result, setResult]     = useState(null);
 const [tab, setTab]           = useState(“devis”);
 const [errMsg, setErrMsg]     = useState(””);
+const [commune, setCommune]   = useState(””);
+const [altitude, setAltitude] = useState(“100”);
+const [zones, setZones]       = useState(null);
 const fileRef = useRef(null);
 const textRef = useRef(null);
 
@@ -220,6 +316,12 @@ const textRef = useRef(null);
 useEffect(()=>{
 if(textRef.current){ textRef.current.style.height=“auto”; textRef.current.style.height=textRef.current.scrollHeight+“px”; }
 },[prompt]);
+
+// Détection automatique des zones dès saisie commune
+useEffect(()=>{
+if(commune.trim().length>2) setZones(getZones(commune, altitude));
+else setZones(null);
+},[commune, altitude]);
 
 const addFiles = (list) => {
 const arr = Array.from(list).filter(f=>
@@ -254,13 +356,31 @@ try {
     }
   }
 
-  content.push({ type:"text", text:`Tu es un expert charpentier et estimateur de travaux bois. 
+  const zonesInfo = zones ? `
 ```
+
+DONNÉES GÉOGRAPHIQUES ET CLIMATIQUES (Eurocodes) :
+
+- Commune : ${commune} — Altitude : ${zones.altitude}m
+- Zone neige (EN 1991-1-3) : ${zones.neige} → Charge neige sk = ${zones.sk} kN/m²
+- Zone vent (EN 1991-1-4) : ${zones.vent} → Pression dynamique qb = ${zones.qb} Pa
+- Zone sismique (EN 1998-1) : ${zones.sismique} → Accélération ag = ${zones.ag}%g
+  Ces données DOIVENT influencer :
+- Les sections de bois (chevrons, pannes, entraits) dimensionnées en conséquence
+- L’espacement des chevrons adapté aux charges
+- Les assemblages et connecteurs renforcés si nécessaire
+- Une mention explicite des charges retenues dans les notes du devis`:`
+  Aucune commune renseignée — utiliser des valeurs moyennes françaises (zone A2, vent 2, sismique 1).`;
+  
+  ```
+  content.push({ type:"text", text:`Tu es un bureau d'études charpente bois certifié, expert en Eurocodes structure.
+  ```
 
 À partir de la description suivante${files.length?” et des images/documents joints”:””}, génère :
 
-1. Un devis professionnel détaillé
+1. Un devis professionnel détaillé avec sections de bois dimensionnées
 1. Les paramètres 3D de la structure
+   ${zonesInfo}
 
 Description du projet : ${prompt}
 
@@ -302,14 +422,14 @@ Règles :
   const clean = raw.replace(/```json|```/g,"").trim();
   const parsed = JSON.parse(clean);
   
-  setResult(parsed);
+  setResult({...parsed, zones});
   setState("done");
   setTab("devis");
   ```
   
   } catch(e) {
   console.error(e);
-  setErrMsg(“Erreur de génération. Si le problème persiste, un backend proxy est nécessaire (CORS).”);
+  setErrMsg(“Une erreur est survenue lors de la génération. Un backend proxy Vercel est requis pour utiliser l’API en production.”);
   setState(“error”);
   }
   };
@@ -319,7 +439,7 @@ Règles :
   // ── RENDER ────────────────────────────────────────────────────────────────
   return (
   
-    <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"'Syne','DM Sans',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+    <div style={{minHeight:"100vh",background:T.bg,color:T.text,fontFamily:"'Inter',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
   
   ```
   {/* ── TOP BAR ── */}
@@ -327,12 +447,12 @@ Règles :
     <div style={{display:"flex",alignItems:"center",gap:12}}>
       <div style={{width:36,height:36,background:T.accent,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#0a0800",letterSpacing:"-0.05em"}}>D</div>
       <div>
-        <div style={{fontWeight:800,fontSize:18,letterSpacing:"-0.04em",color:T.text}}>DEVIA</div>
-        <div style={{fontSize:10,color:T.muted,letterSpacing:"0.12em",textTransform:"uppercase",marginTop:-2}}>Devis IA · Charpente</div>
+        <div style={{fontWeight:700,fontSize:17,letterSpacing:"-0.03em",color:T.text}}>DEVIA</div>
+        <div style={{fontSize:10,color:T.muted,letterSpacing:"0.08em",textTransform:"uppercase",marginTop:-1,fontWeight:500}}>Estimation & Modélisation · Charpente</div>
       </div>
     </div>
     <div style={{display:"flex",gap:8}}>
-      {["Projets","Tarifs","Compte"].map(l=>(
+      {["Mes projets","Paramètres","Mon compte"].map(l=>(
         <button key={l} style={{padding:"7px 16px",background:"none",border:`1px solid ${T.border}`,borderRadius:20,color:T.muted,fontSize:12,cursor:"pointer",letterSpacing:"0.02em"}}>{l}</button>
       ))}
     </div>
@@ -342,11 +462,11 @@ Règles :
   <div style={{flex:state==="done"?0:1,padding:"60px 32px 40px",display:"flex",flexDirection:"column",alignItems:"center",transition:"all 0.4s",background:state==="done"?"none":`radial-gradient(ellipse 80% 60% at 50% 0%, ${T.accentLo}, transparent)`}}>
     {state!=="done"&&(
       <>
-        <div style={{fontSize:48,fontWeight:800,letterSpacing:"-0.05em",textAlign:"center",lineHeight:1.1,marginBottom:12,background:`linear-gradient(135deg, ${T.text} 40%, ${T.accent})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>
-          Décrivez votre charpente.<br/>DEVIA fait le reste.
+        <div style={{fontSize:52,fontWeight:700,letterSpacing:"-0.04em",textAlign:"center",lineHeight:1.08,marginBottom:16,color:T.text}}>
+          Estimez votre charpente<br/><span style={{color:T.accent}}>en quelques secondes.</span>
         </div>
-        <div style={{color:T.muted,fontSize:15,textAlign:"center",marginBottom:40}}>
-          Devis professionnel + rendu 3D générés par IA en quelques secondes
+        <div style={{color:T.muted,fontSize:16,textAlign:"center",marginBottom:40,fontWeight:400,letterSpacing:"-0.01em"}}>
+          Décrivez votre projet — DEVIA génère un devis détaillé et une modélisation 3D instantanément.
         </div>
       </>
     )}
@@ -358,9 +478,56 @@ Règles :
         value={prompt}
         onChange={e=>setPrompt(e.target.value)}
         onKeyDown={onKey}
-        placeholder="Ex : Charpente traditionnelle 2 pans pour une maison de 10×14m, pente 35°, bois douglas, avec isolation entre chevrons…"
+        placeholder="Décrivez votre projet : type de charpente, dimensions approximatives, essence de bois souhaitée, contraintes particulières…"
         style={{width:"100%",minHeight:80,maxHeight:220,background:"none",border:"none",outline:"none",color:T.text,fontSize:15,padding:"20px 22px 10px",resize:"none",fontFamily:"inherit",lineHeight:1.7,boxSizing:"border-box"}}
       />
+  
+      {/* Commune + Altitude row */}
+      <div style={{display:"flex",gap:10,padding:"0 16px 12px",borderBottom:`1px solid ${T.border}`}}>
+        <div style={{flex:2,position:"relative"}}>
+          <input
+            value={commune}
+            onChange={e=>setCommune(e.target.value)}
+            placeholder="Commune (ex : Grenoble, Bruxelles…)"
+            style={{width:"100%",background:T.surface,border:`1px solid ${zones?"#3ecf8e44":T.border}`,borderRadius:10,color:T.text,padding:"9px 14px",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",transition:"border 0.2s"}}
+          />
+          {zones&&(
+            <div style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",width:8,height:8,borderRadius:"50%",background:T.ok}}/>
+          )}
+        </div>
+        <div style={{flex:1}}>
+          <input
+            value={altitude}
+            onChange={e=>setAltitude(e.target.value)}
+            placeholder="Altitude (m)"
+            type="number"
+            min="0" max="3000"
+            style={{width:"100%",background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,color:T.text,padding:"9px 14px",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}
+          />
+        </div>
+      </div>
+  
+      {/* Zones preview */}
+      {zones&&(
+        <div style={{display:"flex",gap:8,padding:"10px 16px",flexWrap:"wrap",borderBottom:`1px solid ${T.border}`}}>
+          {[
+            ["Neige",`Zone ${zones.neige} — ${zones.sk} kN/m²`,"#60a5fa"],
+            ["Vent",`Zone ${zones.vent} — ${zones.qb} Pa`,"#a78bfa"],
+            ["Sismique",`Zone ${zones.sismique} — ${zones.ag}%g`,"#f97316"],
+            ["Altitude",`${zones.altitude} m`,"#3ecf8e"],
+          ].map(([label,val,color])=>(
+            <div key={label} style={{padding:"4px 12px",background:`${color}14`,border:`1px solid ${color}33`,borderRadius:20,fontSize:11,display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{color,fontWeight:600}}>{label}</span>
+              <span style={{color:T.muted}}>{val}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {commune.trim().length>2&&!zones&&(
+        <div style={{padding:"8px 16px",fontSize:11,color:"#f97316",borderBottom:`1px solid ${T.border}`}}>
+          Commune non reconnue — les charges seront estimées avec des valeurs moyennes françaises.
+        </div>
+      )}
   
       {/* Files row */}
       {files.length>0&&(
@@ -373,15 +540,15 @@ Règles :
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",borderTop:`1px solid ${T.border}`}}>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>fileRef.current?.click()} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",background:T.surface,border:`1px solid ${T.border}`,borderRadius:20,color:T.muted,fontSize:12,cursor:"pointer"}}>
-            🖼 Photo / PDF
+            Joindre un fichier
           </button>
           <input ref={fileRef} type="file" multiple accept="image/*,application/pdf" style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <span style={{fontSize:11,color:T.muted}}>⌘↵ pour générer</span>
+          <span style={{fontSize:11,color:T.muted}}>Ctrl + Entrée</span>
           <button onClick={generate} disabled={state==="loading"||!prompt.trim()}
             style={{padding:"9px 22px",background:state==="loading"||!prompt.trim()?T.dim:T.accent,border:"none",borderRadius:20,color:state==="loading"||!prompt.trim()?T.muted:"#0a0800",fontWeight:700,fontSize:13,cursor:state==="loading"||!prompt.trim()?"not-allowed":"pointer",letterSpacing:"-0.01em",transition:"all 0.2s"}}>
-            {state==="loading"?"⏳ Génération…":"✨ Générer"}
+            {state==="loading"?"Analyse en cours…":"Générer le devis"}
           </button>
         </div>
       </div>
@@ -393,7 +560,7 @@ Règles :
     {state==="idle"&&(
       <div onDrop={onDrop} onDragOver={e=>e.preventDefault()}
         style={{marginTop:16,padding:"12px 24px",border:`1px dashed ${T.dim}`,borderRadius:12,color:T.muted,fontSize:12,textAlign:"center",cursor:"default"}}>
-        📂 Glissez vos photos ou plans ici
+        Glissez vos photos, plans ou documents ici
       </div>
     )}
   </div>
@@ -404,7 +571,7 @@ Règles :
       
       {/* Result tabs */}
       <div style={{display:"flex",alignItems:"center",borderBottom:`1px solid ${T.border}`,background:T.surface,padding:"0 32px"}}>
-        {[["devis","📋 Devis"],["3d","🏗 Vue 3D"]].map(([id,label])=>(
+        {[["devis","Devis estimatif"],["3d","Modélisation 3D"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{padding:"14px 22px",background:"none",border:"none",borderBottom:tab===id?`2px solid ${T.accent}`:"2px solid transparent",color:tab===id?T.accent:T.muted,fontSize:13,fontWeight:600,cursor:"pointer",transition:"color 0.2s"}}>
             {label}
@@ -413,9 +580,8 @@ Règles :
         <div style={{marginLeft:"auto",fontSize:12,color:T.muted,padding:"0 0 0 12px"}}>
           {result.description}
         </div>
-        <button onClick={()=>{setState("idle");setResult(null);setPrompt("");setFiles([]);}}
-          style={{marginLeft:16,padding:"6px 16px",background:"none",border:`1px solid ${T.border}`,borderRadius:20,color:T.muted,fontSize:12,cursor:"pointer"}}>
-          ↩ Nouveau
+        <button onClick={()=>{setState("idle");setResult(null);setPrompt("");setFiles([]);setCommune("");setAltitude("100");setZones(null);}}              style={{marginLeft:16,padding:"6px 16px",background:"none",border:`1px solid ${T.border}`,borderRadius:20,color:T.muted,fontSize:12,cursor:"pointer"}}>
+          Nouveau projet
         </button>
       </div>
   
@@ -434,15 +600,15 @@ Règles :
                   </div>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:T.accentLo,borderRadius:20,border:`1px solid ${T.accent}33`}}>
-                  <span style={{color:T.accent,fontSize:12,fontWeight:600}}>✓ Généré par IA</span>
+                  <span style={{color:T.accent,fontSize:12,fontWeight:600}}>Devis généré par DEVIA</span>
                 </div>
               </div>
   
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:28,marginBottom:20}}>
-                <div style={{fontSize:11,color:T.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Objet du devis</div>
+                <div style={{fontSize:11,color:T.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Description du projet</div>
                 <div style={{color:T.text,fontSize:14,lineHeight:1.6}}>{result.description}</div>
                 {result.params&&(
-                  <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>
                     {[["Largeur",`${result.params.w}m`],["Longueur",`${result.params.l}m`],["Hauteur mur",`${result.params.h}m`],["Pente",`${result.params.pente}°`]].map(([k,v])=>(
                       <div key={k} style={{padding:"6px 14px",background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,fontSize:12}}>
                         <span style={{color:T.muted}}>{k} : </span><span style={{color:T.text,fontWeight:600}}>{v}</span>
@@ -452,16 +618,37 @@ Règles :
                 )}
               </div>
   
+              {/* Zones card */}
+              {result.zones&&(
+                <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:24,marginBottom:20}}>
+                  <div style={{fontSize:11,color:T.accent,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Données géographiques appliquées — Eurocodes</div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {[
+                      ["Neige EN 1991-1-3",`Zone ${result.zones.neige}`,`sk = ${result.zones.sk} kN/m²`,"#60a5fa"],
+                      ["Vent EN 1991-1-4",`Zone ${result.zones.vent}`,`qb = ${result.zones.qb} Pa`,"#a78bfa"],
+                      ["Sismique EN 1998-1",`Zone ${result.zones.sismique}`,`ag = ${result.zones.ag}%g`,"#f97316"],
+                      ["Altitude",`${result.zones.altitude} m`,"Prise en compte neige","#3ecf8e"],
+                    ].map(([label,z,val,color])=>(
+                      <div key={label} style={{flex:"1 1 140px",padding:"12px 16px",background:`${color}0d`,border:`1px solid ${color}22`,borderRadius:12}}>
+                        <div style={{fontSize:10,color:T.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
+                        <div style={{color,fontWeight:700,fontSize:15,marginBottom:2}}>{z}</div>
+                        <div style={{color:T.muted,fontSize:11}}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+  
               <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:16,padding:28}}>
                 <DevisTable devis={result.devis}/>
               </div>
   
               <div style={{marginTop:20,display:"flex",gap:10,justifyContent:"flex-end"}}>
                 <button onClick={()=>window.print()} style={{padding:"10px 20px",background:"none",border:`1px solid ${T.border}`,borderRadius:10,color:T.muted,fontSize:12,cursor:"pointer"}}>
-                  🖨 Imprimer
+                  Imprimer / Exporter PDF
                 </button>
                 <button style={{padding:"10px 20px",background:T.accent,border:"none",borderRadius:10,color:"#0a0800",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                  📤 Envoyer au client
+                  Transmettre au client
                 </button>
               </div>
             </div>
@@ -482,12 +669,12 @@ Règles :
   {state==="loading"&&(
     <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,padding:40}}>
       <div style={{width:56,height:56,border:`3px solid ${T.border}`,borderTop:`3px solid ${T.accent}`,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-      <div style={{color:T.muted,fontSize:14}}>Analyse du projet et génération du devis…</div>
+      <div style={{color:T.muted,fontSize:14}}>Analyse du projet en cours, veuillez patienter…</div>
     </div>
   )}
   
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;}
     body{background:${T.bg};}
     @keyframes spin{to{transform:rotate(360deg)}}
