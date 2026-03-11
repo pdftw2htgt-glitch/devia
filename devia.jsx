@@ -1,40 +1,40 @@
-import { useState, useRef, useEffect } from “react”;
-import * as THREE from “three”;
+import { useState, useRef, useEffect } from "react";
+import * as THREE from "three";
 
 const T = {
-bg: “#08090c”, surface: “#0f1117”, card: “#13161f”, border: “#1e2231”,
-accent: “#f0c040”, accentLo: “#f0c04018”, text: “#e8eaf2”, muted: “#545870”,
-dim: “#2a2e40”, ok: “#3ecf8e”, blue: “#60a5fa”, red: “#ef4444”,
-purple: “#a78bfa”, orange: “#f97316”,
+bg: "#08090c", surface: "#0f1117", card: "#13161f", border: "#1e2231",
+accent: "#f0c040", accentLo: "#f0c04018", text: "#e8eaf2", muted: "#545870",
+dim: "#2a2e40", ok: "#3ecf8e", blue: "#60a5fa", red: "#ef4444",
+purple: "#a78bfa", orange: "#f97316",
 };
 
 const ZONES_DB = {
-“paris”: { neige: “A1”, vent: “2”, sismique: “1” },
-“lyon”: { neige: “A2”, vent: “2”, sismique: “1” },
-“marseille”: { neige: “A1”, vent: “3”, sismique: “2” },
-“bordeaux”: { neige: “A1”, vent: “2”, sismique: “2” },
-“toulouse”: { neige: “A2”, vent: “2”, sismique: “3” },
-“nantes”: { neige: “A1”, vent: “2”, sismique: “1” },
-“strasbourg”: { neige: “B1”, vent: “1”, sismique: “3” },
-“lille”: { neige: “A1”, vent: “3”, sismique: “1” },
-“nice”: { neige: “A2”, vent: “3”, sismique: “3” },
-“grenoble”: { neige: “B2”, vent: “1”, sismique: “4” },
-“rennes”: { neige: “A1”, vent: “2”, sismique: “1” },
-“rouen”: { neige: “A1”, vent: “3”, sismique: “1” },
-“dijon”: { neige: “B1”, vent: “1”, sismique: “2” },
-“nancy”: { neige: “B1”, vent: “1”, sismique: “2” },
-“reims”: { neige: “A2”, vent: “2”, sismique: “1” },
-“toulon”: { neige: “A1”, vent: “3”, sismique: “2” },
-“brest”: { neige: “A1”, vent: “4”, sismique: “1” },
-“montpellier”: { neige: “A1”, vent: “3”, sismique: “3” },
-“bayonne”: { neige: “A3”, vent: “2”, sismique: “3” },
-“pau”: { neige: “B1”, vent: “2”, sismique: “4” },
-“chamonix”: { neige: “C1”, vent: “2”, sismique: “4” },
-“annecy”: { neige: “C1”, vent: “2”, sismique: “4” },
-“bruxelles”: { neige: “A1”, vent: “2”, sismique: “0” },
-“lausanne”: { neige: “C1”, vent: “2”, sismique: “2” },
-“geneve”: { neige: “B2”, vent: “2”, sismique: “2” },
-“luxembourg”: { neige: “A2”, vent: “2”, sismique: “1” },
+"paris": { neige: "A1", vent: "2", sismique: "1" },
+"lyon": { neige: "A2", vent: "2", sismique: "1" },
+"marseille": { neige: "A1", vent: "3", sismique: "2" },
+"bordeaux": { neige: "A1", vent: "2", sismique: "2" },
+"toulouse": { neige: "A2", vent: "2", sismique: "3" },
+"nantes": { neige: "A1", vent: "2", sismique: "1" },
+"strasbourg": { neige: "B1", vent: "1", sismique: "3" },
+"lille": { neige: "A1", vent: "3", sismique: "1" },
+"nice": { neige: "A2", vent: "3", sismique: "3" },
+"grenoble": { neige: "B2", vent: "1", sismique: "4" },
+"rennes": { neige: "A1", vent: "2", sismique: "1" },
+"rouen": { neige: "A1", vent: "3", sismique: "1" },
+"dijon": { neige: "B1", vent: "1", sismique: "2" },
+"nancy": { neige: "B1", vent: "1", sismique: "2" },
+"reims": { neige: "A2", vent: "2", sismique: "1" },
+"toulon": { neige: "A1", vent: "3", sismique: "2" },
+"brest": { neige: "A1", vent: "4", sismique: "1" },
+"montpellier": { neige: "A1", vent: "3", sismique: "3" },
+"bayonne": { neige: "A3", vent: "2", sismique: "3" },
+"pau": { neige: "B1", vent: "2", sismique: "4" },
+"chamonix": { neige: "C1", vent: "2", sismique: "4" },
+"annecy": { neige: "C1", vent: "2", sismique: "4" },
+"bruxelles": { neige: "A1", vent: "2", sismique: "0" },
+"lausanne": { neige: "C1", vent: "2", sismique: "2" },
+"geneve": { neige: "B2", vent: "2", sismique: "2" },
+"luxembourg": { neige: "A2", vent: "2", sismique: "1" },
 };
 
 function getZone(commune, altitude) {
@@ -43,17 +43,17 @@ let zone = null;
 for (const k of Object.keys(ZONES_DB)) {
 if (key.includes(k) || k.includes(key)) { zone = ZONES_DB[k]; break; }
 }
-if (!zone) zone = { neige: “A2”, vent: “2”, sismique: “1” };
+if (!zone) zone = { neige: "A2", vent: "2", sismique: "1" };
 const nl = zone.neige.match(/([A-D])(\d?)/);
-const nL = nl ? nl[1] : “A”;
-const nC = nl ? parseInt(nl[2] || “1”) : 1;
+const nL = nl ? nl[1] : "A";
+const nC = nl ? parseInt(nl[2] || "1") : 1;
 const altNum = parseInt(altitude) || 200;
 const neigeBase = { A: { 1: 0.45, 2: 0.45, 3: 0.55 }, B: { 1: 0.65, 2: 0.90 }, C: { 1: 1.40, 2: 1.70 }, D: { 0: 2.30 } };
 let sk = (neigeBase[nL] || {})[nC] || 0.65;
 if (altNum > 200) sk = sk * (1 + ((altNum - 200) / 800) * 1.5);
-const vb0 = { “1”: 22, “2”: 25, “3”: 28, “4”: 32 }[zone.vent] || 25;
+const vb0 = { "1": 22, "2": 25, "3": 28, "4": 32 }[zone.vent] || 25;
 const qb = (1.25 * vb0 * vb0) / 2000;
-const ag = { “0”: 0, “1”: 0.07, “2”: 0.10, “3”: 0.15, “4”: 0.20 }[zone.sismique] || 0.07;
+const ag = { "0": 0, "1": 0.07, "2": 0.10, "3": 0.15, "4": 0.20 }[zone.sismique] || 0.07;
 return { …zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100, ag };
 }
 
@@ -130,43 +130,43 @@ if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
 mountRef.current.removeChild(renderer.domElement);
 };
 }, [params]);
-return <div ref={mountRef} style={{ width: “100%”, height: “100%”, borderRadius: 8 }} />;
+return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
 
 const QUESTIONS = {
 type: {
-label: “Type de charpente”,
+label: "Type de charpente",
 options: [
-{ val: “fermette”, label: “Fermette industrielle”, icon: “🏭” },
-{ val: “traditionnelle”, label: “Charpente traditionnelle”, icon: “🪵” },
-{ val: “lamelle”, label: “Lamelle-colle”, icon: “✨” },
-{ val: “metalique”, label: “Charpente metallique”, icon: “⚙️” },
+{ val: "fermette", label: "Fermette industrielle", icon: "🏭" },
+{ val: "traditionnelle", label: "Charpente traditionnelle", icon: "🪵" },
+{ val: "lamelle", label: "Lamelle-colle", icon: "✨" },
+{ val: "metalique", label: "Charpente metallique", icon: "⚙️" },
 ],
 },
 couverture: {
-label: “Type de couverture”,
+label: "Type de couverture",
 options: [
-{ val: “tuile_terre”, label: “Tuile terre cuite”, icon: “🟤” },
-{ val: “tuile_beton”, label: “Tuile beton”, icon: “⬜” },
-{ val: “ardoise”, label: “Ardoise naturelle”, icon: “🔲” },
-{ val: “bac_acier”, label: “Bac acier”, icon: “📐” },
+{ val: "tuile_terre", label: "Tuile terre cuite", icon: "🟤" },
+{ val: "tuile_beton", label: "Tuile beton", icon: "⬜" },
+{ val: "ardoise", label: "Ardoise naturelle", icon: "🔲" },
+{ val: "bac_acier", label: "Bac acier", icon: "📐" },
 ],
 },
 essence: {
-label: “Essence du bois”,
+label: "Essence du bois",
 options: [
-{ val: “sapin”, label: “Sapin / Epicea”, icon: “🌲” },
-{ val: “pin”, label: “Pin Maritime”, icon: “🌳” },
-{ val: “douglas”, label: “Douglas”, icon: “🌲” },
-{ val: “chene”, label: “Chene”, icon: “🌳” },
+{ val: "sapin", label: "Sapin / Epicea", icon: "🌲" },
+{ val: "pin", label: "Pin Maritime", icon: "🌳" },
+{ val: "douglas", label: "Douglas", icon: "🌲" },
+{ val: "chene", label: "Chene", icon: "🌳" },
 ],
 },
 combles: {
-label: “Utilisation des combles”,
+label: "Utilisation des combles",
 options: [
-{ val: “perdus”, label: “Combles perdus”, icon: “📦” },
-{ val: “amenageables”, label: “Amenageables”, icon: “🏠” },
-{ val: “amenages”, label: “Amenages”, icon: “🛋️” },
+{ val: "perdus", label: "Combles perdus", icon: "📦" },
+{ val: "amenageables", label: "Amenageables", icon: "🏠" },
+{ val: "amenages", label: "Amenages", icon: "🛋️" },
 ],
 },
 };
@@ -176,24 +176,24 @@ const [answers, setAnswers] = useState({});
 const missing = Object.keys(QUESTIONS).filter(k => !detected[k]);
 const allAnswered = missing.every(k => answers[k]);
 return (
-<div style={{ padding: 24, maxWidth: 600, margin: “0 auto” }}>
-<div style={{ textAlign: “center”, marginBottom: 28 }}>
+<div style={{ padding: 24, maxWidth: 600, margin: "0 auto" }}>
+<div style={{ textAlign: "center", marginBottom: 28 }}>
 <div style={{ fontSize: 40, marginBottom: 8 }}>🤔</div>
-<div style={{ fontSize: 20, fontWeight: 700, color: “#e8eaf2” }}>Quelques precisions</div>
-<div style={{ color: “#545870”, fontSize: 14, marginTop: 4 }}>Pour un devis precis, quelques informations manquantes</div>
+<div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf2" }}>Quelques precisions</div>
+<div style={{ color: "#545870", fontSize: 14, marginTop: 4 }}>Pour un devis precis, quelques informations manquantes</div>
 </div>
 {missing.map(key => (
 <div key={key} style={{ marginBottom: 20 }}>
-<div style={{ color: “#545870”, fontSize: 13, marginBottom: 10, textTransform: “uppercase”, letterSpacing: 1 }}>{QUESTIONS[key].label}</div>
-<div style={{ display: “grid”, gridTemplateColumns: “1fr 1fr”, gap: 8 }}>
+<div style={{ color: "#545870", fontSize: 13, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>{QUESTIONS[key].label}</div>
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
 {QUESTIONS[key].options.map(opt => (
 <button key={opt.val} onClick={() => setAnswers(prev => ({ …prev, [key]: opt.val }))}
 style={{
-background: answers[key] === opt.val ? “#f0c04018” : “#13161f”,
-border: answers[key] === opt.val ? “1px solid #f0c040” : “1px solid #1e2231”,
-borderRadius: 8, padding: “12px 10px”, cursor: “pointer”,
-color: answers[key] === opt.val ? “#f0c040” : “#e8eaf2”,
-textAlign: “left”, display: “flex”, alignItems: “center”, gap: 8, fontSize: 14,
+background: answers[key] === opt.val ? "#f0c04018" : "#13161f",
+border: answers[key] === opt.val ? "1px solid #f0c040" : "1px solid #1e2231",
+borderRadius: 8, padding: "12px 10px", cursor: "pointer",
+color: answers[key] === opt.val ? "#f0c040" : "#e8eaf2",
+textAlign: "left", display: "flex", alignItems: "center", gap: 8, fontSize: 14,
 }}>
 <span style={{ fontSize: 20 }}>{opt.icon}</span>{opt.label}
 </button>
@@ -203,10 +203,10 @@ textAlign: “left”, display: “flex”, alignItems: “center”, gap: 8, fo
 ))}
 <button onClick={() => onValidate({ …detected, …answers })} disabled={!allAnswered}
 style={{
-width: “100%”, padding: 14, borderRadius: 8, border: “none”,
-background: allAnswered ? “#f0c040” : “#2a2e40”,
-color: allAnswered ? “#000” : “#545870”,
-fontWeight: 700, fontSize: 15, cursor: allAnswered ? “pointer” : “not-allowed”, marginTop: 8,
+width: "100%", padding: 14, borderRadius: 8, border: "none",
+background: allAnswered ? "#f0c040" : "#2a2e40",
+color: allAnswered ? "#000" : "#545870",
+fontWeight: 700, fontSize: 15, cursor: allAnswered ? "pointer" : "not-allowed", marginTop: 8,
 }}>
 Generer le devis
 </button>
@@ -227,33 +227,33 @@ const moment = (q_totale * portee * portee) / 8;
 const section_requise = Math.sqrt((moment * 1000000 * 6) / 24) / 10;
 const section_choisie = Math.ceil(section_requise / 25) * 25;
 const rows = [
-{ cat: “Charges permanentes”, item: “Couverture”, val: “0.35 kN/m2”, ok: true },
-{ cat: “Charges permanentes”, item: “Charpente propre”, val: “0.15 kN/m2”, ok: true },
-{ cat: “Charges climatiques”, item: “Neige sk”, val: sk.toFixed(2) + “ kN/m2”, ok: true },
-{ cat: “Charges climatiques”, item: “Neige appliquee”, val: q_neige.toFixed(2) + “ kN/m2”, ok: true },
-{ cat: “Charges climatiques”, item: “Vent qb”, val: qb.toFixed(2) + “ kN/m2”, ok: true },
-{ cat: “Charges climatiques”, item: “Vent applique”, val: q_vent.toFixed(2) + “ kN/m2”, ok: true },
-{ cat: “Combinaisons ELU”, item: “Charge totale”, val: q_totale.toFixed(2) + “ kN/m2”, ok: true },
-{ cat: “Verification EC5”, item: “Portee de calcul”, val: portee.toFixed(2) + “ m”, ok: true },
-{ cat: “Verification EC5”, item: “Moment flechissant”, val: moment.toFixed(2) + “ kN.m”, ok: true },
-{ cat: “Verification EC5”, item: “Section requise”, val: section_requise.toFixed(0) + “ mm”, ok: true },
-{ cat: “Verification EC5”, item: “Section choisie”, val: section_choisie + “x” + section_choisie + “ mm”, ok: section_choisie >= section_requise },
-{ cat: “Sismique”, item: “Acceleration ag”, val: ag + “ g”, ok: ag < 0.15 },
-{ cat: “Assemblages”, item: “Connecteurs”, val: “Simpson Strong-Tie”, ok: true },
-{ cat: “Assemblages”, item: “Visserie inox A4”, val: “8x120 mm / 300 mm”, ok: true },
+{ cat: "Charges permanentes", item: "Couverture", val: "0.35 kN/m2", ok: true },
+{ cat: "Charges permanentes", item: "Charpente propre", val: "0.15 kN/m2", ok: true },
+{ cat: "Charges climatiques", item: "Neige sk", val: sk.toFixed(2) + " kN/m2", ok: true },
+{ cat: "Charges climatiques", item: "Neige appliquee", val: q_neige.toFixed(2) + " kN/m2", ok: true },
+{ cat: "Charges climatiques", item: "Vent qb", val: qb.toFixed(2) + " kN/m2", ok: true },
+{ cat: "Charges climatiques", item: "Vent applique", val: q_vent.toFixed(2) + " kN/m2", ok: true },
+{ cat: "Combinaisons ELU", item: "Charge totale", val: q_totale.toFixed(2) + " kN/m2", ok: true },
+{ cat: "Verification EC5", item: "Portee de calcul", val: portee.toFixed(2) + " m", ok: true },
+{ cat: "Verification EC5", item: "Moment flechissant", val: moment.toFixed(2) + " kN.m", ok: true },
+{ cat: "Verification EC5", item: "Section requise", val: section_requise.toFixed(0) + " mm", ok: true },
+{ cat: "Verification EC5", item: "Section choisie", val: section_choisie + "x" + section_choisie + " mm", ok: section_choisie >= section_requise },
+{ cat: "Sismique", item: "Acceleration ag", val: ag + " g", ok: ag < 0.15 },
+{ cat: "Assemblages", item: "Connecteurs", val: "Simpson Strong-Tie", ok: true },
+{ cat: "Assemblages", item: "Visserie inox A4", val: "8x120 mm / 300 mm", ok: true },
 ];
-let lastCat = “”;
+let lastCat = "";
 return (
-<div style={{ fontFamily: “monospace”, fontSize: 13 }}>
-<div style={{ marginBottom: 16, padding: 12, background: “#f0c04018”, borderRadius: 8, border: “1px solid #f0c040” }}>
-<span style={{ color: “#f0c040”, fontWeight: 700 }}>Note : </span>
-<span style={{ color: “#545870” }}>Calculs preliminaires EN 1990/1991/1995. A valider par un bureau d etudes.</span>
+<div style={{ fontFamily: "monospace", fontSize: 13 }}>
+<div style={{ marginBottom: 16, padding: 12, background: "#f0c04018", borderRadius: 8, border: "1px solid #f0c040" }}>
+<span style={{ color: "#f0c040", fontWeight: 700 }}>Note : </span>
+<span style={{ color: "#545870" }}>Calculs preliminaires EN 1990/1991/1995. A valider par un bureau d etudes.</span>
 </div>
-<table style={{ width: “100%”, borderCollapse: “collapse” }}>
+<table style={{ width: "100%", borderCollapse: "collapse" }}>
 <thead>
-<tr style={{ background: “#2a2e40” }}>
-{[“Categorie”, “Parametre”, “Valeur”, “Statut”].map(h => (
-<th key={h} style={{ padding: “8px 12px”, textAlign: “left”, color: “#545870”, fontSize: 11, textTransform: “uppercase” }}>{h}</th>
+<tr style={{ background: "#2a2e40" }}>
+{["Categorie", "Parametre", "Valeur", "Statut"].map(h => (
+<th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#545870", fontSize: 11, textTransform: "uppercase" }}>{h}</th>
 ))}
 </tr>
 </thead>
@@ -262,19 +262,19 @@ return (
 const showCat = r.cat !== lastCat;
 lastCat = r.cat;
 return (
-<tr key={i} style={{ borderBottom: “1px solid #1e2231”, background: i % 2 === 0 ? “transparent” : “#0f1117” }}>
-<td style={{ padding: “7px 12px”, color: showCat ? “#60a5fa” : “transparent”, fontSize: 12, fontWeight: 600 }}>{r.cat}</td>
-<td style={{ padding: “7px 12px”, color: “#e8eaf2” }}>{r.item}</td>
-<td style={{ padding: “7px 12px”, color: “#f0c040” }}>{r.val}</td>
-<td style={{ padding: “7px 12px”, color: r.ok ? “#3ecf8e” : “#ef4444”, fontSize: 16 }}>{r.ok ? “OK” : “!!”}</td>
+<tr key={i} style={{ borderBottom: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f1117" }}>
+<td style={{ padding: "7px 12px", color: showCat ? "#60a5fa" : "transparent", fontSize: 12, fontWeight: 600 }}>{r.cat}</td>
+<td style={{ padding: "7px 12px", color: "#e8eaf2" }}>{r.item}</td>
+<td style={{ padding: "7px 12px", color: "#f0c040" }}>{r.val}</td>
+<td style={{ padding: "7px 12px", color: r.ok ? "#3ecf8e" : "#ef4444", fontSize: 16 }}>{r.ok ? "OK" : "!!"}</td>
 </tr>
 );
 })}
 </tbody>
 </table>
-<div style={{ marginTop: 16, padding: 12, background: “#13161f”, borderRadius: 8, border: “1px solid #3ecf8e” }}>
-<span style={{ color: “#3ecf8e”, fontWeight: 700 }}>Conclusion : </span>
-<span style={{ color: “#e8eaf2” }}>Section {section_choisie}x{section_choisie} mm en C24 - espacement fermes 2.0 m.</span>
+<div style={{ marginTop: 16, padding: 12, background: "#13161f", borderRadius: 8, border: "1px solid #3ecf8e" }}>
+<span style={{ color: "#3ecf8e", fontWeight: 700 }}>Conclusion : </span>
+<span style={{ color: "#e8eaf2" }}>Section {section_choisie}x{section_choisie} mm en C24 - espacement fermes 2.0 m.</span>
 </div>
 </div>
 );
@@ -282,50 +282,50 @@ return (
 
 function Badge({ children, color }) {
 return (
-<span style={{ background: color + “22”, color: color, border: “1px solid “ + color + “44”, borderRadius: 4, padding: “2px 8px”, fontSize: 12, fontWeight: 600 }}>
+<span style={{ background: color + "22", color: color, border: "1px solid " + color + "44", borderRadius: 4, padding: "2px 8px", fontSize: 12, fontWeight: 600 }}>
 {children}
 </span>
 );
 }
 
 export default function Devia() {
-const [activeTab, setActiveTab] = useState(“devis”);
-const [prompt, setPrompt] = useState(””);
-const [commune, setCommune] = useState(””);
-const [altitude, setAltitude] = useState(“200”);
+const [activeTab, setActiveTab] = useState("devis");
+const [prompt, setPrompt] = useState("");
+const [commune, setCommune] = useState("");
+const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
 const [result, setResult] = useState(null);
 const [error, setError] = useState(null);
 const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, hauteur: 3, pente: 35 });
-const [activeResultTab, setActiveResultTab] = useState(“devis”);
+const [activeResultTab, setActiveResultTab] = useState("devis");
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
 const [params, setParams] = useState({
-entreprise: “”, siret: “”, adresse: “”,
+entreprise: "", siret: "", adresse: "",
 tauxHoraire: 55, tva: 20, marge: 25,
-mentions: “Devis valable 30 jours.”,
+mentions: "Devis valable 30 jours.",
 });
 const fileInputRef = useRef(null);
 
 const detectParams = (text) => {
 const out = {};
-if (/fermette|industriel/i.test(text)) out.type = “fermette”;
-else if (/traditionn/i.test(text)) out.type = “traditionnelle”;
-else if (/lamell/i.test(text)) out.type = “lamelle”;
-else if (/metal/i.test(text)) out.type = “metalique”;
-if (/tuile.*terre|terre.*cuite/i.test(text)) out.couverture = “tuile_terre”;
-else if (/tuile.*beton/i.test(text)) out.couverture = “tuile_beton”;
-else if (/ardoise/i.test(text)) out.couverture = “ardoise”;
-else if (/bac.*acier/i.test(text)) out.couverture = “bac_acier”;
-if (/sapin|epicea/i.test(text)) out.essence = “sapin”;
-else if (/douglas/i.test(text)) out.essence = “douglas”;
-else if (/chene/i.test(text)) out.essence = “chene”;
-else if (/pin/i.test(text)) out.essence = “pin”;
-if (/perdus/i.test(text)) out.combles = “perdus”;
-else if (/amenages/i.test(text)) out.combles = “amenages”;
-else if (/amenageable/i.test(text)) out.combles = “amenageables”;
+if (/fermette|industriel/i.test(text)) out.type = "fermette";
+else if (/traditionn/i.test(text)) out.type = "traditionnelle";
+else if (/lamell/i.test(text)) out.type = "lamelle";
+else if (/metal/i.test(text)) out.type = "metalique";
+if (/tuile.*terre|terre.*cuite/i.test(text)) out.couverture = "tuile_terre";
+else if (/tuile.*beton/i.test(text)) out.couverture = "tuile_beton";
+else if (/ardoise/i.test(text)) out.couverture = "ardoise";
+else if (/bac.*acier/i.test(text)) out.couverture = "bac_acier";
+if (/sapin|epicea/i.test(text)) out.essence = "sapin";
+else if (/douglas/i.test(text)) out.essence = "douglas";
+else if (/chene/i.test(text)) out.essence = "chene";
+else if (/pin/i.test(text)) out.essence = "pin";
+if (/perdus/i.test(text)) out.combles = "perdus";
+else if (/amenages/i.test(text)) out.combles = "amenages";
+else if (/amenageable/i.test(text)) out.combles = "amenageables";
 const dims = text.match(/(\d+)[x](\d+)/);
 if (dims) { out.longueur = parseInt(dims[1]); out.largeur = parseInt(dims[2]); }
 const surf = text.match(/(\d+)\s*m2/);
@@ -340,27 +340,27 @@ setShowQuestions(false);
 setLoading(true);
 setError(null);
 const zoneInfo = getZone(commune, altitude);
-const systemPrompt = “Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. “ +
-“Type=” + (finalParams.type || “traditionnelle”) + “, Couverture=” + (finalParams.couverture || “tuile_terre”) + “, Essence=” + (finalParams.essence || “sapin”) + “, Combles=” + (finalParams.combles || “perdus”) + “. “ +
-“Commune=” + commune + “, Altitude=” + altitude + “m, Zone neige=” + zoneInfo.neige + “ sk=” + zoneInfo.sk + “kN/m2, Vent=” + zoneInfo.vent + “ qb=” + zoneInfo.qb + “kN/m2. “ +
-(finalParams.longueur ? “Dimensions=” + finalParams.longueur + “x” + finalParams.largeur + “m. “ : “”) +
-(finalParams.pente ? “Pente=” + finalParams.pente + “deg. “ : “”) +
-“Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : “ +
-‘{“projet”:{“description”:“texte”,“commune”:”’ + commune + ‘”,“longueur”:10,“largeur”:8,“hauteur”:3,“pente”:35,“surface”:80,’ +
-‘“type”:”’ + (finalParams.type || “traditionnelle”) + ‘”,“couverture”:”’ + (finalParams.couverture || “tuile_terre”) + ‘”,’ +
-‘“essence”:”’ + (finalParams.essence || “sapin”) + ‘”,“combles”:”’ + (finalParams.combles || “perdus”) + ‘”},’ +
-‘“postes”:[{“categorie”:“Charpente”,“designation”:“Exemple”,“unite”:“ml”,“quantite”:10,“prixUnitaireHT”:45,“totalHT”:450}],’ +
-’“totaux”:{“totalHT”:12000,“tva”:2400,“totalTTC”:14400},“notes”:[“Note 1”]}. ’ +
-“Genere 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.”;
+const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
+"Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
+"Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
+(finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
+(finalParams.pente ? "Pente=" + finalParams.pente + "deg. " : "") +
+"Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
+'{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
+'"type":"' + (finalParams.type || "traditionnelle") + '","couverture":"' + (finalParams.couverture || "tuile_terre") + '",' +
+'"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '"},' +
+'"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
+'"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"notes":["Note 1"]}. ' +
+"Genere 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
 try {
-const response = await fetch(”/api/chat”, {
-method: “POST”,
-headers: { “Content-Type”: “application/json” },
+const response = await fetch("/api/chat", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
-model: “claude-sonnet-4-20250514”,
+model: "claude-sonnet-4-20250514",
 max_tokens: 4000,
 system: systemPrompt,
-messages: [{ role: “user”, content: prompt }],
+messages: [{ role: "user", content: prompt }],
 }),
 });
 
@@ -417,14 +417,14 @@ else handleGenerate(detected);
 };
 
 const zoneInfo = commune ? getZone(commune, altitude) : null;
-const cardStyle = { background: “#13161f”, border: “1px solid #1e2231”, borderRadius: 12, padding: 20, marginBottom: 16 };
-const inputStyle = { width: “100%”, background: “#0f1117”, border: “1px solid #1e2231”, borderRadius: 8, padding: “10px 14px”, color: “#e8eaf2”, fontSize: 14, outline: “none”, boxSizing: “border-box”, fontFamily: “inherit” };
-const btnPrimary = { background: “#f0c040”, color: “#000”, border: “1px solid #f0c040”, borderRadius: 8, padding: “10px 20px”, cursor: “pointer”, fontSize: 14, fontWeight: 600 };
-const btnSecondary = { background: “#0f1117”, color: “#e8eaf2”, border: “1px solid #1e2231”, borderRadius: 8, padding: “10px 20px”, cursor: “pointer”, fontSize: 14, fontWeight: 600 };
+const cardStyle = { background: "#13161f", border: "1px solid #1e2231", borderRadius: 12, padding: 20, marginBottom: 16 };
+const inputStyle = { width: "100%", background: "#0f1117", border: "1px solid #1e2231", borderRadius: 8, padding: "10px 14px", color: "#e8eaf2", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+const btnPrimary = { background: "#f0c040", color: "#000", border: "1px solid #f0c040", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 14, fontWeight: 600 };
+const btnSecondary = { background: "#0f1117", color: "#e8eaf2", border: "1px solid #1e2231", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 14, fontWeight: 600 };
 
 return (
-<div style={{ minHeight: “100vh”, background: “#08090c”, color: “#e8eaf2”, fontFamily: “Inter, sans-serif” }}>
-<style>{”* { box-sizing: border-box; margin: 0; padding: 0; } @keyframes spin { to { transform: rotate(360deg); } } ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0f1117; } ::-webkit-scrollbar-thumb { background: #2a2e40; border-radius: 3px; }”}</style>
+<div style={{ minHeight: "100vh", background: "#08090c", color: "#e8eaf2", fontFamily: "Inter, sans-serif" }}>
+<style>{"* { box-sizing: border-box; margin: 0; padding: 0; } @keyframes spin { to { transform: rotate(360deg); } } ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0f1117; } ::-webkit-scrollbar-thumb { background: #2a2e40; border-radius: 3px; }"}</style>
 
 ```
   <header style={{ background: "#0f1117", borderBottom: "1px solid #1e2231", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
