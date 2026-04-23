@@ -1,0 +1,21 @@
+# Dependances
+node_modules/
+
+# Build
+dist/
+build/
+
+# Secrets — NE JAMAIS COMMIT
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editeur
+.vscode/
+.idea/

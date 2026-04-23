@@ -54,7 +54,7 @@ if (altNum > 200) sk = sk * (1 + ((altNum - 200) / 800) * 1.5);
 const vb0 = { "1": 22, "2": 25, "3": 28, "4": 32 }[zone.vent] || 25;
 const qb = (1.25 * vb0 * vb0) / 2000;
 const ag = { "0": 0, "1": 0.07, "2": 0.10, "3": 0.15, "4": 0.20 }[zone.sismique] || 0.07;
-return { …zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100, ag };
+return { ...zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100, ag };
 }
 
 function Viewer3D({ params }) {
@@ -83,7 +83,7 @@ const wallMat = new THREE.MeshLambertMaterial({ color: 0xf0ece0, transparent: tr
 const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
 const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
 m.position.set(px, py, pz);
-if (rot) m.rotation.set(…rot);
+if (rot) m.rotation.set(...rot);
 m.castShadow = true;
 scene.add(m);
 };
@@ -187,7 +187,7 @@ return (
 <div style={{ color: "#545870", fontSize: 13, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>{QUESTIONS[key].label}</div>
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
 {QUESTIONS[key].options.map(opt => (
-<button key={opt.val} onClick={() => setAnswers(prev => ({ …prev, [key]: opt.val }))}
+<button key={opt.val} onClick={() => setAnswers(prev => ({ ...prev, [key]: opt.val }))}
 style={{
 background: answers[key] === opt.val ? "#f0c04018" : "#13161f",
 border: answers[key] === opt.val ? "1px solid #f0c040" : "1px solid #1e2231",
@@ -201,7 +201,7 @@ textAlign: "left", display: "flex", alignItems: "center", gap: 8, fontSize: 14,
 </div>
 </div>
 ))}
-<button onClick={() => onValidate({ …detected, …answers })} disabled={!allAnswered}
+<button onClick={() => onValidate({ ...detected, ...answers })} disabled={!allAnswered}
 style={{
 width: "100%", padding: 14, borderRadius: 8, border: "none",
 background: allAnswered ? "#f0c040" : "#2a2e40",
@@ -364,7 +364,6 @@ messages: [{ role: "user", content: prompt }],
 }),
 });
 
-```
   if (!response.ok) {
     const errText = await response.text();
     throw new Error("Erreur serveur " + response.status + " : " + errText.substring(0, 150));
@@ -382,7 +381,7 @@ messages: [{ role: "user", content: prompt }],
   }
 
   // Nettoyage : supprime les backticks markdown si presents
-  const clean = text.replace(/```json|```/g, "").trim();
+  const clean = text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim();
 
   // Extraction du JSON
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
@@ -404,7 +403,6 @@ messages: [{ role: "user", content: prompt }],
 } finally {
   setLoading(false);
 }
-```
 
 };
 
@@ -426,7 +424,6 @@ return (
 <div style={{ minHeight: "100vh", background: "#08090c", color: "#e8eaf2", fontFamily: "Inter, sans-serif" }}>
 <style>{"* { box-sizing: border-box; margin: 0; padding: 0; } @keyframes spin { to { transform: rotate(360deg); } } ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0f1117; } ::-webkit-scrollbar-thumb { background: #2a2e40; border-radius: 3px; }"}</style>
 
-```
   <header style={{ background: "#0f1117", borderBottom: "1px solid #1e2231", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <div style={{ width: 32, height: 32, background: "#f0c040", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚡</div>
@@ -693,7 +690,6 @@ return (
 
   </main>
 </div>
-```
 
 );
 }
