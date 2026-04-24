@@ -3,6 +3,10 @@ import * as THREE from "three";
 import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
 import { signOut } from "./src/lib/auth.js";
+import { useLicense } from "./src/hooks/useLicense.js";
+import ActivateLicense from "./src/components/ActivateLicense.jsx";
+import SubscriptionBanner from "./src/components/SubscriptionBanner.jsx";
+import UserMenu from "./src/components/UserMenu.jsx";
 
 const T = {
 bg: "#08090c", surface: "#0f1117", card: "#13161f", border: "#1e2231",
@@ -705,9 +709,11 @@ return (
 // ============================================================
 
 function DeviaAuthGate() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { license, loading: licenseLoading, refresh: refreshLicense } = useLicense();
 
-  if (loading) {
+  // Spinner pendant le chargement initial
+  if (authLoading || (user && licenseLoading)) {
     return (
       <div style={{
         minHeight: "100vh",
@@ -724,11 +730,29 @@ function DeviaAuthGate() {
     );
   }
 
+  // Pas connecte -> ecran login
   if (!user) {
     return <Login />;
   }
 
-  return <DeviaMain />;
+  // Connecte mais pas de licence -> ecran d'activation
+  if (!license || license.status === "no_license") {
+    return (
+      <ActivateLicense
+        userEmail={user.email}
+        onActivated={refreshLicense}
+      />
+    );
+  }
+
+  // Tout est OK : afficher l'app avec bandeau abonnement + menu user
+  return (
+    <>
+      <SubscriptionBanner license={license} />
+      <UserMenu user={user} license={license} />
+      <DeviaMain />
+    </>
+  );
 }
 
 export default DeviaAuthGate;
