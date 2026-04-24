@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
+import { useAuth } from "./src/hooks/useAuth.js";
+import Login from "./src/components/Login.jsx";
+import { signOut } from "./src/lib/auth.js";
 
 const T = {
 bg: "#08090c", surface: "#0f1117", card: "#13161f", border: "#1e2231",
@@ -288,7 +291,7 @@ return (
 );
 }
 
-export default function Devia() {
+function DeviaMain() {
 const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
 const [commune, setCommune] = useState("");
@@ -693,3 +696,39 @@ return (
 
 );
 }
+
+
+// ============================================================
+// DEVIA - Gate d'authentification (Micro-etape 2.2)
+// Ce wrapper affiche Login si l'utilisateur n'est pas connecte.
+// Il ne verifie PAS encore la licence (c'est la micro-etape 2.3).
+// ============================================================
+
+function DeviaAuthGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#1a1a2e",
+        color: "#fff",
+        fontFamily: "-apple-system, sans-serif",
+        fontSize: "14px",
+      }}>
+        Chargement...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return <DeviaMain />;
+}
+
+export default DeviaAuthGate;
