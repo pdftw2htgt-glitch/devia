@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
 import { signOut } from "./src/lib/auth.js";
+import { supabase } from "./src/lib/supabase.js";
 import { useLicense } from "./src/hooks/useLicense.js";
 import ActivateLicense from "./src/components/ActivateLicense.jsx";
 import SubscriptionBanner from "./src/components/SubscriptionBanner.jsx";
@@ -309,6 +310,42 @@ const [activeResultTab, setActiveResultTab] = useState("devis");
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
+
+  // Charge les projets de l'utilisateur depuis Supabase au demarrage
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        if (error) {
+          console.error("Erreur chargement projets:", error);
+          return;
+        }
+        if (data) {
+          const formatted = data.map(p => ({
+            id: p.id,
+            nom: p.nom,
+            commune: p.commune || "",
+            date: p.created_at ? p.created_at.split("T")[0] : "",
+            ttc: p.total_ttc || 0,
+            dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m",
+            devis_data: p.devis_data,
+            zone_data: p.zone_data,
+          }));
+          setProjects(formatted);
+        }
+      } catch (e) {
+        console.error("Erreur loadProjects:", e);
+      }
+    };
+    loadProjects();
+  }, []);
+
 const [params, setParams] = useState({
 entreprise: "", siret: "", adresse: "",
 tauxHoraire: 55, tva: 20, marge: 25,
@@ -402,7 +439,52 @@ messages: [{ role: "user", content: prompt }],
   if (parsed.projet) {
     const p = parsed.projet;
     setView3DParams({ longueur: p.longueur || 10, largeur: p.largeur || 8, hauteur: p.hauteur || 3, pente: p.pente || 35 });
-    setProjects(prev => [{ id: Date.now(), nom: p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: parsed.totaux ? parsed.totaux.totalTTC : 0, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const totalTTC = parsed.totaux ? parsed.totaux.totalTTC : 0;
+        const totalHT = parsed.totaux ? parsed.totaux.totalHT : 0;
+        if (user) {
+          const newProject = {
+            user_id: user.id,
+            nom: p.description || "Nouveau projet",
+            commune: p.commune || commune,
+            longueur: p.longueur || null,
+            largeur: p.largeur || null,
+            hauteur: p.hauteur || null,
+            pente: p.pente || null,
+            surface: p.surface || null,
+            type_charpente: p.type || null,
+            total_ttc: totalTTC,
+            total_ht: totalHT,
+            devis_data: parsed,
+          };
+          const { data: inserted, error: insertError } = await supabase
+            .from("projects")
+            .insert(newProject)
+            .select()
+            .single();
+          if (insertError) {
+            console.error("Erreur sauvegarde projet:", insertError);
+            setProjects(prev => [{ id: Date.now(), nom: p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
+          } else if (inserted) {
+            setProjects(prev => [{
+              id: inserted.id,
+              nom: inserted.nom,
+              commune: inserted.commune || "",
+              date: inserted.created_at ? inserted.created_at.split("T")[0] : "",
+              ttc: inserted.total_ttc || 0,
+              dims: (inserted.longueur || "?") + "x" + (inserted.largeur || "?") + "m",
+              devis_data: inserted.devis_data,
+            }, ...prev]);
+          }
+        } else {
+          setProjects(prev => [{ id: Date.now(), nom: p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
+        }
+      } catch (e) {
+        console.error("Erreur sauvegarde:", e);
+      }
+    })();
   }
   setActiveResultTab("devis");
 } catch (e) {
