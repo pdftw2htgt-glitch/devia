@@ -207,18 +207,6 @@ function Viewer3D({ params }) {
       roof.rotation.y = Math.PI/2;
       scene.add(roof);
 
-      // ============================================================
-      // REPERES VISUELS DEBUG (a enlever quand orientation validee)
-      // ROUGE = avant (Z negatif) ; BLEU = arriere (Z positif)
-      // ============================================================
-      const debugRedMat = new THREE.MeshLambertMaterial({ color: 0xff3344 });
-      const debugBlueMat = new THREE.MeshLambertMaterial({ color: 0x3399ff });
-      const debugRed = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), debugRedMat);
-      debugRed.position.set(0, 0.2, -lg/2 - 0.5);
-      scene.add(debugRed);
-      const debugBlue = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), debugBlueMat);
-      debugBlue.position.set(0, 0.2, lg/2 + 0.5);
-      scene.add(debugBlue);
     };
 
     // ============================================================
