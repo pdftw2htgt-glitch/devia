@@ -152,56 +152,71 @@ function Viewer3D({ params }) {
     // FONCTION : dessine un carport (1 pente + potaux + pas de murs)
     // ============================================================
     const drawCarport = () => {
-      // Carport : la pente est sur la largeur (axe Z)
-      // Cote bas a -lg/2, cote haut a +lg/2
+      // Carport : la pente descend de l'AVANT (Z=-lg/2, haut) vers l'ARRIERE (Z=+lg/2, bas)
       const denivele = lg * Math.tan((pente * Math.PI) / 180);
       const Hbas = H;
       const Hhaut = H + denivele;
 
       // 4 POTAUX (un a chaque coin)
+      // AVANT (Z negatif) = potaux HAUTS
+      // ARRIERE (Z positif) = potaux BAS
       const sectionPotau = 0.18;
-      // Potau bas avant gauche
-      addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
-      // Potau bas avant droit
-      addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
-      // Potau haut arriere gauche
-      addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, lg/2);
-      // Potau haut arriere droit
-      addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
+      // Potau avant gauche (HAUT)
+      addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, -lg/2);
+      // Potau avant droit (HAUT)
+      addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, -lg/2);
+      // Potau arriere gauche (BAS)
+      addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, lg/2);
+      // Potau arriere droit (BAS)
+      addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, lg/2);
 
-      // 2 SABLIERES (poutres horizontales en haut, sens longueur)
-      // Sabliere cote bas (avant)
-      addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
-      // Sabliere cote haut (arriere)
-      addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
+      // 2 SABLIERES (poutres horizontales hautes, sens longueur)
+      // Sabliere avant (en haut)
+      addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, -lg/2);
+      // Sabliere arriere (en bas)
+      addBox(L + 0.3, 0.16, 0.16, 0, Hbas, lg/2);
 
-      // PANNES (poutres horizontales perpendiculaires aux sablieres, suivent la pente)
-      // On en met 3 : panne basse, intermediaire, haute
+      // PANNES (entre sablieres, suivent la pente decroissante)
       const nbPannes = 3;
       for (let i = 0; i < nbPannes; i++) {
         const t = i / (nbPannes - 1); // 0 a 1
-        const z = -lg/2 + t * lg;
-        const y = Hbas + t * denivele;
+        const z = -lg/2 + t * lg;       // de avant a arriere
+        const y = Hhaut - t * denivele; // de haut a bas (pente descendante)
         addBox(L + 0.3, 0.14, 0.14, 0, y, z);
       }
 
-      // CHEVRONS (poses sur les pannes, sens largeur, en pente)
+      // CHEVRONS (sens largeur, en pente)
       const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
       const ang = Math.atan(denivele / lg);
       const longueurChevron = lg / Math.cos(ang);
       for (let i = 0; i <= nbChevrons; i++) {
         const x = -L/2 + (i / nbChevrons) * L;
-        // Chevron centre verticalement entre Hbas et Hhaut, position Z = 0
         const yCentre = Hbas + denivele/2;
-        addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+        // Rotation X negative pour pente descendante avant->arriere
+        addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
       }
 
-      // TOITURE (1 seul pan)
+      // TOITURE (1 seul pan, pente descendante avant->arriere)
       const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
       const roof = new THREE.Mesh(rg, roofMat);
       roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-      roof.rotation.x = ang - Math.PI/2;
+      // Rotation negative pour que la pente descende vers l'arriere
+      roof.rotation.x = -(ang - Math.PI/2);
       scene.add(roof);
+
+      // ============================================================
+      // REPERES VISUELS DEBUG (a enlever quand orientation validee)
+      // Cube ROUGE = avant (Z negatif)
+      // Cube BLEU = arriere (Z positif)
+      // ============================================================
+      const debugRedMat = new THREE.MeshLambertMaterial({ color: 0xff3344 });
+      const debugBlueMat = new THREE.MeshLambertMaterial({ color: 0x3399ff });
+      const debugRed = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), debugRedMat);
+      debugRed.position.set(0, 0.2, -lg/2 - 0.5);
+      scene.add(debugRed);
+      const debugBlue = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), debugBlueMat);
+      debugBlue.position.set(0, 0.2, lg/2 + 0.5);
+      scene.add(debugBlue);
     };
 
     // ============================================================
