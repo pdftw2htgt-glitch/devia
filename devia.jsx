@@ -385,6 +385,12 @@ setLoading(true);
 setError(null);
 const zoneInfo = getZone(commune, altitude);
 const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
+"DETECTION DU TYPE DE PROJET : analyse la description et choisis 1 valeur pour type_projet : " +
+"'carport' (si carport, abri voiture, auvent ouvert sans murs, structure sur potaux), " +
+"'charpente_trad' (charpente traditionnelle de maison, toit 2 pans avec murs), " +
+"'hangar' (hangar agricole, batiment industriel, grand volume couvert), " +
+"'abri' (abri jardin, abri petit volume), " +
+"'autre' (si rien ne correspond clairement). " +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
 "Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
@@ -392,7 +398,8 @@ const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis profes
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
 '"type":"' + (finalParams.type || "traditionnelle") + '","couverture":"' + (finalParams.couverture || "tuile_terre") + '",' +
-'"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '"},' +
+'"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '",' +
+'"type_projet":"carport_OU_charpente_trad_OU_hangar_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"notes":["Note 1"]}. ' +
 "Genere 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
@@ -438,7 +445,14 @@ messages: [{ role: "user", content: prompt }],
   setResult(parsed);
   if (parsed.projet) {
     const p = parsed.projet;
-    setView3DParams({ longueur: p.longueur || 10, largeur: p.largeur || 8, hauteur: p.hauteur || 3, pente: p.pente || 35 });
+    setView3DParams({
+        longueur: p.longueur || 10,
+        largeur: p.largeur || 8,
+        hauteur: p.hauteur || 3,
+        pente: p.pente || 35,
+        type_projet: p.type_projet || "autre"
+      });
+      console.log("[DEVIA] Type de projet detecte par l'IA :", p.type_projet || "non specifie");
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
