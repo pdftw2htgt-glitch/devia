@@ -66,79 +66,186 @@ return { ...zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100
 }
 
 function Viewer3D({ params }) {
-const mountRef = useRef(null);
-useEffect(() => {
-if (!mountRef.current) return;
-const w = mountRef.current.clientWidth, h = mountRef.current.clientHeight;
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(w, h);
-renderer.shadowMap.enabled = true;
-mountRef.current.appendChild(renderer.domElement);
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
-camera.position.set(12, 8, 12);
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
-sun.position.set(10, 20, 10);
-sun.castShadow = true;
-scene.add(sun);
-const L = params.longueur || 8, lg = params.largeur || 6, H = params.hauteur || 3;
-const pente = params.pente || 35;
-const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
-const woodMat = new THREE.MeshLambertMaterial({ color: 0xc4894a });
-const roofMat = new THREE.MeshLambertMaterial({ color: 0x8b6355, side: THREE.DoubleSide });
-const wallMat = new THREE.MeshLambertMaterial({ color: 0xf0ece0, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
-const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
-const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
-m.position.set(px, py, pz);
-if (rot) m.rotation.set(...rot);
-m.castShadow = true;
-scene.add(m);
-};
-[[L, H, 0.15, 0, H/2, lg/2],[L, H, 0.15, 0, H/2, -lg/2],[0.15, H, lg, -L/2, H/2, 0],[0.15, H, lg, L/2, H/2, 0]]
-.forEach(([sx,sy,sz,px,py,pz]) => addBox(sx,sy,sz,px,py,pz,wallMat));
-const nb = Math.max(2, Math.ceil(L / 2.5));
-for (let i = 0; i <= nb; i++) {
-const x = -L/2 + (i/nb)*L;
-const ang = Math.atan(hf / (lg/2));
-const pl = (lg/2) / Math.cos(ang);
-addBox(pl, 0.12, 0.12, x, H+hf/2, lg/4, woodMat, [ang,0,0]);
-addBox(pl, 0.12, 0.12, x, H+hf/2, -lg/4, woodMat, [-ang,0,0]);
-addBox(0.12, hf+0.1, 0.12, x, H+hf/2, 0);
-}
-addBox(L+0.4, 0.14, 0.14, 0, H+hf, 0);
-const ang = Math.atan(hf / (lg/2));
-const pl = (lg/2) / Math.cos(ang);
-const rg = new THREE.PlaneGeometry(L+0.6, pl+0.2);
-const r1 = new THREE.Mesh(rg, roofMat);
-r1.position.set(0, H+hf/2, lg/4);
-r1.rotation.x = ang - Math.PI/2;
-scene.add(r1);
-const r2 = new THREE.Mesh(rg, roofMat);
-r2.position.set(0, H+hf/2, -lg/4);
-r2.rotation.x = -(ang - Math.PI/2);
-scene.add(r2);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.MeshLambertMaterial({ color: 0x1a1f2e }));
-ground.rotation.x = -Math.PI/2;
-scene.add(ground);
-let angle = 0, animId;
-const animate = () => {
-animId = requestAnimationFrame(animate);
-angle += 0.005;
-camera.position.x = Math.cos(angle) * 16;
-camera.position.z = Math.sin(angle) * 16;
-camera.lookAt(0, H/2+hf/2, 0);
-renderer.render(scene, camera);
-};
-animate();
-return () => {
-cancelAnimationFrame(animId);
-renderer.dispose();
-if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
-mountRef.current.removeChild(renderer.domElement);
-};
-}, [params]);
-return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
+  const mountRef = useRef(null);
+
+  useEffect(() => {
+    if (!mountRef.current) return;
+
+    const w = mountRef.current.clientWidth;
+    const h = mountRef.current.clientHeight;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(w, h);
+    renderer.shadowMap.enabled = true;
+    mountRef.current.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
+    camera.position.set(12, 8, 12);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
+    sun.position.set(10, 20, 10);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    const L = params.longueur || 8;
+    const lg = params.largeur || 6;
+    const H = params.hauteur || 3;
+    const pente = params.pente || 35;
+    const typeProjet = params.type_projet || "charpente_trad";
+
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0xc4894a });
+    const roofMat = new THREE.MeshLambertMaterial({ color: 0x8b6355, side: THREE.DoubleSide });
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0xf0ece0, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+
+    const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
+      m.position.set(px, py, pz);
+      if (rot) m.rotation.set(...rot);
+      m.castShadow = true;
+      scene.add(m);
+    };
+
+    // ============================================================
+    // FONCTION : dessine une charpente traditionnelle (2 pans)
+    // ============================================================
+    const drawCharpenteTrad = () => {
+      const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
+
+      // Murs (4 cotes)
+      [
+        [L, H, 0.15, 0, H/2, lg/2],
+        [L, H, 0.15, 0, H/2, -lg/2],
+        [0.15, H, lg, -L/2, H/2, 0],
+        [0.15, H, lg, L/2, H/2, 0]
+      ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
+
+      // Fermes
+      const nb = Math.max(2, Math.ceil(L / 2.5));
+      for (let i = 0; i <= nb; i++) {
+        const x = -L/2 + (i/nb) * L;
+        const ang = Math.atan(hf / (lg/2));
+        const pl = (lg/2) / Math.cos(ang);
+        addBox(pl, 0.12, 0.12, x, H + hf/2, lg/4, woodMat, [ang, 0, 0]);
+        addBox(pl, 0.12, 0.12, x, H + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
+        addBox(0.12, hf + 0.1, 0.12, x, H + hf/2, 0);
+      }
+
+      // Faitage
+      addBox(L + 0.4, 0.14, 0.14, 0, H + hf, 0);
+
+      // Toiture (2 pans)
+      const ang = Math.atan(hf / (lg/2));
+      const pl = (lg/2) / Math.cos(ang);
+      const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.2);
+      const r1 = new THREE.Mesh(rg, roofMat);
+      r1.position.set(0, H + hf/2, lg/4);
+      r1.rotation.x = ang - Math.PI/2;
+      scene.add(r1);
+      const r2 = new THREE.Mesh(rg, roofMat);
+      r2.position.set(0, H + hf/2, -lg/4);
+      r2.rotation.x = -(ang - Math.PI/2);
+      scene.add(r2);
+    };
+
+    // ============================================================
+    // FONCTION : dessine un carport (1 pente + potaux + pas de murs)
+    // ============================================================
+    const drawCarport = () => {
+      // Carport : la pente est sur la largeur (axe Z)
+      // Cote bas a -lg/2, cote haut a +lg/2
+      const denivele = lg * Math.tan((pente * Math.PI) / 180);
+      const Hbas = H;
+      const Hhaut = H + denivele;
+
+      // 4 POTAUX (un a chaque coin)
+      const sectionPotau = 0.18;
+      // Potau bas avant gauche
+      addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
+      // Potau bas avant droit
+      addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
+      // Potau haut arriere gauche
+      addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, lg/2);
+      // Potau haut arriere droit
+      addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
+
+      // 2 SABLIERES (poutres horizontales en haut, sens longueur)
+      // Sabliere cote bas (avant)
+      addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
+      // Sabliere cote haut (arriere)
+      addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
+
+      // PANNES (poutres horizontales perpendiculaires aux sablieres, suivent la pente)
+      // On en met 3 : panne basse, intermediaire, haute
+      const nbPannes = 3;
+      for (let i = 0; i < nbPannes; i++) {
+        const t = i / (nbPannes - 1); // 0 a 1
+        const z = -lg/2 + t * lg;
+        const y = Hbas + t * denivele;
+        addBox(L + 0.3, 0.14, 0.14, 0, y, z);
+      }
+
+      // CHEVRONS (poses sur les pannes, sens largeur, en pente)
+      const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
+      const ang = Math.atan(denivele / lg);
+      const longueurChevron = lg / Math.cos(ang);
+      for (let i = 0; i <= nbChevrons; i++) {
+        const x = -L/2 + (i / nbChevrons) * L;
+        // Chevron centre verticalement entre Hbas et Hhaut, position Z = 0
+        const yCentre = Hbas + denivele/2;
+        addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+      }
+
+      // TOITURE (1 seul pan)
+      const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
+      const roof = new THREE.Mesh(rg, roofMat);
+      roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+      roof.rotation.x = ang - Math.PI/2;
+      scene.add(roof);
+    };
+
+    // ============================================================
+    // SWITCH : choisir la fonction selon type_projet
+    // ============================================================
+    if (typeProjet === "carport") {
+      drawCarport();
+    } else {
+      drawCharpenteTrad();
+    }
+
+    // SOL (commun a tous les types)
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 30),
+      new THREE.MeshLambertMaterial({ color: 0x1a1f2e })
+    );
+    ground.rotation.x = -Math.PI/2;
+    scene.add(ground);
+
+    // ANIMATION (rotation camera)
+    let angle = 0, animId;
+    const animate = () => {
+      animId = requestAnimationFrame(animate);
+      angle += 0.005;
+      camera.position.x = Math.cos(angle) * 16;
+      camera.position.z = Math.sin(angle) * 16;
+      // Centre de la camera : adapter selon type
+      const yCentre = typeProjet === "carport"
+        ? H + (lg * Math.tan((pente * Math.PI) / 180)) / 2
+        : H/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
+      camera.lookAt(0, yCentre, 0);
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      renderer.dispose();
+      if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
+        mountRef.current.removeChild(renderer.domElement);
+    };
+  }, [params]);
+
+  return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
 
 const QUESTIONS = {
