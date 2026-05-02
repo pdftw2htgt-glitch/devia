@@ -197,12 +197,14 @@ function Viewer3D({ params }) {
         addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
       }
 
-      // TOITURE (1 seul pan)
-      const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
+      // TOITURE (1 seul pan, rotation sur axe X au lieu de Z)
+      // Le toit est tourne dans l'autre dimension par rapport a la structure
+      const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
       const roof = new THREE.Mesh(rg, roofMat);
       roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-      // Rotation positive pour que la pente monte vers l'arriere
-      roof.rotation.x = ang - Math.PI/2;
+      // Combinaison de rotations pour que le toit penche cote gauche/droite
+      roof.rotation.z = ang;
+      roof.rotation.y = Math.PI/2;
       scene.add(roof);
 
       // ============================================================
