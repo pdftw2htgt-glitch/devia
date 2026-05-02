@@ -495,7 +495,44 @@ messages: [{ role: "user", content: prompt }],
 
 };
 
-const handleSubmit = () => {
+const loadProjectDetails = (project) => {
+    if (!project.devis_data) {
+      setError("Donnees du devis non disponibles pour ce projet.");
+      return;
+    }
+    setResult(project.devis_data);
+    if (project.devis_data.projet) {
+      const p = project.devis_data.projet;
+      setView3DParams({
+        longueur: p.longueur || 10,
+        largeur: p.largeur || 8,
+        hauteur: p.hauteur || 3,
+        pente: p.pente || 35
+      });
+    }
+    setActiveResultTab("devis");
+    setActiveTab("devis");
+    setError(null);
+  };
+
+  const deleteProject = async (projectId, projectNom) => {
+    const confirmed = window.confirm("Supprimer le projet \"" + projectNom + "\" ? Cette action est irreversible.");
+    if (!confirmed) return;
+    try {
+      const { error } = await supabase.from("projects").delete().eq("id", projectId);
+      if (error) {
+        console.error("Erreur suppression:", error);
+        alert("Erreur lors de la suppression : " + error.message);
+        return;
+      }
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+    } catch (e) {
+      console.error("Erreur deleteProject:", e);
+      alert("Erreur lors de la suppression");
+    }
+  };
+
+  const handleSubmit = () => {
 if (!prompt.trim()) return;
 const detected = detectParams(prompt);
 const missingKeys = Object.keys(QUESTIONS).filter(k => !detected[k]);
@@ -702,18 +739,30 @@ return (
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
             {projects.map(p => (
-              <div key={p.id} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: 0 }}
-                onClick={() => setActiveTab("devis")}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div key={p.id} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: 0, transition: "border 0.15s" }}
+                onMouseEnter={(e) => e.currentTarget.style.border = "1px solid #f0c040"}
+                onMouseLeave={(e) => e.currentTarget.style.border = "1px solid #1e2231"}
+                onClick={() => loadProjectDetails(p)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1 }}>
                   <div style={{ width: 44, height: 44, background: "#f0c04018", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🏠</div>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 15 }}>{p.nom}</div>
                     <div style={{ color: "#545870", fontSize: 13 }}>{p.commune} - {p.dims} - {new Date(p.date).toLocaleDateString("fr-FR")}</div>
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ color: "#f0c040", fontWeight: 700, fontSize: 18 }}>{p.ttc.toLocaleString("fr-FR")} EUR</div>
-                  <div style={{ color: "#545870", fontSize: 12 }}>TTC</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ color: "#f0c040", fontWeight: 700, fontSize: 18 }}>{p.ttc.toLocaleString("fr-FR")} EUR</div>
+                    <div style={{ color: "#545870", fontSize: 12 }}>TTC</div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteProject(p.id, p.nom); }}
+                    title="Supprimer ce projet"
+                    style={{ background: "transparent", border: "1px solid #2a2e40", color: "#ef4444", borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 13, fontWeight: 600, transition: "all 0.15s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "#ef444418"; e.currentTarget.style.borderColor = "#ef4444"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#2a2e40"; }}>
+                    Supprimer
+                  </button>
                 </div>
               </div>
             ))}
