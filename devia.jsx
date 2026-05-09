@@ -422,6 +422,10 @@ const [activeResultTab, setActiveResultTab] = useState("devis");
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
+  const [marchePrix, setMarchePrix] = useState([]);
+  const [catalogueEntreprise, setCatalogueEntreprise] = useState([]);
+  const [activeCatalogTab, setActiveCatalogTab] = useState("marche");
+  const [loadingCatalogues, setLoadingCatalogues] = useState(false);
 
   // Charge les projets de l'utilisateur depuis Supabase au demarrage
   useEffect(() => {
@@ -456,6 +460,49 @@ const [projects, setProjects] = useState([]);
       }
     };
     loadProjects();
+  }, []);
+
+  // Charge les 2 catalogues depuis Supabase
+  useEffect(() => {
+    const loadCatalogues = async () => {
+      setLoadingCatalogues(true);
+      try {
+        // Catalogue marche DEVIA (lecture seule, accessible a tous)
+        const { data: marcheData, error: marcheError } = await supabase
+          .from("marche_prix")
+          .select("*")
+          .eq("actif", true)
+          .order("categorie")
+          .order("designation");
+        if (marcheError) {
+          console.error("Erreur chargement marche_prix:", marcheError);
+        } else if (marcheData) {
+          setMarchePrix(marcheData);
+        }
+
+        // Catalogue entreprise (perso a l'utilisateur)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: persoData, error: persoError } = await supabase
+            .from("catalogue_entreprise")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("actif", true)
+            .order("categorie")
+            .order("designation");
+          if (persoError) {
+            console.error("Erreur chargement catalogue_entreprise:", persoError);
+          } else if (persoData) {
+            setCatalogueEntreprise(persoData);
+          }
+        }
+      } catch (e) {
+        console.error("Erreur loadCatalogues:", e);
+      } finally {
+        setLoadingCatalogues(false);
+      }
+    };
+    loadCatalogues();
   }, []);
 
 const [params, setParams] = useState({
@@ -683,7 +730,7 @@ return (
       <span style={{ color: "#545870", fontSize: 12 }}>Devis charpente IA</span>
     </div>
     <nav style={{ display: "flex", gap: 4 }}>
-      {[{ id: "devis", label: "Devis" }, { id: "projets", label: "Projets" }, { id: "parametres", label: "Parametres" }, { id: "compte", label: "Compte" }].map(tab => (
+      {[{ id: "devis", label: "Devis" }, { id: "projets", label: "Projets" }, { id: "catalogue", label: "Catalogue" }, { id: "parametres", label: "Parametres" }, { id: "compte", label: "Compte" }].map(tab => (
         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
           style={{ background: activeTab === tab.id ? "#f0c04018" : "transparent", border: activeTab === tab.id ? "1px solid #f0c040" : "1px solid transparent", color: activeTab === tab.id ? "#f0c040" : "#545870", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 14, fontWeight: activeTab === tab.id ? 600 : 400 }}>
           {tab.label}
@@ -893,6 +940,169 @@ return (
               </div>
             ))}
           </div>
+        )}
+      </div>
+    )}
+
+    {activeTab === "catalogue" && (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Catalogue</h2>
+          <Badge color="#60a5fa">
+            {activeCatalogTab === "marche" ? marchePrix.length + " materiaux" : catalogueEntreprise.length + " materiaux"}
+          </Badge>
+        </div>
+
+        {/* Onglets internes */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #1e2231" }}>
+          {[
+            { id: "marche", label: "Marche DEVIA", icon: "&#x1F4CA;" },
+            { id: "perso", label: "Mon catalogue", icon: "&#x1F4DD;" }
+          ].map(t => (
+            <button key={t.id} onClick={() => setActiveCatalogTab(t.id)}
+              style={{
+                background: "transparent",
+                border: "none",
+                borderBottom: activeCatalogTab === t.id ? "2px solid #f0c040" : "2px solid transparent",
+                color: activeCatalogTab === t.id ? "#f0c040" : "#545870",
+                cursor: "pointer",
+                padding: "10px 18px",
+                fontSize: 14,
+                fontWeight: activeCatalogTab === t.id ? 600 : 400,
+                transition: "all 0.15s"
+              }}
+              dangerouslySetInnerHTML={{ __html: t.icon + " " + t.label }} />
+          ))}
+        </div>
+
+        {loadingCatalogues ? (
+          <div style={{ ...cardStyle, textAlign: "center", padding: 40, color: "#545870" }}>
+            Chargement du catalogue...
+          </div>
+        ) : (
+          <>
+            {/* TAB MARCHE DEVIA */}
+            {activeCatalogTab === "marche" && (
+              <>
+                <div style={{ ...cardStyle, padding: 16, marginBottom: 16, background: "#0f1117", borderColor: "#60a5fa44" }}>
+                  <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
+                    <div style={{ fontSize: 20 }}>&#x2139;&#xFE0F;</div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Catalogue marche DEVIA</div>
+                      <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
+                        Prix moyens du marche francais 2026, mis a jour regulierement par DEVIA.
+                        Vos prix dans 'Mon catalogue' ont la priorite sur ces references.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {(() => {
+                  const grouped = marchePrix.reduce((acc, m) => {
+                    if (!acc[m.categorie]) acc[m.categorie] = [];
+                    acc[m.categorie].push(m);
+                    return acc;
+                  }, {});
+                  const orderedCats = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre"];
+                  const icons = {
+                    "Charpente": "&#x1FAB5;",
+                    "Bardage": "&#x1F3E0;",
+                    "Couverture": "&#x1F7EB;",
+                    "Isolation": "&#x1F9CA;",
+                    "Quincaillerie": "&#x1F529;",
+                    "Main d'oeuvre": "&#x1F477;"
+                  };
+                  return orderedCats.map(cat => {
+                    const items = grouped[cat] || [];
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat} style={{ marginBottom: 24 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#f0c040", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span dangerouslySetInnerHTML={{ __html: icons[cat] || "" }} />
+                          {cat} <span style={{ color: "#545870", fontWeight: 400, fontSize: 13 }}>({items.length})</span>
+                        </h3>
+                        <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ background: "#0f1117" }}>
+                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Designation</th>
+                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Dimensions</th>
+                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Unite</th>
+                                <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Prix HT</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {items.map((m, i) => (
+                                <tr key={m.id} style={{ borderTop: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f111740" }}>
+                                  <td style={{ padding: "10px 12px", fontSize: 13 }}>{m.designation}</td>
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.dimensions || "-"}</td>
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.unite}</td>
+                                  <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#f0c040", fontWeight: 600 }}>
+                                    {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} EUR
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </>
+            )}
+
+            {/* TAB MON CATALOGUE */}
+            {activeCatalogTab === "perso" && (
+              <>
+                <div style={{ ...cardStyle, padding: 16, marginBottom: 16, background: "#0f1117", borderColor: "#3ecf8e44" }}>
+                  <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
+                    <div style={{ fontSize: 20 }}>&#x1F4A1;</div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Mon catalogue d'entreprise</div>
+                      <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
+                        Vos prix personnels, prioritaires sur le catalogue marche.
+                        Ajout et modification disponibles prochainement.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {catalogueEntreprise.length === 0 ? (
+                  <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F4DD;</div>
+                    <div style={{ color: "#545870", marginBottom: 8 }}>Aucun materiau dans votre catalogue.</div>
+                    <div style={{ color: "#545870", fontSize: 13 }}>Bientot vous pourrez ajouter vos propres prix.</div>
+                  </div>
+                ) : (
+                  <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ background: "#0f1117" }}>
+                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Categorie</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Designation</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Dimensions</th>
+                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Unite</th>
+                          <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Prix HT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catalogueEntreprise.map((m, i) => (
+                          <tr key={m.id} style={{ borderTop: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f111740" }}>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#60a5fa" }}>{m.categorie}</td>
+                            <td style={{ padding: "10px 12px", fontSize: 13 }}>{m.designation}</td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.dimensions || "-"}</td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.unite}</td>
+                            <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#3ecf8e", fontWeight: 600 }}>
+                              {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} EUR
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
     )}
