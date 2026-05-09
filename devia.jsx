@@ -426,6 +426,18 @@ const [projects, setProjects] = useState([]);
   const [catalogueEntreprise, setCatalogueEntreprise] = useState([]);
   const [activeCatalogTab, setActiveCatalogTab] = useState("marche");
   const [loadingCatalogues, setLoadingCatalogues] = useState(false);
+  const [showAddCatalogModal, setShowAddCatalogModal] = useState(false);
+  const [catalogForm, setCatalogForm] = useState({
+    categorie: "Charpente",
+    categorieAutre: "",
+    designation: "",
+    dimensions: "",
+    unite: "ml",
+    prix_ht: "",
+    notes: "",
+  });
+  const [catalogFormError, setCatalogFormError] = useState(null);
+  const [savingCatalog, setSavingCatalog] = useState(false);
 
   // Charge les projets de l'utilisateur depuis Supabase au demarrage
   useEffect(() => {
@@ -702,6 +714,84 @@ const loadProjectDetails = (project) => {
     } catch (e) {
       console.error("Erreur deleteProject:", e);
       alert("Erreur lors de la suppression");
+    }
+  };
+
+  const resetCatalogForm = () => {
+    setCatalogForm({
+      categorie: "Charpente",
+      categorieAutre: "",
+      designation: "",
+      dimensions: "",
+      unite: "ml",
+      prix_ht: "",
+      notes: "",
+    });
+    setCatalogFormError(null);
+  };
+
+  const handleAddMaterial = async () => {
+    setCatalogFormError(null);
+
+    // Validations
+    const categorieFinal = catalogForm.categorie === "Autre"
+      ? catalogForm.categorieAutre.trim()
+      : catalogForm.categorie;
+    if (!categorieFinal) {
+      setCatalogFormError("La categorie est obligatoire.");
+      return;
+    }
+    if (!catalogForm.designation.trim()) {
+      setCatalogFormError("La designation est obligatoire.");
+      return;
+    }
+    const prixHt = parseFloat(catalogForm.prix_ht);
+    if (isNaN(prixHt) || prixHt < 0) {
+      setCatalogFormError("Le prix HT doit etre un nombre positif.");
+      return;
+    }
+    if (!catalogForm.unite) {
+      setCatalogFormError("L'unite est obligatoire.");
+      return;
+    }
+
+    setSavingCatalog(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setCatalogFormError("Vous devez etre connecte.");
+        setSavingCatalog(false);
+        return;
+      }
+      const newRow = {
+        user_id: user.id,
+        categorie: categorieFinal,
+        designation: catalogForm.designation.trim(),
+        dimensions: catalogForm.dimensions.trim() || null,
+        unite: catalogForm.unite,
+        prix_ht: prixHt,
+        notes: catalogForm.notes.trim() || null,
+      };
+      const { data: inserted, error } = await supabase
+        .from("catalogue_entreprise")
+        .insert(newRow)
+        .select()
+        .single();
+      if (error) {
+        console.error("Erreur insertion catalogue:", error);
+        setCatalogFormError("Erreur : " + error.message);
+        setSavingCatalog(false);
+        return;
+      }
+      // Ajout local
+      setCatalogueEntreprise(prev => [inserted, ...prev]);
+      setShowAddCatalogModal(false);
+      resetCatalogForm();
+    } catch (e) {
+      console.error("Erreur handleAddMaterial:", e);
+      setCatalogFormError("Erreur inattendue : " + e.message);
+    } finally {
+      setSavingCatalog(false);
     }
   };
 
@@ -1054,17 +1144,23 @@ return (
             {/* TAB MON CATALOGUE */}
             {activeCatalogTab === "perso" && (
               <>
-                <div style={{ ...cardStyle, padding: 16, marginBottom: 16, background: "#0f1117", borderColor: "#3ecf8e44" }}>
-                  <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
-                    <div style={{ fontSize: 20 }}>&#x1F4A1;</div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Mon catalogue d'entreprise</div>
-                      <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
-                        Vos prix personnels, prioritaires sur le catalogue marche.
-                        Ajout et modification disponibles prochainement.
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
+                  <div style={{ ...cardStyle, padding: 16, background: "#0f1117", borderColor: "#3ecf8e44", flex: 1, marginBottom: 0 }}>
+                    <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
+                      <div style={{ fontSize: 20 }}>&#x1F4A1;</div>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Mon catalogue d'entreprise</div>
+                        <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
+                          Vos prix personnels, prioritaires sur le catalogue marche.
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => { resetCatalogForm(); setShowAddCatalogModal(true); }}
+                    style={{ background: "#f0c040", color: "#08090c", border: "none", borderRadius: 8, padding: "12px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    + Ajouter un materiau
+                  </button>
                 </div>
                 {catalogueEntreprise.length === 0 ? (
                   <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
@@ -1163,6 +1259,114 @@ return (
     )}
 
   </main>
+
+  {showAddCatalogModal && (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}
+      onClick={(e) => { if (e.target === e.currentTarget) { setShowAddCatalogModal(false); resetCatalogForm(); } }}>
+      <div style={{ background: "#13161f", border: "1px solid #1e2231", borderRadius: 12, padding: 24, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Ajouter un materiau</h2>
+          <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
+            style={{ background: "transparent", border: "none", color: "#545870", cursor: "pointer", fontSize: 22, padding: 4 }}>x</button>
+        </div>
+
+        <div style={{ display: "grid", gap: 14 }}>
+          {/* Categorie */}
+          <div>
+            <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Categorie *</label>
+            <select value={catalogForm.categorie}
+              onChange={(e) => setCatalogForm({ ...catalogForm, categorie: e.target.value })}
+              style={{ ...inputStyle, cursor: "pointer" }}>
+              <option value="Charpente">Charpente</option>
+              <option value="Bardage">Bardage</option>
+              <option value="Couverture">Couverture</option>
+              <option value="Isolation">Isolation</option>
+              <option value="Quincaillerie">Quincaillerie</option>
+              <option value="Main d'oeuvre">Main d'oeuvre</option>
+              <option value="Autre">Autre (champ libre)</option>
+            </select>
+            {catalogForm.categorie === "Autre" && (
+              <input type="text" value={catalogForm.categorieAutre}
+                onChange={(e) => setCatalogForm({ ...catalogForm, categorieAutre: e.target.value })}
+                placeholder="Nom de votre categorie..."
+                style={{ ...inputStyle, marginTop: 8 }} />
+            )}
+          </div>
+
+          {/* Designation */}
+          <div>
+            <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Designation *</label>
+            <input type="text" value={catalogForm.designation}
+              onChange={(e) => setCatalogForm({ ...catalogForm, designation: e.target.value })}
+              placeholder="Ex: Chevron sapin C24, Tuile mecanique, Vis 6x180..."
+              style={inputStyle} />
+          </div>
+
+          {/* Dimensions et Unite */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Dimensions</label>
+              <input type="text" value={catalogForm.dimensions}
+                onChange={(e) => setCatalogForm({ ...catalogForm, dimensions: e.target.value })}
+                placeholder="Ex: 75x175 mm"
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Unite *</label>
+              <select value={catalogForm.unite}
+                onChange={(e) => setCatalogForm({ ...catalogForm, unite: e.target.value })}
+                style={{ ...inputStyle, cursor: "pointer" }}>
+                <option value="ml">ml (metre lineaire)</option>
+                <option value="m2">m2 (metre carre)</option>
+                <option value="m3">m3 (metre cube)</option>
+                <option value="u">u (unite)</option>
+                <option value="kg">kg (kilo)</option>
+                <option value="h">h (heure)</option>
+                <option value="forfait">forfait</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Prix HT */}
+          <div>
+            <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Prix HT (EUR) *</label>
+            <input type="number" step="0.01" min="0" value={catalogForm.prix_ht}
+              onChange={(e) => setCatalogForm({ ...catalogForm, prix_ht: e.target.value })}
+              placeholder="Ex: 12.50"
+              style={inputStyle} />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Notes (optionnel)</label>
+            <input type="text" value={catalogForm.notes}
+              onChange={(e) => setCatalogForm({ ...catalogForm, notes: e.target.value })}
+              placeholder="Ex: Fournisseur X, classe C24..."
+              style={inputStyle} />
+          </div>
+
+          {catalogFormError && (
+            <div style={{ background: "#ef444418", border: "1px solid #ef4444", borderRadius: 8, padding: 12, color: "#ef4444", fontSize: 13 }}>
+              {catalogFormError}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+            <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
+              disabled={savingCatalog}
+              style={{ ...btnSecondary, opacity: savingCatalog ? 0.5 : 1 }}>
+              Annuler
+            </button>
+            <button onClick={handleAddMaterial}
+              disabled={savingCatalog}
+              style={{ background: "#f0c040", color: "#08090c", border: "none", borderRadius: 8, padding: "10px 20px", cursor: savingCatalog ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 700, opacity: savingCatalog ? 0.7 : 1 }}>
+              {savingCatalog ? "Ajout en cours..." : "Ajouter"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
 </div>
 
 );
