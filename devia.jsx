@@ -438,6 +438,7 @@ const [projects, setProjects] = useState([]);
   });
   const [catalogFormError, setCatalogFormError] = useState(null);
   const [savingCatalog, setSavingCatalog] = useState(false);
+  const [editingCatalogId, setEditingCatalogId] = useState(null);
 
   // Charge les projets de l'utilisateur depuis Supabase au demarrage
   useEffect(() => {
@@ -728,6 +729,43 @@ const loadProjectDetails = (project) => {
       notes: "",
     });
     setCatalogFormError(null);
+    setEditingCatalogId(null);
+  };
+
+  const openEditCatalogModal = (material) => {
+    const isStandardCat = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre"].includes(material.categorie);
+    setCatalogForm({
+      categorie: isStandardCat ? material.categorie : "Autre",
+      categorieAutre: isStandardCat ? "" : material.categorie,
+      designation: material.designation || "",
+      dimensions: material.dimensions || "",
+      unite: material.unite || "ml",
+      prix_ht: material.prix_ht ? String(material.prix_ht) : "",
+      notes: material.notes || "",
+    });
+    setEditingCatalogId(material.id);
+    setCatalogFormError(null);
+    setShowAddCatalogModal(true);
+  };
+
+  const handleDeleteMaterial = async (material) => {
+    const confirmed = window.confirm("Supprimer le materiau \"" + material.designation + "\" ? Cette action est irreversible.");
+    if (!confirmed) return;
+    try {
+      const { error } = await supabase
+        .from("catalogue_entreprise")
+        .delete()
+        .eq("id", material.id);
+      if (error) {
+        console.error("Erreur suppression catalogue:", error);
+        alert("Erreur lors de la suppression : " + error.message);
+        return;
+      }
+      setCatalogueEntreprise(prev => prev.filter(m => m.id !== material.id));
+    } catch (e) {
+      console.error("Erreur handleDeleteMaterial:", e);
+      alert("Erreur inattendue lors de la suppression.");
+    }
   };
 
   const handleAddMaterial = async () => {
@@ -772,19 +810,37 @@ const loadProjectDetails = (project) => {
         prix_ht: prixHt,
         notes: catalogForm.notes.trim() || null,
       };
-      const { data: inserted, error } = await supabase
-        .from("catalogue_entreprise")
-        .insert(newRow)
-        .select()
-        .single();
-      if (error) {
-        console.error("Erreur insertion catalogue:", error);
-        setCatalogFormError("Erreur : " + error.message);
-        setSavingCatalog(false);
-        return;
+      if (editingCatalogId) {
+        // MODE MODIFICATION
+        const { data: updated, error } = await supabase
+          .from("catalogue_entreprise")
+          .update(newRow)
+          .eq("id", editingCatalogId)
+          .select()
+          .single();
+        if (error) {
+          console.error("Erreur update catalogue:", error);
+          setCatalogFormError("Erreur : " + error.message);
+          setSavingCatalog(false);
+          return;
+        }
+        // Mise a jour locale
+        setCatalogueEntreprise(prev => prev.map(m => m.id === editingCatalogId ? updated : m));
+      } else {
+        // MODE AJOUT
+        const { data: inserted, error } = await supabase
+          .from("catalogue_entreprise")
+          .insert(newRow)
+          .select()
+          .single();
+        if (error) {
+          console.error("Erreur insertion catalogue:", error);
+          setCatalogFormError("Erreur : " + error.message);
+          setSavingCatalog(false);
+          return;
+        }
+        setCatalogueEntreprise(prev => [inserted, ...prev]);
       }
-      // Ajout local
-      setCatalogueEntreprise(prev => [inserted, ...prev]);
       setShowAddCatalogModal(false);
       resetCatalogForm();
     } catch (e) {
@@ -1178,6 +1234,7 @@ return (
                           <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Dimensions</th>
                           <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Unite</th>
                           <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Prix HT</th>
+                          <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1189,6 +1246,26 @@ return (
                             <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.unite}</td>
                             <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#3ecf8e", fontWeight: 600 }}>
                               {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} EUR
+                            </td>
+                            <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                              <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                                <button
+                                  onClick={() => openEditCatalogModal(m)}
+                                  title="Modifier"
+                                  style={{ background: "transparent", border: "1px solid #2a2e40", color: "#60a5fa", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "#60a5fa18"; e.currentTarget.style.borderColor = "#60a5fa"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#2a2e40"; }}>
+                                  Modifier
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMaterial(m)}
+                                  title="Supprimer"
+                                  style={{ background: "transparent", border: "1px solid #2a2e40", color: "#ef4444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "#ef444418"; e.currentTarget.style.borderColor = "#ef4444"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#2a2e40"; }}>
+                                  Supprimer
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1265,7 +1342,7 @@ return (
       onClick={(e) => { if (e.target === e.currentTarget) { setShowAddCatalogModal(false); resetCatalogForm(); } }}>
       <div style={{ background: "#13161f", border: "1px solid #1e2231", borderRadius: 12, padding: 24, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700 }}>Ajouter un materiau</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>{editingCatalogId ? "Modifier un materiau" : "Ajouter un materiau"}</h2>
           <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
             style={{ background: "transparent", border: "none", color: "#545870", cursor: "pointer", fontSize: 22, padding: 4 }}>x</button>
         </div>
@@ -1360,7 +1437,7 @@ return (
             <button onClick={handleAddMaterial}
               disabled={savingCatalog}
               style={{ background: "#f0c040", color: "#08090c", border: "none", borderRadius: 8, padding: "10px 20px", cursor: savingCatalog ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 700, opacity: savingCatalog ? 0.7 : 1 }}>
-              {savingCatalog ? "Ajout en cours..." : "Ajouter"}
+              {savingCatalog ? (editingCatalogId ? "Sauvegarde..." : "Ajout en cours...") : (editingCatalogId ? "Enregistrer" : "Ajouter")}
             </button>
           </div>
         </div>
