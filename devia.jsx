@@ -439,6 +439,8 @@ const [projects, setProjects] = useState([]);
   const [catalogFormError, setCatalogFormError] = useState(null);
   const [savingCatalog, setSavingCatalog] = useState(false);
   const [editingCatalogId, setEditingCatalogId] = useState(null);
+  const [catalogChoice, setCatalogChoice] = useState("marche");
+  const [completeWithMarket, setCompleteWithMarket] = useState(true);
 
   // Charge les projets de l'utilisateur depuis Supabase au demarrage
   useEffect(() => {
@@ -556,13 +558,47 @@ setShowQuestions(false);
 setLoading(true);
 setError(null);
 const zoneInfo = getZone(commune, altitude);
-const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
+// Construction de la liste de prix selon le choix utilisateur
+    let prixList = [];
+    let catalogSource = "marche";
+    if (catalogChoice === "marche") {
+      prixList = marchePrix;
+      catalogSource = "marche";
+    } else if (catalogChoice === "perso") {
+      if (completeWithMarket) {
+        // Catalogue perso prioritaire, complete par marche pour les manquants
+        prixList = [...catalogueEntreprise];
+        const designationsPerso = new Set(catalogueEntreprise.map(p => (p.designation + "|" + (p.dimensions || "")).toLowerCase()));
+        marchePrix.forEach(m => {
+          const key = (m.designation + "|" + (m.dimensions || "")).toLowerCase();
+          if (!designationsPerso.has(key)) {
+            prixList.push(m);
+          }
+        });
+        catalogSource = "perso+marche";
+      } else {
+        prixList = catalogueEntreprise;
+        catalogSource = "perso";
+      }
+    }
+
+    // Format compact pour le prompt (economiser les tokens)
+    const prixListText = prixList.length > 0
+      ? prixList.map(p => `- ${p.categorie} | ${p.designation} | ${p.dimensions || "-"} | ${p.unite} | ${Number(p.prix_ht).toFixed(2)} EUR`).join("\n")
+      : "Aucun catalogue fourni - estime les prix toi-meme.";
+
+    const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
 "DETECTION DU TYPE DE PROJET : analyse la description et choisis 1 valeur pour type_projet : " +
 "'carport' (si carport, abri voiture, auvent ouvert sans murs, structure sur potaux), " +
 "'charpente_trad' (charpente traditionnelle de maison, toit 2 pans avec murs), " +
 "'hangar' (hangar agricole, batiment industriel, grand volume couvert), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
+"\n\nCATALOGUE DE PRIX A UTILISER (source: " + catalogSource + ") :\n" + prixListText + "\n\n" +
+"REGLES PRIX : 1) Pour chaque poste de devis, utilise EN PRIORITE un materiau du catalogue ci-dessus si disponible. " +
+"2) Le prix unitaire HT doit correspondre exactement au prix du catalogue. " +
+"3) Si un materiau necessaire n'existe pas dans le catalogue, estime le prix au mieux mais signale-le dans les notes. " +
+"4) Adapte les quantites au projet decrit. " +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
 "Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
@@ -614,7 +650,7 @@ messages: [{ role: "user", content: prompt }],
 
   const parsed = JSON.parse(jsonMatch[0]);
 
-  setResult(parsed);
+  setResult({ ...parsed, _catalogSource: catalogSource });
   if (parsed.projet) {
     const p = parsed.projet;
     setView3DParams({
@@ -943,6 +979,42 @@ return (
                   {error}
                 </div>
               )}
+              {/* Selecteur de catalogue */}
+              <div style={{ ...cardStyle, padding: 16, marginBottom: 16, background: "#0f1117" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <span style={{ fontSize: 16 }}>&#x1F4D6;</span>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Catalogue a utiliser pour ce devis</div>
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 6, background: catalogChoice === "marche" ? "#f0c04018" : "transparent", border: catalogChoice === "marche" ? "1px solid #f0c040" : "1px solid #1e2231", cursor: "pointer" }}>
+                    <input type="radio" name="catalog" checked={catalogChoice === "marche"}
+                      onChange={() => setCatalogChoice("marche")}
+                      style={{ accentColor: "#f0c040" }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Catalogue marche DEVIA</div>
+                      <div style={{ fontSize: 12, color: "#545870" }}>{marchePrix.length} materiaux - prix moyens du marche</div>
+                    </div>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 6, background: catalogChoice === "perso" ? "#3ecf8e18" : "transparent", border: catalogChoice === "perso" ? "1px solid #3ecf8e" : "1px solid #1e2231", cursor: "pointer" }}>
+                    <input type="radio" name="catalog" checked={catalogChoice === "perso"}
+                      onChange={() => setCatalogChoice("perso")}
+                      style={{ accentColor: "#3ecf8e" }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Mon catalogue d'entreprise</div>
+                      <div style={{ fontSize: 12, color: "#545870" }}>{catalogueEntreprise.length} materiaux personnels</div>
+                    </div>
+                  </label>
+                  {catalogChoice === "perso" && (
+                    <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", marginLeft: 28, fontSize: 13, cursor: "pointer", color: completeWithMarket ? "#e8eaf2" : "#545870" }}>
+                      <input type="checkbox" checked={completeWithMarket}
+                        onChange={(e) => setCompleteWithMarket(e.target.checked)}
+                        style={{ accentColor: "#f0c040" }} />
+                      <span>Completer les materiaux manquants avec les prix marche DEVIA</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
               <button onClick={handleSubmit} disabled={loading || !prompt.trim() || !commune.trim()}
                 style={{ ...btnPrimary, width: "100%", padding: 14, fontSize: 15, opacity: loading || !prompt.trim() || !commune.trim() ? 0.5 : 1, cursor: loading || !prompt.trim() || !commune.trim() ? "not-allowed" : "pointer" }}>
                 {loading ? "⏳ Analyse en cours..." : "Generer le devis"}
@@ -954,7 +1026,22 @@ return (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 700 }}>{result.projet ? result.projet.description : "Devis charpente"}</h2>
-                <div style={{ color: "#545870", fontSize: 14 }}>{result.projet ? result.projet.commune : ""} - {new Date().toLocaleDateString("fr-FR")}</div>
+                <div style={{ color: "#545870", fontSize: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span>{result.projet ? result.projet.commune : ""} - {new Date().toLocaleDateString("fr-FR")}</span>
+                  {result._catalogSource && (
+                    <span style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                      background: result._catalogSource === "perso" ? "#3ecf8e18" : (result._catalogSource === "perso+marche" ? "#a78bfa18" : "#f0c04018"),
+                      color: result._catalogSource === "perso" ? "#3ecf8e" : (result._catalogSource === "perso+marche" ? "#a78bfa" : "#f0c040"),
+                      border: "1px solid " + (result._catalogSource === "perso" ? "#3ecf8e44" : (result._catalogSource === "perso+marche" ? "#a78bfa44" : "#f0c04044"))
+                    }}>
+                      {result._catalogSource === "perso" ? "Catalogue perso" : (result._catalogSource === "perso+marche" ? "Perso + complement marche" : "Catalogue marche DEVIA")}
+                    </span>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); }}>Nouveau</button>
