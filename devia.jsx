@@ -595,10 +595,24 @@ const zoneInfo = getZone(commune, altitude);
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "\n\nCATALOGUE DE PRIX A UTILISER (source: " + catalogSource + ") :\n" + prixListText + "\n\n" +
-"REGLES PRIX : 1) Pour chaque poste de devis, utilise EN PRIORITE un materiau du catalogue ci-dessus si disponible. " +
-"2) Le prix unitaire HT doit correspondre exactement au prix du catalogue. " +
-"3) Si un materiau necessaire n'existe pas dans le catalogue, estime le prix au mieux mais signale-le dans les notes. " +
-"4) Adapte les quantites au projet decrit. " +
+(catalogSource === "perso" ?
+  // MODE STRICT : que le catalogue perso, pas d'invention
+  "REGLES PRIX (MODE STRICT - CATALOGUE PERSO UNIQUEMENT) : " +
+  "1) INTERDICTION ABSOLUE d'inventer un prix ou de creer un poste pour un materiau qui n'est PAS dans le catalogue ci-dessus. " +
+  "2) Tu DOIS uniquement creer des postes correspondant aux materiaux LISTES dans le catalogue. " +
+  "3) Le prix unitaire HT doit correspondre EXACTEMENT au prix du catalogue. " +
+  "4) Si tu n'as pas assez de materiaux pour faire un devis complet (par exemple, pas de tuiles, pas de fixations), ne genere QUE les postes pour lesquels tu as un materiau dans le catalogue. " +
+  "5) Le devis sera donc PARTIEL. C'est ok et voulu. " +
+  "6) Adapte les quantites au projet decrit. " +
+  "7) Dans le tableau 'notes' du JSON, AJOUTE en premiere note : 'Devis partiel : seuls les materiaux de votre catalogue sont inclus. Les postes manquants doivent etre completes manuellement ou en activant l option Completer avec marche.' " +
+  "8) Genere entre 3 et 8 postes (selon le nombre de materiaux disponibles). "
+  :
+  // MODE NORMAL : avec complement marche
+  "REGLES PRIX : 1) Pour chaque poste de devis, utilise EN PRIORITE un materiau du catalogue ci-dessus si disponible. " +
+  "2) Le prix unitaire HT doit correspondre exactement au prix du catalogue. " +
+  "3) Si un materiau necessaire n'existe pas dans le catalogue, estime le prix au mieux mais signale-le dans les notes. " +
+  "4) Adapte les quantites au projet decrit. "
+) +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
 "Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
@@ -1042,6 +1056,19 @@ return (
                     </span>
                   )}
                 </div>
+                {result._catalogSource === "perso" && (
+                  <div style={{ marginTop: 12, padding: 12, background: "#f9731618", border: "1px solid #f97316", borderRadius: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>&#x26A0;&#xFE0F;</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#f97316" }}>Devis partiel</div>
+                      <div style={{ fontSize: 12, color: "#fdba74", marginTop: 2 }}>
+                        Ce devis ne contient que les materiaux presents dans votre catalogue d&apos;entreprise.
+                        Les autres postes (couverture, fixations, etc.) doivent etre ajoutes manuellement,
+                        ou cochez &quot;Completer avec marche&quot; pour un devis complet.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); }}>Nouveau</button>
