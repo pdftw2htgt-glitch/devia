@@ -910,32 +910,139 @@ else handleGenerate(detected);
 };
 
 const zoneInfo = commune ? getZone(commune, altitude) : null;
-const cardStyle = { background: "#13161f", border: "1px solid #1e2231", borderRadius: 12, padding: 20, marginBottom: 16 };
-const inputStyle = { width: "100%", background: "#0f1117", border: "1px solid #1e2231", borderRadius: 8, padding: "10px 14px", color: "#e8eaf2", fontSize: 14, outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
-const btnPrimary = { background: "#f0c040", color: "#000", border: "1px solid #f0c040", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 14, fontWeight: 600 };
-const btnSecondary = { background: "#0f1117", color: "#e8eaf2", border: "1px solid #1e2231", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 14, fontWeight: 600 };
+// === DEVIA Design System v2 - Liquid Glass ===
+// Cards translucides avec backdrop-filter, bordures ultra-fines, plus d'espace
+const cardStyle = {
+  background: "rgba(22, 25, 35, 0.55)",
+  backdropFilter: "blur(24px) saturate(140%)",
+  WebkitBackdropFilter: "blur(24px) saturate(140%)",
+  border: "1px solid rgba(255, 255, 255, 0.06)",
+  borderRadius: 16,
+  padding: 24,
+  marginBottom: 16,
+  boxShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 32px rgba(0,0,0,0.25)"
+};
+const inputStyle = {
+  width: "100%",
+  background: "rgba(255, 255, 255, 0.03)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: 10,
+  padding: "12px 16px",
+  color: "#e8eaf2",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  transition: "border-color 0.15s, background 0.15s"
+};
+const btnPrimary = {
+  background: "#f0c040",
+  color: "#0a0a0a",
+  border: "1px solid #f0c040",
+  borderRadius: 999,
+  padding: "11px 24px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 600,
+  letterSpacing: "0.01em",
+  boxShadow: "0 4px 14px rgba(240, 192, 64, 0.18)",
+  transition: "transform 0.1s, box-shadow 0.15s"
+};
+const btnSecondary = {
+  background: "rgba(255, 255, 255, 0.04)",
+  backdropFilter: "blur(16px)",
+  WebkitBackdropFilter: "blur(16px)",
+  color: "#e8eaf2",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: 999,
+  padding: "11px 24px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 500,
+  letterSpacing: "0.01em",
+  transition: "background 0.15s, border-color 0.15s"
+};
 
 return (
-<div style={{ minHeight: "100vh", background: "#08090c", color: "#e8eaf2", fontFamily: "Inter, sans-serif" }}>
-<style>{"* { box-sizing: border-box; margin: 0; padding: 0; } @keyframes spin { to { transform: rotate(360deg); } } ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #0f1117; } ::-webkit-scrollbar-thumb { background: #2a2e40; border-radius: 3px; }"}</style>
+<div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at top, rgba(30, 35, 50, 0.4) 0%, #08090c 50%), #08090c", color: "#e8eaf2", fontFamily: "Inter, sans-serif" }}>
+<style>{`
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.005em; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+    input:focus, select:focus, textarea:focus { border-color: rgba(240,192,64,0.4) !important; background: rgba(255,255,255,0.05) !important; }
+    button:active { transform: scale(0.97); }
+    .devia-page { animation: fadeInUp 0.35s ease-out; }
+    .devia-bg-noise { background-image: radial-gradient(at 0% 0%, rgba(240, 192, 64, 0.04) 0px, transparent 40%), radial-gradient(at 100% 100%, rgba(96, 165, 250, 0.03) 0px, transparent 40%); }
+  `}</style>
 
-  <header style={{ background: "#0f1117", borderBottom: "1px solid #1e2231", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 32, height: 32, background: "#f0c040", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚡</div>
-      <span style={{ fontWeight: 800, fontSize: 16 }}>DEVIA</span>
-      <span style={{ color: "#545870", fontSize: 12 }}>Devis charpente IA</span>
+  <header style={{
+    background: "rgba(8, 9, 12, 0.7)",
+    backdropFilter: "blur(20px) saturate(180%)",
+    WebkitBackdropFilter: "blur(20px) saturate(180%)",
+    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    padding: "0 28px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 64,
+    position: "sticky",
+    top: 0,
+    zIndex: 100
+  }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{
+        width: 30,
+        height: 30,
+        background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)",
+        borderRadius: 9,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 15,
+        fontWeight: 800,
+        color: "#0a0a0a",
+        boxShadow: "0 2px 8px rgba(240,192,64,0.25)"
+      }}>D</div>
+      <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>DEVIA</span>
+      <span style={{ color: "#545870", fontSize: 11, fontWeight: 500, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>Devis charpente IA</span>
     </div>
-    <nav style={{ display: "flex", gap: 4 }}>
+    <nav style={{
+      display: "flex",
+      gap: 2,
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      borderRadius: 999,
+      padding: 4
+    }}>
       {[{ id: "devis", label: "Devis" }, { id: "projets", label: "Projets" }, { id: "catalogue", label: "Catalogue" }, { id: "parametres", label: "Parametres" }, { id: "compte", label: "Compte" }].map(tab => (
         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-          style={{ background: activeTab === tab.id ? "#f0c04018" : "transparent", border: activeTab === tab.id ? "1px solid #f0c040" : "1px solid transparent", color: activeTab === tab.id ? "#f0c040" : "#545870", borderRadius: 6, padding: "6px 14px", cursor: "pointer", fontSize: 14, fontWeight: activeTab === tab.id ? 600 : 400 }}>
+          style={{
+            background: activeTab === tab.id ? "rgba(255,255,255,0.08)" : "transparent",
+            border: "none",
+            color: activeTab === tab.id ? "#ffffff" : "#7a7d92",
+            borderRadius: 999,
+            padding: "7px 16px",
+            cursor: "pointer",
+            fontSize: 13,
+            fontWeight: activeTab === tab.id ? 600 : 500,
+            letterSpacing: "-0.005em",
+            transition: "all 0.15s",
+            boxShadow: activeTab === tab.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
+          }}
+          onMouseEnter={(e) => { if (activeTab !== tab.id) e.currentTarget.style.color = "#d0d2dc"; }}
+          onMouseLeave={(e) => { if (activeTab !== tab.id) e.currentTarget.style.color = "#7a7d92"; }}>
           {tab.label}
         </button>
       ))}
     </nav>
   </header>
 
-  <main style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
+  <main className="devia-page devia-bg-noise" style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
 
     {activeTab === "devis" && (
       <div>
