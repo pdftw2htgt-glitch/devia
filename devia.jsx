@@ -1050,10 +1050,9 @@ return (
           <div style={cardStyle}><QuestionsScreen detected={detectedParams} onValidate={handleGenerate} /></div>
         ) : !result ? (
           <div>
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🏗️</div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Generez votre devis charpente</h1>
-              <p style={{ color: "#545870", fontSize: 15 }}>Decrivez votre projet - DEVIA genere un devis professionnel et une visualisation 3D</p>
+            <div style={{ textAlign: "center", marginBottom: 40, paddingTop: 16 }}>
+              <h1 style={{ fontSize: 36, fontWeight: 700, marginBottom: 12, letterSpacing: "-0.02em", lineHeight: 1.1 }}>Generez votre devis <span style={{ background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>charpente</span></h1>
+              <p style={{ color: "#7a7d92", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.55 }}>Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.</p>
             </div>
             <div style={cardStyle}>
               <div style={{ marginBottom: 16 }}>
@@ -1080,7 +1079,7 @@ return (
                 </div>
               )}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Documents - max 5</label>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
                 <div onClick={() => fileInputRef.current && fileInputRef.current.click()}
                   style={{ border: "2px dashed #1e2231", borderRadius: 8, padding: 20, textAlign: "center", cursor: "pointer", color: "#545870" }}>
                   <div style={{ fontSize: 24, marginBottom: 6 }}>📎</div>
