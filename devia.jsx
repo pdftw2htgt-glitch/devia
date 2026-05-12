@@ -1050,65 +1050,44 @@ return (
           <div style={cardStyle}><QuestionsScreen detected={detectedParams} onValidate={handleGenerate} /></div>
         ) : !result ? (
           <div>
-            <div style={{ textAlign: "center", marginBottom: 40, paddingTop: 16 }}>
-              <h1 style={{ fontSize: 36, fontWeight: 700, marginBottom: 12, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-                Generez votre devis <span style={{ background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>charpente</span>
-              </h1>
-              <p style={{ color: "#7a7d92", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.55 }}>
-                Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.
-              </p>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🏗️</div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Generez votre devis charpente</h1>
+              <p style={{ color: "#545870", fontSize: 15 }}>Decrivez votre projet - DEVIA genere un devis professionnel et une visualisation 3D</p>
             </div>
             <div style={cardStyle}>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Description du projet</label>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Description du projet</label>
                 <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                   placeholder="Ex: Charpente traditionnelle en sapin pour maison de 10x8m, tuile terre cuite, pente 35 deg, combles amenageables..."
-                  rows={5} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6, fontSize: 14 }} />
+                  rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Commune</label>
+                  <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Commune</label>
                   <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Lyon, Grenoble, Paris..." style={inputStyle} />
                 </div>
                 <div>
-                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Altitude <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(m)</span></label>
+                  <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
                   <input value={altitude} onChange={e => setAltitude(e.target.value)} type="number" placeholder="200" style={inputStyle} />
                 </div>
               </div>
               {zoneInfo && (
-                <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                  <div style={{ background: "rgba(96, 165, 250, 0.08)", border: "1px solid rgba(96, 165, 250, 0.18)", borderRadius: 999, padding: "5px 12px", fontSize: 12, color: "#60a5fa", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa" }}></span>
-                    Neige {zoneInfo.neige} <span style={{ opacity: 0.7 }}>{zoneInfo.sk} kN/m2</span>
-                  </div>
-                  <div style={{ background: "rgba(167, 139, 250, 0.08)", border: "1px solid rgba(167, 139, 250, 0.18)", borderRadius: 999, padding: "5px 12px", fontSize: 12, color: "#a78bfa", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a78bfa" }}></span>
-                    Vent {zoneInfo.vent} <span style={{ opacity: 0.7 }}>{zoneInfo.qb} kN/m2</span>
-                  </div>
-                  <div style={{ background: "rgba(249, 115, 22, 0.08)", border: "1px solid rgba(249, 115, 22, 0.18)", borderRadius: 999, padding: "5px 12px", fontSize: 12, color: "#f97316", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f97316" }}></span>
-                    Sismique {zoneInfo.sismique} <span style={{ opacity: 0.7 }}>{zoneInfo.ag}g</span>
-                  </div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                  <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.sk} kN/m2</Badge>
+                  <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
+                  <Badge color="#f97316">Sismique {zoneInfo.sismique} - {zoneInfo.ag}g</Badge>
                 </div>
               )}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Documents - max 5</label>
                 <div onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                  style={{ border: "1.5px dashed rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.02)", borderRadius: 12, padding: 24, textAlign: "center", cursor: "pointer", color: "#7a7d92", transition: "all 0.15s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(240,192,64,0.3)"; e.currentTarget.style.background = "rgba(240,192,64,0.03)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 8, opacity: 0.7 }}>
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-                  </svg>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>Cliquez pour ajouter des fichiers</div>
-                  <div style={{ fontSize: 11, color: "#545870", marginTop: 4 }}>Images ou PDF</div>
+                  style={{ border: "2px dashed #1e2231", borderRadius: 8, padding: 20, textAlign: "center", cursor: "pointer", color: "#545870" }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>📎</div>
+                  <div style={{ fontSize: 13 }}>Cliquez pour ajouter des fichiers</div>
                   {files.length > 0 && (
-                    <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
-                      {files.map((f, i) => (
-                        <div key={i} style={{ background: "rgba(96, 165, 250, 0.1)", border: "1px solid rgba(96, 165, 250, 0.2)", borderRadius: 999, padding: "4px 10px", fontSize: 11, color: "#60a5fa" }}>
-                          {f.name}
-                        </div>
-                      ))}
+                    <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
+                      {files.map((f, i) => <Badge key={i} color="#60a5fa">{f.name}</Badge>)}
                     </div>
                   )}
                 </div>
@@ -1117,9 +1096,8 @@ return (
                   style={{ display: "none" }} />
               </div>
               {error && (
-                <div style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.25)", borderRadius: 10, padding: 14, marginBottom: 20, color: "#fca5a5", fontSize: 13, display: "flex", alignItems: "start", gap: 10 }}>
-                  <span style={{ flexShrink: 0, marginTop: 1 }}>&#x26A0;&#xFE0F;</span>
-                  <div>{error}
+                <div style={{ background: "#ef444420", border: "1px solid #ef4444", borderRadius: 8, padding: 12, marginBottom: 16, color: "#ef4444", fontSize: 14 }}>
+                  {error}
                 </div>
               )}
               {/* Selecteur de catalogue */}
