@@ -1502,32 +1502,54 @@ return (
 
     {activeTab === "catalogue" && (
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700 }}>Catalogue</h2>
-          <Badge color="#60a5fa">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Catalogue</h2>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de reference utilises pour vos devis</div>
+          </div>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            background: "rgba(96, 165, 250, 0.08)",
+            border: "1px solid rgba(96, 165, 250, 0.2)",
+            borderRadius: 999,
+            padding: "6px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#60a5fa"
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa" }}></span>
             {activeCatalogTab === "marche" ? marchePrix.length + " materiaux" : catalogueEntreprise.length + " materiaux"}
-          </Badge>
+          </div>
         </div>
 
-        {/* Onglets internes */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #1e2231" }}>
+        {/* Onglets internes - style pills */}
+        <div style={{ display: "inline-flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 999, padding: 4 }}>
           {[
-            { id: "marche", label: "Marche DEVIA", icon: "&#x1F4CA;" },
-            { id: "perso", label: "Mon catalogue", icon: "&#x1F4DD;" }
+            { id: "marche", label: "Marche DEVIA", color: "#f0c040" },
+            { id: "perso", label: "Mon catalogue", color: "#3ecf8e" }
           ].map(t => (
             <button key={t.id} onClick={() => setActiveCatalogTab(t.id)}
               style={{
-                background: "transparent",
+                background: activeCatalogTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
                 border: "none",
-                borderBottom: activeCatalogTab === t.id ? "2px solid #f0c040" : "2px solid transparent",
-                color: activeCatalogTab === t.id ? "#f0c040" : "#545870",
+                color: activeCatalogTab === t.id ? "#ffffff" : "#7a7d92",
+                borderRadius: 999,
+                padding: "8px 18px",
                 cursor: "pointer",
-                padding: "10px 18px",
-                fontSize: 14,
-                fontWeight: activeCatalogTab === t.id ? 600 : 400,
-                transition: "all 0.15s"
+                fontSize: 13,
+                fontWeight: activeCatalogTab === t.id ? 600 : 500,
+                letterSpacing: "-0.005em",
+                transition: "all 0.15s",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                boxShadow: activeCatalogTab === t.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
               }}
-              dangerouslySetInnerHTML={{ __html: t.icon + " " + t.label }} />
+              onMouseEnter={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = "#d0d2dc"; }}
+              onMouseLeave={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = "#7a7d92"; }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: activeCatalogTab === t.id ? t.color : "#3a3d4f", transition: "background 0.15s" }}></span>
+              {t.label}
+            </button>
           ))}
         </div>
 
@@ -1624,15 +1646,46 @@ return (
                   </div>
                   <button
                     onClick={() => { resetCatalogForm(); setShowAddCatalogModal(true); }}
-                    style={{ background: "#f0c040", color: "#08090c", border: "none", borderRadius: 8, padding: "12px 20px", cursor: "pointer", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
-                    + Ajouter un materiau
+                    style={{
+                      background: "#f0c040",
+                      color: "#0a0a0a",
+                      border: "1px solid #f0c040",
+                      borderRadius: 999,
+                      padding: "11px 20px",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      letterSpacing: "0.01em",
+                      whiteSpace: "nowrap",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      boxShadow: "0 4px 14px rgba(240, 192, 64, 0.22)",
+                      transition: "transform 0.1s, box-shadow 0.15s"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(240, 192, 64, 0.3)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(240, 192, 64, 0.22)"; }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Ajouter un materiau
                   </button>
                 </div>
                 {catalogueEntreprise.length === 0 ? (
-                  <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F4DD;</div>
-                    <div style={{ color: "#545870", marginBottom: 8 }}>Aucun materiau dans votre catalogue.</div>
-                    <div style={{ color: "#545870", fontSize: 13 }}>Bientot vous pourrez ajouter vos propres prix.</div>
+                  <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 14,
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      marginBottom: 16
+                    }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a7d92" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                      </svg>
+                    </div>
+                    <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun materiau dans votre catalogue</div>
+                    <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Cliquez sur &quot;Ajouter un materiau&quot; pour creer votre premier prix personnalise.</div>
                   </div>
                 ) : (
                   <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
