@@ -1598,24 +1598,26 @@ return (
                           <span dangerouslySetInnerHTML={{ __html: icons[cat] || "" }} />
                           {cat} <span style={{ color: "#545870", fontWeight: 400, fontSize: 13 }}>({items.length})</span>
                         </h3>
-                        <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+                        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", background: "rgba(255, 255, 255, 0.015)" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
-                              <tr style={{ background: "#0f1117" }}>
-                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Designation</th>
-                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Dimensions</th>
-                                <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Unite</th>
-                                <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Prix HT</th>
+                              <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
+                                <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
                               </tr>
                             </thead>
                             <tbody>
                               {items.map((m, i) => (
-                                <tr key={m.id} style={{ borderTop: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f111740" }}>
-                                  <td style={{ padding: "10px 12px", fontSize: 13 }}>{m.designation}</td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.dimensions || "-"}</td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.unite}</td>
-                                  <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#f0c040", fontWeight: 600 }}>
-                                    {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} EUR
+                                <tr key={m.id} style={{ borderBottom: i < items.length - 1 ? "1px solid rgba(255, 255, 255, 0.04)" : "none", transition: "background 0.12s" }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.025)"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#e8eaf2", fontWeight: 500 }}>{m.designation}</td>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#9ca0b8" }}>{m.dimensions || "—"}</td>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#7a7d92" }}>{m.unite}</td>
+                                  <td style={{ padding: "12px 16px", textAlign: "right", fontSize: 13, color: "#f0c040", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                    {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span>
                                   </td>
                                 </tr>
                               ))}
@@ -1691,24 +1693,28 @@ return (
                   <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
-                        <tr style={{ background: "#0f1117" }}>
-                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Categorie</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Designation</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Dimensions</th>
-                          <th style={{ padding: "10px 12px", textAlign: "left", color: "#545870", fontSize: 12, fontWeight: 600 }}>Unite</th>
-                          <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Prix HT</th>
-                          <th style={{ padding: "10px 12px", textAlign: "right", color: "#545870", fontSize: 12, fontWeight: 600 }}>Actions</th>
+                        <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Categorie</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
+                          <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
+                          <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {catalogueEntreprise.map((m, i) => (
-                          <tr key={m.id} style={{ borderTop: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f111740" }}>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#60a5fa" }}>{m.categorie}</td>
-                            <td style={{ padding: "10px 12px", fontSize: 13 }}>{m.designation}</td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.dimensions || "-"}</td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#545870" }}>{m.unite}</td>
-                            <td style={{ padding: "10px 12px", textAlign: "right", fontSize: 13, color: "#3ecf8e", fontWeight: 600 }}>
-                              {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} EUR
+                          <tr key={m.id} style={{ borderBottom: i < catalogueEntreprise.length - 1 ? "1px solid rgba(255, 255, 255, 0.04)" : "none", transition: "background 0.12s" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.025)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                            <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                              <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 600, padding: "3px 8px", background: "rgba(96, 165, 250, 0.08)", borderRadius: 999, letterSpacing: "0.02em" }}>{m.categorie}</span>
+                            </td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#e8eaf2", fontWeight: 500 }}>{m.designation}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#9ca0b8" }}>{m.dimensions || "—"}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#7a7d92" }}>{m.unite}</td>
+                            <td style={{ padding: "12px 16px", textAlign: "right", fontSize: 13, color: "#3ecf8e", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                              {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} <span style={{ color: "#1f7a4c", fontSize: 11 }}>EUR</span>
                             </td>
                             <td style={{ padding: "8px 12px", textAlign: "right" }}>
                               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
