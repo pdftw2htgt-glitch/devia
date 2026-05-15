@@ -1562,15 +1562,31 @@ return (
             {/* TAB MARCHE DEVIA */}
             {activeCatalogTab === "marche" && (
               <>
-                <div style={{ ...cardStyle, padding: 16, marginBottom: 16, background: "#0f1117", borderColor: "#60a5fa44" }}>
-                  <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
-                    <div style={{ fontSize: 20 }}>&#x2139;&#xFE0F;</div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Catalogue marche DEVIA</div>
-                      <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
-                        Prix moyens du marche francais 2026, mis a jour regulierement par DEVIA.
-                        Vos prix dans 'Mon catalogue' ont la priorite sur ces references.
-                      </div>
+                <div style={{
+                  padding: 16,
+                  marginBottom: 16,
+                  background: "rgba(96, 165, 250, 0.04)",
+                  border: "1px solid rgba(96, 165, 250, 0.18)",
+                  borderRadius: 12,
+                  display: "flex",
+                  alignItems: "start",
+                  gap: 12
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: "rgba(96, 165, 250, 0.12)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Catalogue marche DEVIA</div>
+                    <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
+                      Prix moyens du marche francais 2026, mis a jour regulierement par DEVIA.
+                      Vos prix dans &quot;Mon catalogue&quot; ont la priorite sur ces references.
                     </div>
                   </div>
                 </div>
@@ -1635,14 +1651,30 @@ return (
             {activeCatalogTab === "perso" && (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
-                  <div style={{ ...cardStyle, padding: 16, background: "#0f1117", borderColor: "#3ecf8e44", flex: 1, marginBottom: 0 }}>
-                    <div style={{ display: "flex", alignItems: "start", gap: 12 }}>
-                      <div style={{ fontSize: 20 }}>&#x1F4A1;</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Mon catalogue d'entreprise</div>
-                        <div style={{ color: "#545870", fontSize: 13, lineHeight: 1.5 }}>
-                          Vos prix personnels, prioritaires sur le catalogue marche.
-                        </div>
+                  <div style={{
+                    padding: 16,
+                    background: "rgba(62, 207, 142, 0.04)",
+                    border: "1px solid rgba(62, 207, 142, 0.18)",
+                    borderRadius: 12,
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "start",
+                    gap: 12
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: "rgba(62, 207, 142, 0.12)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21h6"/><path d="M12 17v4"/><path d="M12 3a6 6 0 016 6c0 3-2 4-3 6H9c-1-2-3-3-3-6a6 6 0 016-6z"/>
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Mon catalogue d&apos;entreprise</div>
+                      <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
+                        Vos prix personnels, prioritaires sur le catalogue marche.
                       </div>
                     </div>
                   </div>
@@ -1721,18 +1753,44 @@ return (
                                 <button
                                   onClick={() => openEditCatalogModal(m)}
                                   title="Modifier"
-                                  style={{ background: "transparent", border: "1px solid #2a2e40", color: "#60a5fa", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.background = "#60a5fa18"; e.currentTarget.style.borderColor = "#60a5fa"; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#2a2e40"; }}>
-                                  Modifier
+                                  style={{
+                                    background: "transparent",
+                                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                                    color: "#7a7d92",
+                                    borderRadius: 8,
+                                    padding: "6px 8px",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(96, 165, 250, 0.1)"; e.currentTarget.style.borderColor = "rgba(96, 165, 250, 0.4)"; e.currentTarget.style.color = "#60a5fa"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                  </svg>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteMaterial(m)}
                                   title="Supprimer"
-                                  style={{ background: "transparent", border: "1px solid #2a2e40", color: "#ef4444", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.background = "#ef444418"; e.currentTarget.style.borderColor = "#ef4444"; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#2a2e40"; }}>
-                                  Supprimer
+                                  style={{
+                                    background: "transparent",
+                                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                                    color: "#7a7d92",
+                                    borderRadius: 8,
+                                    padding: "6px 8px",
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center"
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"; e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)"; e.currentTarget.style.color = "#ef4444"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                  </svg>
                                 </button>
                               </div>
                             </td>
