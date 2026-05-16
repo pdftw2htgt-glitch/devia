@@ -995,19 +995,17 @@ return (
     zIndex: 100
   }}>
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <div style={{
-        width: 30,
-        height: 30,
-        background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)",
-        borderRadius: 9,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 15,
-        fontWeight: 800,
-        color: "#0a0a0a",
-        boxShadow: "0 2px 8px rgba(240,192,64,0.25)"
-      }}>D</div>
+      <img
+        src="/logo-devia.png"
+        alt="DEVIA"
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 9,
+          objectFit: "cover",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.3)"
+        }}
+      />
       <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>DEVIA</span>
       <span style={{ color: "#545870", fontSize: 11, fontWeight: 500, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>Devis charpente IA</span>
     </div>
