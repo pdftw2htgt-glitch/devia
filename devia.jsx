@@ -1894,32 +1894,109 @@ return (
 
     {activeTab === "parametres" && (
       <div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Parametres</h2>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Parametres</h2>
+          <div style={{ color: "#7a7d92", fontSize: 13 }}>Configurez votre entreprise et vos tarifs par defaut</div>
+        </div>
+
+        {/* Section Informations entreprise */}
         <div style={cardStyle}>
-          <div style={{ fontWeight: 600, marginBottom: 16, color: "#f0c040" }}>Informations entreprise</div>
-          {[{ label: "Nom de l entreprise", key: "entreprise" }, { label: "SIRET", key: "siret" }, { label: "Adresse", key: "adresse" }].map(f => (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: "rgba(240, 192, 64, 0.1)",
+              border: "1px solid rgba(240, 192, 64, 0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="9" y1="12" x2="9.01" y2="12"/><line x1="9" y1="15" x2="9.01" y2="15"/><line x1="9" y1="18" x2="9.01" y2="18"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Informations entreprise</div>
+              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces informations apparaitront sur vos devis</div>
+            </div>
+          </div>
+          {[{ label: "Nom de l'entreprise", key: "entreprise" }, { label: "SIRET", key: "siret" }, { label: "Adresse", key: "adresse" }].map(f => (
             <div key={f.key} style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>{f.label}</label>
+              <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label}</label>
               <input value={params[f.key]} onChange={e => setParams(prev => ({ ...prev, [f.key]: e.target.value }))} style={inputStyle} />
             </div>
           ))}
         </div>
+
+        {/* Section Tarification */}
         <div style={cardStyle}>
-          <div style={{ fontWeight: 600, marginBottom: 16, color: "#f0c040" }}>Tarification</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: "rgba(62, 207, 142, 0.1)",
+              border: "1px solid rgba(62, 207, 142, 0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Tarification par defaut</div>
+              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces valeurs s&apos;appliquent automatiquement a vos devis</div>
+            </div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            {[{ label: "Taux horaire EUR/h", key: "tauxHoraire" }, { label: "TVA %", key: "tva" }, { label: "Marge %", key: "marge" }].map(f => (
+            {[
+              { label: "Taux horaire", key: "tauxHoraire", suffix: "EUR/h" },
+              { label: "TVA", key: "tva", suffix: "%" },
+              { label: "Marge", key: "marge", suffix: "%" }
+            ].map(f => (
               <div key={f.key}>
-                <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>{f.label}</label>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label} <span style={{ color: "#7a7d92", fontWeight: 400, textTransform: "none" }}>({f.suffix})</span></label>
                 <input type="number" value={params[f.key]} onChange={e => setParams(prev => ({ ...prev, [f.key]: parseFloat(e.target.value) }))} style={inputStyle} />
               </div>
             ))}
           </div>
         </div>
+
+        {/* Section Mentions legales */}
         <div style={cardStyle}>
-          <div style={{ fontWeight: 600, marginBottom: 16, color: "#f0c040" }}>Mentions legales</div>
-          <textarea value={params.mentions} onChange={e => setParams(prev => ({ ...prev, mentions: e.target.value }))} rows={3} style={{ ...inputStyle, resize: "vertical" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: "rgba(96, 165, 250, 0.1)",
+              border: "1px solid rgba(96, 165, 250, 0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Mentions legales</div>
+              <div style={{ color: "#7a7d92", fontSize: 12 }}>Texte affiche en bas de vos devis</div>
+            </div>
+          </div>
+          <textarea value={params.mentions} onChange={e => setParams(prev => ({ ...prev, mentions: e.target.value }))} rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
         </div>
-        <button style={{ ...btnPrimary, padding: "12px 24px" }}>Sauvegarder</button>
+
+        {/* Bouton Sauvegarder */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <button style={{
+            ...btnPrimary,
+            padding: "12px 28px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            boxShadow: "0 4px 14px rgba(240, 192, 64, 0.22)",
+            transition: "transform 0.1s, box-shadow 0.15s"
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(240, 192, 64, 0.3)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(240, 192, 64, 0.22)"; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Sauvegarder
+          </button>
+        </div>
       </div>
     )}
 
