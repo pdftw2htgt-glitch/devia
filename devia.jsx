@@ -996,7 +996,7 @@ return (
   }}>
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <img
-        src="/logo-devia.png"
+        src="/logo-devia.jpeg"
         alt="DEVIA"
         style={{
           width: 32,
