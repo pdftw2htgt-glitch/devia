@@ -1048,9 +1048,8 @@ return (
           <div style={cardStyle}><QuestionsScreen detected={detectedParams} onValidate={handleGenerate} /></div>
         ) : !result ? (
           <div>
-            <div style={{ textAlign: "center", marginBottom: 40, paddingTop: 16 }}>
-              <h1 style={{ fontSize: 36, fontWeight: 700, marginBottom: 12, letterSpacing: "-0.02em", lineHeight: 1.1 }}>Generez votre devis <span style={{ background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>charpente</span></h1>
-              <p style={{ color: "#7a7d92", fontSize: 15, maxWidth: 520, margin: "0 auto", lineHeight: 1.55 }}>Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.</p>
+            <div style={{ marginBottom: 24, paddingTop: 4 }}>
+              <p style={{ color: "#7a7d92", fontSize: 14, lineHeight: 1.55 }}>Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.</p>
             </div>
             <div style={cardStyle}>
               <div style={{ marginBottom: 16 }}>
