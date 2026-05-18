@@ -413,6 +413,7 @@ const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
+  const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
@@ -554,11 +555,50 @@ if (pt) out.pente = parseInt(pt[1]);
 return out;
 };
 
-const handleGenerate = async (finalParams) => {
+// Extraction d'adresse via API gouv.fr (limite 50 req/sec, gratuit, pas de cle)
+  const extractAddressFromPrompt = async (text) => {
+    if (!text || text.trim().length < 3) return null;
+    try {
+      // L'API gouv.fr accepte une recherche libre, elle trouvera la ville/adresse meme noyee dans du texte
+      const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(text) + "&limit=1";
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      if (!data.features || data.features.length === 0) return null;
+      const feat = data.features[0];
+      // Score de confiance entre 0 et 1, on prend que si > 0.4
+      if (!feat.properties.score || feat.properties.score < 0.4) return null;
+      return {
+        label: feat.properties.label,
+        ville: feat.properties.city || feat.properties.name,
+        codePostal: feat.properties.postcode || "",
+        lat: feat.geometry.coordinates[1],
+        lng: feat.geometry.coordinates[0],
+        score: feat.properties.score
+      };
+    } catch (e) {
+      console.warn("Extraction adresse echouee:", e);
+      return null;
+    }
+  };
+
+  const handleGenerate = async (finalParams) => {
 setShowQuestions(false);
 setLoading(true);
 setError(null);
-const zoneInfo = getZone(commune, altitude);
+
+    // Si le champ Localisation est vide, on tente d'extraire l'adresse depuis le prompt
+    let effectiveCommune = commune;
+    if (!commune || commune.trim() === "") {
+      const extracted = await extractAddressFromPrompt(prompt);
+      if (extracted) {
+        effectiveCommune = extracted.ville || extracted.label;
+        setCommune(effectiveCommune); // Auto-remplit le champ visuel
+        setAddressData(extracted); // Stocke lat/lng pour modif #6 (altitude)
+      }
+    }
+
+const zoneInfo = getZone(effectiveCommune, altitude);
 // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
     let catalogSource = "marche";
@@ -615,7 +655,7 @@ const zoneInfo = getZone(commune, altitude);
   "4) Adapte les quantites au projet decrit. "
 ) +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
-"Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
+"Commune=" + effectiveCommune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
 (finalParams.pente ? "Pente=" + finalParams.pente + "deg. " : "") +
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
