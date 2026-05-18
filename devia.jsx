@@ -1061,7 +1061,7 @@ return (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Commune</label>
-                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ex: Lyon ou 12 rue de Paris, 75001 Paris" style={inputStyle} />
+                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ville, code postal ou adresse complete" style={inputStyle} />
                 </div>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
