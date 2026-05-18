@@ -412,6 +412,7 @@ function DeviaMain() {
 const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
 const [commune, setCommune] = useState("");
+  const [typeTravaux, setTypeTravaux] = useState("neuf");
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
@@ -1048,8 +1049,69 @@ return (
           <div style={cardStyle}><QuestionsScreen detected={detectedParams} onValidate={handleGenerate} /></div>
         ) : !result ? (
           <div>
-            <div style={{ marginBottom: 24, paddingTop: 4 }}>
+            <div style={{ marginBottom: 20, paddingTop: 4 }}>
               <p style={{ color: "#7a7d92", fontSize: 14, lineHeight: 1.55 }}>Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.</p>
+            </div>
+
+            {/* Toggle Neuf / Renovation */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 20,
+              padding: "14px 18px",
+              background: "rgba(255, 255, 255, 0.02)",
+              border: "1px solid rgba(255, 255, 255, 0.05)",
+              borderRadius: 12
+            }}>
+              <div>
+                <div style={{ color: "#9ca0b8", fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 3 }}>
+                  Type de travaux
+                </div>
+                <div style={{ color: "#e8eaf2", fontSize: 13, fontWeight: 500 }}>
+                  {typeTravaux === "neuf" ? "Construction neuve" : "Renovation"}
+                </div>
+              </div>
+              <div style={{
+                display: "inline-flex",
+                gap: 2,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 999,
+                padding: 4
+              }}>
+                {[
+                  { id: "neuf", label: "Neuf", color: "#f0c040" },
+                  { id: "renovation", label: "Renovation", color: "#3ecf8e" }
+                ].map(t => (
+                  <button key={t.id} type="button" onClick={() => setTypeTravaux(t.id)}
+                    style={{
+                      background: typeTravaux === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                      border: "none",
+                      color: typeTravaux === t.id ? "#ffffff" : "#7a7d92",
+                      borderRadius: 999,
+                      padding: "7px 16px",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: typeTravaux === t.id ? 600 : 500,
+                      letterSpacing: "-0.005em",
+                      transition: "all 0.15s",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      boxShadow: typeTravaux === t.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
+                    }}
+                    onMouseEnter={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = "#d0d2dc"; }}
+                    onMouseLeave={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = "#7a7d92"; }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: typeTravaux === t.id ? t.color : "#3a3d4f",
+                      transition: "background 0.15s"
+                    }}></span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={cardStyle}>
               <div style={{ marginBottom: 16 }}>
