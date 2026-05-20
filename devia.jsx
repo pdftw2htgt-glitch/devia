@@ -575,9 +575,10 @@ return out;
       const extracted = await extractAddressFromPrompt(prompt);
       console.log("[DEVIA] Resultat extraction:", extracted);
       if (extracted && (!commune || commune.trim() === "")) {
-        const villeDetectee = extracted.ville || extracted.label;
-        console.log("[DEVIA] Remplissage du champ Localisation avec:", villeDetectee);
-        setCommune(villeDetectee);
+        // On utilise le label complet (adresse complete si l'user en a tape une, sinon juste la ville)
+        const valeurChamp = extracted.label || extracted.ville;
+        console.log("[DEVIA] Remplissage du champ Localisation avec:", valeurChamp);
+        setCommune(valeurChamp);
         setAddressData(extracted);
       }
       setExtractingAddress(false);
@@ -586,37 +587,107 @@ return out;
     return () => clearTimeout(timer);
   }, [prompt]);
 
+  // Helper : extrait les morceaux du texte qui RESSEMBLENT a une adresse
+  const extractAddressCandidates = (text) => {
+    const candidates = [];
+
+    // 1. Code postal (5 chiffres) eventuellement suivi d'une ville
+    //    Ex: "75001 Paris" / "69001" / "13008"
+    const cpMatch = text.match(/\b(\d{5})\s*([A-ZA-zÀ-ÿ][a-zà-ÿ\-\s']{2,30})?/);
+    if (cpMatch) {
+      candidates.push(cpMatch[0].trim());
+    }
+
+    // 2. Numero + voie + reste : "12 rue Merciere Lyon" / "5 avenue Foch Paris"
+    const adresseMatch = text.match(/\b(\d{1,4})\s+(rue|avenue|av\.?|boulevard|bd\.?|place|impasse|chemin|route|allee|all\.?|quai)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\-\s']{2,60})/i);
+    if (adresseMatch) {
+      candidates.push(adresseMatch[0].trim());
+    }
+
+    // 3. Noms propres : mots avec majuscule (probables villes)
+    //    Ex: "Lyon", "Saint-Tropez", "La Croix-Valmer"
+    //    On capture le mot + d'eventuels mots suivants commencant aussi par majuscule (Saint-Tropez, etc.)
+    const mots = text.split(/[\s,;.()\[\]]+/);
+    const motsAvecMaj = mots.filter(m => /^[A-ZÀ-Ÿ][a-zà-ÿ\-']{2,}/.test(m));
+    // On garde les noms propres qui ne sont pas des materiaux/types connus
+    const blacklist = new Set([
+      // Types de constructions
+      "Carport", "Charpente", "Garage", "Maison", "Toiture", "Abri", "Pergola",
+      "Hangar", "Veranda", "Extension", "Ossature", "Cabanon", "Atelier",
+      // Materiaux
+      "Sapin", "Douglas", "Chene", "Pin", "Epicea", "Melèze", "Meleze",
+      "Ardoise", "Tuile", "Bardeau", "Bac", "Acier", "Zinc", "Cuivre", "Plomb",
+      "Beton", "Terre", "Cuite", "Lauze", "Shingle",
+      // Types de charpente
+      "Traditionnelle", "Fermette", "Industriel", "Industrielle", "Metalique", "Metallique",
+      "Lamelle", "Lamellee", "Colle", "Massif", "Bois",
+      // Etat travaux
+      "Neuve", "Neuf", "Renovation", "Refection", "Combles", "Perdus",
+      "Amenagees", "Amenageables",
+      // Adjectifs courants (faux positifs)
+      "Petit", "Petite", "Grand", "Grande", "Nouveau", "Nouvelle",
+      "Vieux", "Vieille", "Ancien", "Ancienne", "Beau", "Belle", "Bel",
+      "Premier", "Premiere", "Second", "Seconde",
+      // Autres
+      "Pente", "Pentes", "Toit", "Faite", "Faitage", "Pignon", "Pignons",
+      "Sablieres", "Sabliere", "Chevrons", "Chevron", "Pannes", "Panne",
+      "Liteaux", "Liteau", "Arbaletriers", "Arbaletrier"
+    ]);
+    motsAvecMaj.forEach(m => {
+      if (!blacklist.has(m)) candidates.push(m);
+    });
+
+    return candidates;
+  };
+
   const extractAddressFromPrompt = async (text) => {
     if (!text || text.trim().length < 3) return null;
-    try {
-      // L'API gouv.fr accepte une recherche libre, elle trouvera la ville/adresse meme noyee dans du texte
-      const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(text) + "&limit=1";
-      const resp = await fetch(url);
-      if (!resp.ok) return null;
-      const data = await resp.json();
-      if (!data.features || data.features.length === 0) {
-        console.log("[DEVIA] API n'a renvoye aucune feature");
-        return null;
+
+    // On pre-extrait les candidats (codes postaux, noms propres, adresses)
+    const candidates = extractAddressCandidates(text);
+    console.log("[DEVIA] Candidats extraits:", candidates);
+
+    // Si pas de candidats, on essaie quand meme avec tout le texte en derniere chance
+    const queries = candidates.length > 0 ? candidates : [text];
+
+    // Pour chaque candidat, on interroge l'API jusqu'a trouver un match
+    for (const query of queries) {
+      try {
+        const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&limit=1";
+        const resp = await fetch(url);
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        if (!data.features || data.features.length === 0) {
+          console.log("[DEVIA] Pas de feature pour:", query);
+          continue;
+        }
+        const feat = data.features[0];
+        console.log("[DEVIA] Query:", query, "-> Score:", feat.properties.score, "Label:", feat.properties.label);
+
+        // Seuil adaptatif : 0.85 pour 1 mot seul, 0.5 pour plusieurs mots
+        const motsCandidat = query.trim().split(/\s+/).length;
+        const seuilMin = motsCandidat === 1 ? 0.85 : 0.5;
+        if (!feat.properties.score || feat.properties.score < seuilMin) {
+          console.log("[DEVIA] Score", feat.properties.score, "<", seuilMin, "pour:", query, "(", motsCandidat, "mot(s)) -> rejete");
+          continue;
+        }
+
+        return {
+          label: feat.properties.label,
+          ville: feat.properties.city || feat.properties.name,
+          codePostal: feat.properties.postcode || "",
+          lat: feat.geometry.coordinates[1],
+          lng: feat.geometry.coordinates[0],
+          score: feat.properties.score
+        };
+      } catch (e) {
+        console.warn("[DEVIA] Erreur API pour", query, ":", e);
+        continue;
       }
-      const feat = data.features[0];
-      console.log("[DEVIA] API score:", feat.properties.score, "Label:", feat.properties.label, "Ville:", feat.properties.city);
-      // Score de confiance entre 0 et 1, on accepte si >= 0.2 (assez permissif)
-      if (!feat.properties.score || feat.properties.score < 0.2) {
-        console.log("[DEVIA] Score trop bas, rejete");
-        return null;
-      }
-      return {
-        label: feat.properties.label,
-        ville: feat.properties.city || feat.properties.name,
-        codePostal: feat.properties.postcode || "",
-        lat: feat.geometry.coordinates[1],
-        lng: feat.geometry.coordinates[0],
-        score: feat.properties.score
-      };
-    } catch (e) {
-      console.warn("Extraction adresse echouee:", e);
-      return null;
     }
+
+    console.log("[DEVIA] Aucun candidat n'a donne un resultat exploitable");
+    return null;
   };
 
   const handleGenerate = async (finalParams) => {
