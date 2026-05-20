@@ -587,6 +587,40 @@ return out;
     return () => clearTimeout(timer);
   }, [prompt]);
 
+  // Auto-remplissage de l'altitude quand addressData est mis a jour
+  useEffect(() => {
+    if (!addressData || !addressData.lat || !addressData.lng) return;
+    // Si l'user a deja saisi une altitude differente de la valeur par defaut 200, on ne touche pas
+    if (altitude && altitude !== "200" && altitude.trim() !== "") {
+      console.log("[DEVIA] Altitude deja saisie par l'user, pas de remplissage auto");
+      return;
+    }
+
+    const fetchAltitude = async () => {
+      try {
+        console.log("[DEVIA] Recuperation altitude pour:", addressData.lat, addressData.lng);
+        const url = "https://api.open-meteo.com/v1/elevation?latitude=" + addressData.lat + "&longitude=" + addressData.lng;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn("[DEVIA] API altitude HTTP", resp.status);
+          return;
+        }
+        const data = await resp.json();
+        if (!data.elevation || !data.elevation.length) {
+          console.warn("[DEVIA] API altitude pas de valeur");
+          return;
+        }
+        const alt = Math.round(data.elevation[0]);
+        console.log("[DEVIA] Altitude recuperee:", alt, "m");
+        setAltitude(String(alt));
+      } catch (e) {
+        console.warn("[DEVIA] Erreur API altitude:", e);
+      }
+    };
+
+    fetchAltitude();
+  }, [addressData]);
+
   // Helper : extrait les morceaux du texte qui RESSEMBLENT a une adresse
   const extractAddressCandidates = (text) => {
     const candidates = [];
