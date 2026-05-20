@@ -415,24 +415,6 @@ const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
-
-  // Auto-extraction de l'adresse depuis le prompt (debounce 1s)
-  useEffect(() => {
-    if (!prompt || prompt.trim().length < 10) return;
-    if (commune && commune.trim() !== "") return; // Ne touche pas si l'user a deja rempli
-
-    const timer = setTimeout(async () => {
-      setExtractingAddress(true);
-      const extracted = await extractAddressFromPrompt(prompt);
-      if (extracted && (!commune || commune.trim() === "")) {
-        setCommune(extracted.ville || extracted.label);
-        setAddressData(extracted);
-      }
-      setExtractingAddress(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [prompt]);
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
@@ -575,6 +557,35 @@ return out;
 };
 
 // Extraction d'adresse via API gouv.fr (limite 50 req/sec, gratuit, pas de cle)
+  // Auto-extraction de l'adresse depuis le prompt (debounce 1s)
+  useEffect(() => {
+    if (!prompt || prompt.trim().length < 10) {
+      console.log("[DEVIA] Prompt trop court, pas d'extraction");
+      return;
+    }
+    if (commune && commune.trim() !== "") {
+      console.log("[DEVIA] Localisation deja remplie, pas d'extraction");
+      return;
+    }
+
+    console.log("[DEVIA] Debounce demarre, attente 1s avant extraction...");
+    const timer = setTimeout(async () => {
+      console.log("[DEVIA] Lancement extraction adresse pour:", prompt);
+      setExtractingAddress(true);
+      const extracted = await extractAddressFromPrompt(prompt);
+      console.log("[DEVIA] Resultat extraction:", extracted);
+      if (extracted && (!commune || commune.trim() === "")) {
+        const villeDetectee = extracted.ville || extracted.label;
+        console.log("[DEVIA] Remplissage du champ Localisation avec:", villeDetectee);
+        setCommune(villeDetectee);
+        setAddressData(extracted);
+      }
+      setExtractingAddress(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [prompt]);
+
   const extractAddressFromPrompt = async (text) => {
     if (!text || text.trim().length < 3) return null;
     try {
@@ -583,10 +594,17 @@ return out;
       const resp = await fetch(url);
       if (!resp.ok) return null;
       const data = await resp.json();
-      if (!data.features || data.features.length === 0) return null;
+      if (!data.features || data.features.length === 0) {
+        console.log("[DEVIA] API n'a renvoye aucune feature");
+        return null;
+      }
       const feat = data.features[0];
-      // Score de confiance entre 0 et 1, on prend que si > 0.4
-      if (!feat.properties.score || feat.properties.score < 0.4) return null;
+      console.log("[DEVIA] API score:", feat.properties.score, "Label:", feat.properties.label, "Ville:", feat.properties.city);
+      // Score de confiance entre 0 et 1, on accepte si >= 0.2 (assez permissif)
+      if (!feat.properties.score || feat.properties.score < 0.2) {
+        console.log("[DEVIA] Score trop bas, rejete");
+        return null;
+      }
       return {
         label: feat.properties.label,
         ville: feat.properties.city || feat.properties.name,
