@@ -414,6 +414,25 @@ const [prompt, setPrompt] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
+  const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
+
+  // Auto-extraction de l'adresse depuis le prompt (debounce 1s)
+  useEffect(() => {
+    if (!prompt || prompt.trim().length < 10) return;
+    if (commune && commune.trim() !== "") return; // Ne touche pas si l'user a deja rempli
+
+    const timer = setTimeout(async () => {
+      setExtractingAddress(true);
+      const extracted = await extractAddressFromPrompt(prompt);
+      if (extracted && (!commune || commune.trim() === "")) {
+        setCommune(extracted.ville || extracted.label);
+        setAddressData(extracted);
+      }
+      setExtractingAddress(false);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [prompt]);
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
@@ -586,19 +605,7 @@ return out;
 setShowQuestions(false);
 setLoading(true);
 setError(null);
-
-    // Si le champ Localisation est vide, on tente d'extraire l'adresse depuis le prompt
-    let effectiveCommune = commune;
-    if (!commune || commune.trim() === "") {
-      const extracted = await extractAddressFromPrompt(prompt);
-      if (extracted) {
-        effectiveCommune = extracted.ville || extracted.label;
-        setCommune(effectiveCommune); // Auto-remplit le champ visuel
-        setAddressData(extracted); // Stocke lat/lng pour modif #6 (altitude)
-      }
-    }
-
-const zoneInfo = getZone(effectiveCommune, altitude);
+const zoneInfo = getZone(commune, altitude);
 // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
     let catalogSource = "marche";
@@ -655,7 +662,7 @@ const zoneInfo = getZone(effectiveCommune, altitude);
   "4) Adapte les quantites au projet decrit. "
 ) +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
-"Commune=" + effectiveCommune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
+"Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
 (finalParams.pente ? "Pente=" + finalParams.pente + "deg. " : "") +
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
