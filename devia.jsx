@@ -414,6 +414,7 @@ const [prompt, setPrompt] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
+  const [searchProjects, setSearchProjects] = useState("");
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -1704,6 +1705,54 @@ return (
             {projects.length} devis
           </div>
         </div>
+
+        {/* Barre de recherche */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+          <div style={{ position: "relative", width: "100%", maxWidth: 360, display: "flex", alignItems: "center" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7a7d92" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ position: "absolute", left: 14, pointerEvents: "none" }}>
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              value={searchProjects}
+              onChange={(e) => setSearchProjects(e.target.value)}
+              placeholder="Rechercher un projet..."
+              style={{
+                width: "100%",
+                background: "rgba(255, 255, 255, 0.025)",
+                border: "1px solid rgba(255, 255, 255, 0.06)",
+                borderRadius: 999,
+                padding: "10px 38px 10px 40px",
+                color: "#e8eaf2",
+                fontSize: 13,
+                outline: "none",
+                transition: "border-color 0.15s, background 0.15s"
+              }}
+              onFocus={(e) => { e.target.style.borderColor = "rgba(240, 192, 64, 0.3)"; e.target.style.background = "rgba(255, 255, 255, 0.04)"; }}
+              onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.target.style.background = "rgba(255, 255, 255, 0.025)"; }}
+            />
+            {searchProjects && (
+              <button
+                onClick={() => setSearchProjects("")}
+                title="Effacer"
+                style={{
+                  position: "absolute", right: 8,
+                  background: "transparent", border: "none", color: "#7a7d92",
+                  cursor: "pointer", borderRadius: 999, padding: 6,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  transition: "color 0.15s"
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "#e8eaf2"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "#7a7d92"; }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
         {projects.length === 0 ? (
           <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
             <div style={{
@@ -1722,7 +1771,39 @@ return (
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {projects.map(p => (
+            {projects.filter(p => {
+              const s = searchProjects.trim().toLowerCase();
+              if (s === "") return true;
+              const nom = (p.nom || "").toLowerCase();
+              const commune = (p.commune || "").toLowerCase();
+              const dims = (p.dims || "").toLowerCase();
+              return nom.includes(s) || commune.includes(s) || dims.includes(s);
+            }).length === 0 && searchProjects.trim() !== "" ? (
+              <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px", marginBottom: 0 }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: 14,
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  marginBottom: 16
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7a7d92" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                </div>
+                <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun resultat</div>
+                <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
+                  Aucun projet ne correspond a votre recherche.
+                </div>
+              </div>
+            ) : projects.filter(p => {
+              const s = searchProjects.trim().toLowerCase();
+              if (s === "") return true;
+              const nom = (p.nom || "").toLowerCase();
+              const commune = (p.commune || "").toLowerCase();
+              const dims = (p.dims || "").toLowerCase();
+              return nom.includes(s) || commune.includes(s) || dims.includes(s);
+            }).map(p => (
               <div key={p.id} style={{
                 ...cardStyle,
                 display: "flex",
