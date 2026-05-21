@@ -415,6 +415,8 @@ const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
   const [searchProjects, setSearchProjects] = useState("");
+  const [groupes, setGroupes] = useState([]);
+  const [selectedGroupe, setSelectedGroupe] = useState("all"); // "all" ou un UUID de groupe
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -471,6 +473,7 @@ const [projects, setProjects] = useState([]);
             dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m",
             devis_data: p.devis_data,
             zone_data: p.zone_data,
+            groupe_id: p.groupe_id || null,
           }));
           setProjects(formatted);
         }
@@ -479,6 +482,27 @@ const [projects, setProjects] = useState([]);
       }
     };
     loadProjects();
+
+    // Chargement des groupes
+    const loadGroupes = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from("groupes_projets")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("nom", { ascending: true });
+        if (error) {
+          console.error("Erreur chargement groupes:", error);
+          return;
+        }
+        if (data) setGroupes(data);
+      } catch (e) {
+        console.error("Erreur loadGroupes:", e);
+      }
+    };
+    loadGroupes();
   }, []);
 
   // Charge les 2 catalogues depuis Supabase
@@ -1706,6 +1730,72 @@ return (
           </div>
         </div>
 
+        {/* Pills de filtre par groupe */}
+        {(groupes.length > 0 || true) && (
+          <div style={{
+            display: "flex",
+            gap: 6,
+            marginBottom: 16,
+            flexWrap: "wrap"
+          }}>
+            {/* Pill Tous */}
+            <button
+              onClick={() => setSelectedGroupe("all")}
+              style={{
+                background: selectedGroupe === "all" ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                border: "1px solid " + (selectedGroupe === "all" ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
+                color: selectedGroupe === "all" ? "#f0c040" : "#9ca0b8",
+                borderRadius: 999,
+                padding: "7px 14px",
+                fontSize: 12,
+                fontWeight: selectedGroupe === "all" ? 600 : 500,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                transition: "all 0.15s",
+                letterSpacing: "0.005em"
+              }}
+              onMouseEnter={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
+              onMouseLeave={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: selectedGroupe === "all" ? "#f0c040" : "#545870" }}></span>
+              Tous
+              <span style={{ color: selectedGroupe === "all" ? "#a8841f" : "#545870", fontWeight: 500 }}>{projects.length}</span>
+            </button>
+            {/* Pills par groupe */}
+            {groupes.map(g => {
+              const count = projects.filter(p => p.groupe_id === g.id).length;
+              const isActive = selectedGroupe === g.id;
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => setSelectedGroupe(g.id)}
+                  style={{
+                    background: isActive ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid " + (isActive ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
+                    color: isActive ? "#f0c040" : "#9ca0b8",
+                    borderRadius: 999,
+                    padding: "7px 14px",
+                    fontSize: 12,
+                    fontWeight: isActive ? 600 : 500,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    transition: "all 0.15s",
+                    letterSpacing: "0.005em"
+                  }}
+                  onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
+                  onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: isActive ? "#f0c040" : "#545870" }}></span>
+                  {g.nom}
+                  <span style={{ color: isActive ? "#a8841f" : "#545870", fontWeight: 500 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Barre de recherche */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
           <div style={{ position: "relative", width: "100%", maxWidth: 360, display: "flex", alignItems: "center" }}>
@@ -1772,13 +1862,16 @@ return (
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {projects.filter(p => {
+              // Filtre par groupe
+              if (selectedGroupe !== "all" && p.groupe_id !== selectedGroupe) return false;
+              // Filtre par recherche
               const s = searchProjects.trim().toLowerCase();
               if (s === "") return true;
               const nom = (p.nom || "").toLowerCase();
               const commune = (p.commune || "").toLowerCase();
               const dims = (p.dims || "").toLowerCase();
               return nom.includes(s) || commune.includes(s) || dims.includes(s);
-            }).length === 0 && searchProjects.trim() !== "" ? (
+            }).length === 0 ? (
               <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px", marginBottom: 0 }}>
                 <div style={{
                   width: 56, height: 56, borderRadius: 14,
@@ -1793,10 +1886,17 @@ return (
                 </div>
                 <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun resultat</div>
                 <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
-                  Aucun projet ne correspond a votre recherche.
+                  {selectedGroupe !== "all" && searchProjects.trim() !== ""
+                    ? "Aucun projet ne correspond a votre recherche dans ce groupe."
+                    : selectedGroupe !== "all"
+                    ? "Aucun projet dans ce groupe."
+                    : "Aucun projet ne correspond a votre recherche."}
                 </div>
               </div>
             ) : projects.filter(p => {
+              // Filtre par groupe
+              if (selectedGroupe !== "all" && p.groupe_id !== selectedGroupe) return false;
+              // Filtre par recherche
               const s = searchProjects.trim().toLowerCase();
               if (s === "") return true;
               const nom = (p.nom || "").toLowerCase();
