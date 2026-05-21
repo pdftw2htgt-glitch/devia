@@ -421,6 +421,10 @@ const [commune, setCommune] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [savingGroup, setSavingGroup] = useState(false);
   const [groupError, setGroupError] = useState(null);
+  const [editingGroupId, setEditingGroupId] = useState(null); // null = creation, sinon UUID
+  const [openMenuGroupId, setOpenMenuGroupId] = useState(null); // pour le menu '...'
+  const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null); // objet groupe ou null
+  const [deletingGroup, setDeletingGroup] = useState(false);
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -508,6 +512,20 @@ const [projects, setProjects] = useState([]);
     };
     loadGroupes();
   }, []);
+
+  // Ferme le menu '...' au clic externe
+  useEffect(() => {
+    if (!openMenuGroupId) return;
+    const handleClickOutside = () => setOpenMenuGroupId(null);
+    // setTimeout pour eviter de fermer immediatement (au moment du click qui a ouvert)
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [openMenuGroupId]);
 
   // Charge les 2 catalogues depuis Supabase
   useEffect(() => {
@@ -772,28 +790,83 @@ return out;
         setSavingGroup(false);
         return;
       }
-      const { data, error } = await supabase
-        .from("groupes_projets")
-        .insert([{ user_id: user.id, nom }])
-        .select()
-        .single();
-      if (error) {
-        console.error("Erreur creation groupe:", error);
-        setGroupError("Erreur : " + (error.message || "echec de la creation"));
-        setSavingGroup(false);
-        return;
+
+      if (editingGroupId) {
+        // Mode EDITION
+        const { error } = await supabase
+          .from("groupes_projets")
+          .update({ nom, updated_at: new Date().toISOString() })
+          .eq("id", editingGroupId)
+          .eq("user_id", user.id);
+        if (error) {
+          console.error("Erreur edition groupe:", error);
+          setGroupError("Erreur : " + (error.message || "echec de la modification"));
+          setSavingGroup(false);
+          return;
+        }
+        // Met a jour le groupe dans la liste
+        setGroupes(prev => prev.map(g => g.id === editingGroupId ? { ...g, nom } : g).sort((a, b) => a.nom.localeCompare(b.nom)));
+      } else {
+        // Mode CREATION
+        const { data, error } = await supabase
+          .from("groupes_projets")
+          .insert([{ user_id: user.id, nom }])
+          .select()
+          .single();
+        if (error) {
+          console.error("Erreur creation groupe:", error);
+          setGroupError("Erreur : " + (error.message || "echec de la creation"));
+          setSavingGroup(false);
+          return;
+        }
+        setGroupes(prev => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
+        setSelectedGroupe(data.id);
       }
-      // Ajoute le groupe dans la liste et le selectionne
-      setGroupes(prev => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
-      setSelectedGroupe(data.id);
+
       // Reset modale
       setShowGroupModal(false);
       setNewGroupName("");
+      setEditingGroupId(null);
       setSavingGroup(false);
     } catch (e) {
       console.error("Erreur handleCreateGroup:", e);
       setGroupError("Erreur inattendue");
       setSavingGroup(false);
+    }
+  };
+
+  // Suppression d'un groupe (les projets reviennent a 'Sans groupe')
+  const handleDeleteGroup = async () => {
+    if (!deleteConfirmGroup) return;
+    setDeletingGroup(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setDeletingGroup(false);
+        return;
+      }
+      const { error } = await supabase
+        .from("groupes_projets")
+        .delete()
+        .eq("id", deleteConfirmGroup.id)
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Erreur suppression groupe:", error);
+        alert("Erreur lors de la suppression du groupe");
+        setDeletingGroup(false);
+        return;
+      }
+      // Retire le groupe de la liste
+      setGroupes(prev => prev.filter(g => g.id !== deleteConfirmGroup.id));
+      // Si c'etait le groupe selectionne, retour a 'Tous'
+      if (selectedGroupe === deleteConfirmGroup.id) setSelectedGroupe("all");
+      // Met a jour les projets : ceux qui etaient dans ce groupe -> groupe_id null
+      setProjects(prev => prev.map(p => p.groupe_id === deleteConfirmGroup.id ? { ...p, groupe_id: null } : p));
+      setDeleteConfirmGroup(null);
+      setDeletingGroup(false);
+    } catch (e) {
+      console.error("Erreur handleDeleteGroup:", e);
+      setDeletingGroup(false);
     }
   };
 
@@ -1814,31 +1887,110 @@ return (
             {groupes.map(g => {
               const count = projects.filter(p => p.groupe_id === g.id).length;
               const isActive = selectedGroupe === g.id;
+              const menuOpen = openMenuGroupId === g.id;
               return (
-                <button
-                  key={g.id}
-                  onClick={() => setSelectedGroupe(g.id)}
-                  style={{
-                    background: isActive ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
-                    border: "1px solid " + (isActive ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
-                    color: isActive ? "#f0c040" : "#9ca0b8",
-                    borderRadius: 999,
-                    padding: "7px 14px",
-                    fontSize: 12,
-                    fontWeight: isActive ? 600 : 500,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 7,
-                    transition: "all 0.15s",
-                    letterSpacing: "0.005em"
-                  }}
-                  onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
-                  onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: isActive ? "#f0c040" : "#545870" }}></span>
-                  {g.nom}
-                  <span style={{ color: isActive ? "#a8841f" : "#545870", fontWeight: 500 }}>{count}</span>
-                </button>
+                <div key={g.id} style={{ position: "relative", display: "inline-flex" }}>
+                  <div
+                    style={{
+                      background: isActive ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
+                      border: "1px solid " + (isActive ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
+                      borderRadius: 999,
+                      padding: "0 4px 0 14px",
+                      fontSize: 12,
+                      fontWeight: isActive ? 600 : 500,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 7,
+                      transition: "all 0.15s",
+                      letterSpacing: "0.005em",
+                      color: isActive ? "#f0c040" : "#9ca0b8",
+                      cursor: "pointer"
+                    }}
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
+                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
+                    <span onClick={() => setSelectedGroupe(g.id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 4px 7px 0" }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: isActive ? "#f0c040" : "#545870" }}></span>
+                      {g.nom}
+                      <span style={{ color: isActive ? "#a8841f" : "#545870", fontWeight: 500 }}>{count}</span>
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuGroupId(menuOpen ? null : g.id); }}
+                      title="Options"
+                      style={{
+                        background: menuOpen ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                        border: "none",
+                        color: "inherit",
+                        cursor: "pointer",
+                        padding: "4px 6px",
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: menuOpen ? 1 : 0.55,
+                        transition: "opacity 0.15s, background 0.15s"
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.opacity = menuOpen ? "1" : "0.55"; }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
+                      </svg>
+                    </button>
+                  </div>
+                  {menuOpen && (
+                    <div style={{
+                      position: "absolute",
+                      top: "calc(100% + 4px)",
+                      right: 0,
+                      background: "rgba(22, 25, 35, 0.98)",
+                      backdropFilter: "blur(20px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      borderRadius: 10,
+                      padding: 4,
+                      minWidth: 140,
+                      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+                      zIndex: 10
+                    }}>
+                      <button onClick={() => {
+                        setEditingGroupId(g.id);
+                        setNewGroupName(g.nom);
+                        setGroupError(null);
+                        setShowGroupModal(true);
+                        setOpenMenuGroupId(null);
+                      }}
+                        style={{
+                          width: "100%", background: "transparent", border: "none",
+                          color: "#e8eaf2", textAlign: "left", padding: "8px 12px",
+                          fontSize: 13, cursor: "pointer", borderRadius: 7,
+                          display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        Renommer
+                      </button>
+                      <button onClick={() => {
+                        setDeleteConfirmGroup(g);
+                        setOpenMenuGroupId(null);
+                      }}
+                        style={{
+                          width: "100%", background: "transparent", border: "none",
+                          color: "#fca5a5", textAlign: "left", padding: "8px 12px",
+                          fontSize: 13, cursor: "pointer", borderRadius: 7,
+                          display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"; e.currentTarget.style.color = "#ef4444"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fca5a5"; }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                        Supprimer
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
             {/* Pill ghost : creer un nouveau groupe */}
@@ -2586,6 +2738,93 @@ return (
 
   </main>
 
+  {deleteConfirmGroup && (
+    <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0, 0, 0, 0.55)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 1001, padding: 16,
+        animation: "fadeInUp 0.18s ease-out"
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget && !deletingGroup) setDeleteConfirmGroup(null); }}>
+      <div style={{
+        background: "rgba(22, 25, 35, 0.95)",
+        backdropFilter: "blur(24px) saturate(140%)",
+        WebkitBackdropFilter: "blur(24px) saturate(140%)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: 20,
+        padding: 28,
+        maxWidth: 440,
+        width: "100%",
+        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.04) inset"
+      }}>
+        <div style={{ display: "flex", alignItems: "start", gap: 14, marginBottom: 20 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10,
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Supprimer le groupe ?</h2>
+            <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
+              Le groupe <span style={{ color: "#e8eaf2", fontWeight: 600 }}>&quot;{deleteConfirmGroup.nom}&quot;</span> sera supprime. Les projets associes ne seront pas supprimes, ils reviendront a &quot;Tous&quot; sans groupe.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+          <button onClick={() => setDeleteConfirmGroup(null)}
+            disabled={deletingGroup}
+            style={{ ...btnSecondary, opacity: deletingGroup ? 0.5 : 1 }}>
+            Annuler
+          </button>
+          <button onClick={handleDeleteGroup}
+            disabled={deletingGroup}
+            style={{
+              background: "#ef4444",
+              color: "#fff",
+              border: "1px solid #ef4444",
+              borderRadius: 10,
+              padding: "11px 22px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: deletingGroup ? "not-allowed" : "pointer",
+              opacity: deletingGroup ? 0.7 : 1,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              transition: "background 0.15s",
+              boxShadow: "0 4px 14px rgba(239, 68, 68, 0.25)"
+            }}
+            onMouseEnter={(e) => { if (!deletingGroup) e.currentTarget.style.background = "#dc2626"; }}
+            onMouseLeave={(e) => { if (!deletingGroup) e.currentTarget.style.background = "#ef4444"; }}>
+            {deletingGroup ? (
+              <>
+                <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
+                <span>Suppression...</span>
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                Supprimer
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
   {showGroupModal && (
     <div style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
@@ -2596,7 +2835,7 @@ return (
         zIndex: 1000, padding: 16,
         animation: "fadeInUp 0.18s ease-out"
       }}
-      onClick={(e) => { if (e.target === e.currentTarget && !savingGroup) { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); } }}>
+      onClick={(e) => { if (e.target === e.currentTarget && !savingGroup) { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); } }}>
       <div style={{
         background: "rgba(22, 25, 35, 0.95)",
         backdropFilter: "blur(24px) saturate(140%)",
@@ -2610,10 +2849,10 @@ return (
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Nouveau groupe</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Organisez vos projets par categorie</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingGroupId ? "Renommer le groupe" : "Nouveau groupe"}</h2>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingGroupId ? "Modifiez le nom du groupe" : "Organisez vos projets par categorie"}</div>
           </div>
-          <button onClick={() => { if (!savingGroup) { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); } }}
+          <button onClick={() => { if (!savingGroup) { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); } }}
             style={{
               background: "rgba(255, 255, 255, 0.04)",
               border: "1px solid rgba(255, 255, 255, 0.06)",
@@ -2670,7 +2909,7 @@ return (
         )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
-          <button onClick={() => { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); }}
+          <button onClick={() => { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); }}
             disabled={savingGroup}
             style={{ ...btnSecondary, opacity: savingGroup ? 0.5 : 1 }}>
             Annuler
@@ -2690,14 +2929,20 @@ return (
             {savingGroup ? (
               <>
                 <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
-                <span>Creation...</span>
+                <span>{editingGroupId ? "Sauvegarde..." : "Creation..."}</span>
               </>
             ) : (
               <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Creer
+                {editingGroupId ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                )}
+                {editingGroupId ? "Enregistrer" : "Creer"}
               </>
             )}
           </button>
