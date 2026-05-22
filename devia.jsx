@@ -2185,7 +2185,9 @@ return (
                 marginBottom: 0,
                 padding: 18,
                 transition: "all 0.18s",
-                gap: 14
+                gap: 14,
+                position: "relative",
+                zIndex: openProjectGroupDropdown === p.id ? 50 : 1
               }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "rgba(240, 192, 64, 0.4)";
