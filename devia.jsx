@@ -411,6 +411,7 @@ return (
 function DeviaMain() {
 const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
+const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
@@ -1040,7 +1041,7 @@ messages: [{ role: "user", content: prompt }],
         if (user) {
           const newProject = {
             user_id: user.id,
-            nom: p.description || "Nouveau projet",
+            nom: nomProjet.trim() || p.description || "Nouveau projet",
             commune: p.commune || commune,
             longueur: p.longueur || null,
             largeur: p.largeur || null,
@@ -1059,7 +1060,7 @@ messages: [{ role: "user", content: prompt }],
             .single();
           if (insertError) {
             console.error("Erreur sauvegarde projet:", insertError);
-            setProjects(prev => [{ id: Date.now(), nom: p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
+            setProjects(prev => [{ id: Date.now(), nom: nomProjet.trim() || p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
           } else if (inserted) {
             setProjects(prev => [{
               id: inserted.id,
@@ -1072,7 +1073,7 @@ messages: [{ role: "user", content: prompt }],
             }, ...prev]);
           }
         } else {
-          setProjects(prev => [{ id: Date.now(), nom: p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
+          setProjects(prev => [{ id: Date.now(), nom: nomProjet.trim() || p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
         }
       } catch (e) {
         console.error("Erreur sauvegarde:", e);
@@ -1471,7 +1472,20 @@ return (
             </div>
             <div style={cardStyle}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Description du projet</label>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Nom du projet <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span>
+                </label>
+                <input
+                  type="text"
+                  value={nomProjet}
+                  onChange={e => setNomProjet(e.target.value)}
+                  placeholder="Ex: Maison Dupont, Chantier Lyon - M. Martin..."
+                  maxLength={120}
+                  style={inputStyle}
+                />
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Description du projet</label>
                 <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                   placeholder="Ex: Charpente traditionnelle en sapin pour maison de 10x8m, tuile terre cuite, pente 35 deg, combles amenageables..."
                   rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
@@ -1696,7 +1710,7 @@ return (
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); }}>Nouveau</button>
+                  <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); setNomProjet(""); }}>Nouveau</button>
                   <button style={btnPrimary}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
