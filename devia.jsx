@@ -425,6 +425,8 @@ const [commune, setCommune] = useState("");
   const [openMenuGroupId, setOpenMenuGroupId] = useState(null); // pour le menu '...'
   const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null); // objet groupe ou null
   const [deletingGroup, setDeletingGroup] = useState(false);
+  const [openProjectGroupDropdown, setOpenProjectGroupDropdown] = useState(null); // id du projet dont le dropdown est ouvert
+  const [pendingAssignProjectId, setPendingAssignProjectId] = useState(null); // si on cree un groupe depuis une card, on assigne apres
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -517,7 +519,6 @@ const [projects, setProjects] = useState([]);
   useEffect(() => {
     if (!openMenuGroupId) return;
     const handleClickOutside = () => setOpenMenuGroupId(null);
-    // setTimeout pour eviter de fermer immediatement (au moment du click qui a ouvert)
     const timer = setTimeout(() => {
       document.addEventListener("click", handleClickOutside);
     }, 50);
@@ -526,6 +527,19 @@ const [projects, setProjects] = useState([]);
       document.removeEventListener("click", handleClickOutside);
     };
   }, [openMenuGroupId]);
+
+  // Ferme le dropdown 'groupe du projet' au clic externe
+  useEffect(() => {
+    if (!openProjectGroupDropdown) return;
+    const handleClickOutside = () => setOpenProjectGroupDropdown(null);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [openProjectGroupDropdown]);
 
   // Charge les 2 catalogues depuis Supabase
   useEffect(() => {
@@ -821,6 +835,11 @@ return out;
         }
         setGroupes(prev => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
         setSelectedGroupe(data.id);
+        // Si on creait depuis une card projet, on assigne le projet a ce nouveau groupe
+        if (pendingAssignProjectId) {
+          await assignProjectToGroup(pendingAssignProjectId, data.id);
+          setPendingAssignProjectId(null);
+        }
       }
 
       // Reset modale
@@ -836,6 +855,27 @@ return out;
   };
 
   // Suppression d'un groupe (les projets reviennent a 'Sans groupe')
+  const assignProjectToGroup = async (projectId, groupeId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase
+        .from("projects")
+        .update({ groupe_id: groupeId, updated_at: new Date().toISOString() })
+        .eq("id", projectId)
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Erreur assignation groupe:", error);
+        return;
+      }
+      // Met a jour l'etat local
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, groupe_id: groupeId } : p));
+      setOpenProjectGroupDropdown(null);
+    } catch (e) {
+      console.error("Erreur assignProjectToGroup:", e);
+    }
+  };
+
   const handleDeleteGroup = async () => {
     if (!deleteConfirmGroup) return;
     setDeletingGroup(true);
@@ -2186,6 +2226,150 @@ return (
                       <span>{p.dims}</span>
                       <span style={{ opacity: 0.4 }}>&bull;</span>
                       <span>{new Date(p.date).toLocaleDateString("fr-FR")}</span>
+                    </div>
+                    {/* Badge groupe */}
+                    <div style={{ position: "relative", marginTop: 8, display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const groupeCourant = groupes.find(g => g.id === p.groupe_id);
+                        const isOpen = openProjectGroupDropdown === p.id;
+                        return (
+                          <>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setOpenProjectGroupDropdown(isOpen ? null : p.id); }}
+                              style={{
+                                background: groupeCourant ? "rgba(96, 165, 250, 0.08)" : "transparent",
+                                border: "1px " + (groupeCourant ? "solid rgba(96, 165, 250, 0.25)" : "dashed rgba(255, 255, 255, 0.12)"),
+                                color: groupeCourant ? "#60a5fa" : "#7a7d92",
+                                borderRadius: 999,
+                                padding: "3px 10px",
+                                fontSize: 11,
+                                fontWeight: 500,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                transition: "all 0.15s",
+                                letterSpacing: "0.01em"
+                              }}
+                              onMouseEnter={(e) => {
+                                if (groupeCourant) { e.currentTarget.style.background = "rgba(96, 165, 250, 0.14)"; }
+                                else { e.currentTarget.style.borderColor = "rgba(240, 192, 64, 0.4)"; e.currentTarget.style.color = "#f0c040"; }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (groupeCourant) { e.currentTarget.style.background = "rgba(96, 165, 250, 0.08)"; }
+                                else { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)"; e.currentTarget.style.color = "#7a7d92"; }
+                              }}>
+                              {groupeCourant ? (
+                                <>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                                  </svg>
+                                  {groupeCourant.nom}
+                                </>
+                              ) : (
+                                <>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                  </svg>
+                                  Ajouter a un groupe
+                                </>
+                              )}
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                                <polyline points="6 9 12 15 18 9"/>
+                              </svg>
+                            </button>
+                            {isOpen && (
+                              <div style={{
+                                position: "absolute",
+                                top: "calc(100% + 4px)",
+                                left: 0,
+                                background: "rgba(22, 25, 35, 0.98)",
+                                backdropFilter: "blur(20px) saturate(140%)",
+                                WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                                border: "1px solid rgba(255, 255, 255, 0.08)",
+                                borderRadius: 10,
+                                padding: 4,
+                                minWidth: 200,
+                                maxHeight: 280,
+                                overflowY: "auto",
+                                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+                                zIndex: 20
+                              }}>
+                                {/* Option Sans groupe */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); assignProjectToGroup(p.id, null); }}
+                                  style={{
+                                    width: "100%", background: "transparent", border: "none",
+                                    color: !p.groupe_id ? "#f0c040" : "#9ca0b8", textAlign: "left",
+                                    padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
+                                    display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s",
+                                    fontWeight: !p.groupe_id ? 600 : 500
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                                  <span style={{ width: 14, display: "inline-flex" }}>
+                                    {!p.groupe_id && (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                      </svg>
+                                    )}
+                                  </span>
+                                  Sans groupe
+                                </button>
+                                {/* Liste des groupes */}
+                                {groupes.map(g => (
+                                  <button
+                                    key={g.id}
+                                    onClick={(e) => { e.stopPropagation(); assignProjectToGroup(p.id, g.id); }}
+                                    style={{
+                                      width: "100%", background: "transparent", border: "none",
+                                      color: p.groupe_id === g.id ? "#f0c040" : "#e8eaf2", textAlign: "left",
+                                      padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
+                                      display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s",
+                                      fontWeight: p.groupe_id === g.id ? 600 : 500
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                                    <span style={{ width: 14, display: "inline-flex" }}>
+                                      {p.groupe_id === g.id && (
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                      )}
+                                    </span>
+                                    {g.nom}
+                                  </button>
+                                ))}
+                                <div style={{ height: 1, background: "rgba(255, 255, 255, 0.06)", margin: "4px 0" }}></div>
+                                {/* Nouveau groupe */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingAssignProjectId(p.id); // memorise le projet pour l'assigner ensuite
+                                    setOpenProjectGroupDropdown(null);
+                                    setNewGroupName(""); setGroupError(null); setEditingGroupId(null);
+                                    setShowGroupModal(true);
+                                  }}
+                                  style={{
+                                    width: "100%", background: "transparent", border: "none",
+                                    color: "#7a7d92", textAlign: "left",
+                                    padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
+                                    display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(240, 192, 64, 0.08)"; e.currentTarget.style.color = "#f0c040"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  <span style={{ width: 14, display: "inline-flex", alignItems: "center" }}>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                  </span>
+                                  Nouveau groupe
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
