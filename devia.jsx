@@ -2949,7 +2949,7 @@ return (
               display: "flex", alignItems: "center", justifyContent: "center"
             }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+                <path d="M4 10h12"/><path d="M4 14h9"/><path d="M19 6.41A6.93 6.93 0 0015.89 5C12 5 9 8.13 9 12s3 7 6.89 7c1.18 0 2.29-.29 3.25-.81"/>
               </svg>
             </div>
             <div>
