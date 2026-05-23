@@ -491,6 +491,9 @@ const [projects, setProjects] = useState([]);
             devis_data: p.devis_data,
             zone_data: p.zone_data,
             groupe_id: p.groupe_id || null,
+            tokens_in: p.tokens_in || 0,
+            tokens_out: p.tokens_out || 0,
+            created_at: p.created_at,
           }));
           setProjects(formatted);
         }
@@ -1103,6 +1106,8 @@ messages: [{ role: "user", content: prompt }],
             total_ttc: totalTTC,
             total_ht: totalHT,
             devis_data: parsed,
+            tokens_in: (data.usage && data.usage.input_tokens) || 0,
+            tokens_out: (data.usage && data.usage.output_tokens) || 0,
           };
           const { data: inserted, error: insertError } = await supabase
             .from("projects")
@@ -3123,51 +3128,100 @@ return (
             )}
           </div>
 
-          {/* 3 stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            {[
+          {/* 5 stats responsive */}
+          {(() => {
+            // Calculs
+            const now = new Date();
+            const thisMonth = now.getMonth();
+            const thisYear = now.getFullYear();
+            const projetsThisMonth = projects.filter(p => {
+              if (!p.created_at) return false;
+              const d = new Date(p.created_at);
+              return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+            });
+            const tokensTotal = projects.reduce((sum, p) => sum + (p.tokens_in || 0) + (p.tokens_out || 0), 0);
+            const tokensMonth = projetsThisMonth.reduce((sum, p) => sum + (p.tokens_in || 0) + (p.tokens_out || 0), 0);
+            // CO2 : approximation Anthropic ~ 0.000175 g par token (cumul in+out)
+            const co2TotalG = tokensTotal * 0.000175;
+            const co2MonthG = tokensMonth * 0.000175;
+            const formatTokens = (n) => n >= 1000000 ? (n / 1000000).toFixed(1) + "M" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+            const formatCO2 = (g) => g >= 1000 ? (g / 1000).toFixed(2) + " kg" : g.toFixed(1) + " g";
+
+            const stats = [
               {
                 label: "Devis ce mois",
-                val: projects.length,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11H7v8h2v-8zm6 0h-2v8h2v-8zM11 11v8h2v-8h-2zM4 7h16M5 7v14h14V7M9 4h6v3H9z"/></svg>,
+                val: projetsThisMonth.length,
+                sub: null,
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11H7v8h2v-8zm6 0h-2v8h2v-8zM11 11v8h2v-8h-2zM4 7h16M5 7v14h14V7M9 4h6v3H9z"/></svg>,
                 color: "#60a5fa"
               },
               {
-                label: "Total generes",
+                label: "Total devis",
                 val: projects.length,
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+                sub: null,
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
                 color: "#3ecf8e"
               },
               {
-                label: "Jours restants",
+                label: "Jours abo",
                 val: "23",
-                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+                sub: null,
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
                 color: "#a78bfa"
+              },
+              {
+                label: "Tokens IA",
+                val: formatTokens(tokensTotal),
+                sub: tokensMonth > 0 ? formatTokens(tokensMonth) + " ce mois" : "0 ce mois",
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+                color: "#f0c040"
+              },
+              {
+                label: "Empreinte CO2",
+                val: formatCO2(co2TotalG),
+                sub: co2MonthG > 0 ? formatCO2(co2MonthG) + " ce mois" : "0 g ce mois",
+                icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.3c.48.17.98.3 1.34.3C19 20 22 3 22 3c-1 2-8 2.25-13 3.25S2 11.5 2 13.5s1.75 3.75 1.75 3.75C7 8 17 8 17 8z"/></svg>,
+                color: "#3ecf8e"
               }
-            ].map(s => (
-              <div key={s.label} style={{
-                background: "rgba(255, 255, 255, 0.02)",
-                borderRadius: 12,
-                padding: 16,
-                border: "1px solid rgba(255, 255, 255, 0.05)",
-                transition: "border-color 0.15s"
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)"; }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  background: "rgba(255, 255, 255, 0.04)",
-                  border: "1px solid rgba(255, 255, 255, 0.06)",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  marginBottom: 10
-                }}>
-                  {s.icon}
-                </div>
-                <div style={{ color: "#7a7d92", fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "#f5f6fa", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>{s.val}</div>
+            ];
+
+            return (
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                gap: 10
+              }}>
+                {stats.map(s => (
+                  <div key={s.label} style={{
+                    background: "rgba(255, 255, 255, 0.02)",
+                    borderRadius: 12,
+                    padding: 14,
+                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    transition: "border-color 0.15s",
+                    display: "flex",
+                    flexDirection: "column"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)"; }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 7,
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      marginBottom: 10
+                    }}>
+                      {s.icon}
+                    </div>
+                    <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: "#f5f6fa", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{s.val}</div>
+                    {s.sub && (
+                      <div style={{ marginTop: 6, color: "#545870", fontSize: 10, fontVariantNumeric: "tabular-nums" }}>{s.sub}</div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
       </div>
     )}
