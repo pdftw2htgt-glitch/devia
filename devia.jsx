@@ -1710,7 +1710,7 @@ return (
         </button>
       ))}
     </nav>
-    {user && <UserMenu user={user} license={license} />}
+    {user && <UserMenu user={user} license={license} avatarUrl={avatarUrl} />}
     </div>
   </header>
 

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { signOut } from "../lib/auth.js";
 
-export default function UserMenu({ user, license }) {
+export default function UserMenu({ user, license, avatarUrl }) {
   const [open, setOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const menuRef = useRef(null);
@@ -39,8 +39,8 @@ export default function UserMenu({ user, license }) {
       <div ref={menuRef} style={{ position: "relative" }}>
         <button onClick={() => setOpen(!open)} title="Mon compte"
           style={{
-            background: "linear-gradient(135deg, rgba(240, 192, 64, 0.9) 0%, rgba(224, 160, 32, 0.9) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
+            background: avatarUrl ? "transparent" : "linear-gradient(135deg, rgba(240, 192, 64, 0.9) 0%, rgba(224, 160, 32, 0.9) 100%)",
+            border: avatarUrl ? "2px solid rgba(240, 192, 64, 0.5)" : "1px solid rgba(255, 255, 255, 0.1)",
             color: "#0a0a0a",
             width: 34,
             height: 34,
@@ -54,11 +54,14 @@ export default function UserMenu({ user, license }) {
             letterSpacing: "0.01em",
             transition: "all 0.15s",
             boxShadow: open ? "0 4px 14px rgba(240, 192, 64, 0.35)" : "0 2px 8px rgba(0, 0, 0, 0.25)",
-            padding: 0
+            padding: 0,
+            overflow: "hidden"
           }}
           onMouseEnter={(e) => { if (!open) e.currentTarget.style.transform = "scale(1.05)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
-          {initials}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+          ) : initials}
         </button>
 
         {open && (
@@ -83,16 +86,20 @@ export default function UserMenu({ user, license }) {
               <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
                 <div style={{
                   width: 36, height: 36,
-                  background: "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)",
+                  background: avatarUrl ? "transparent" : "linear-gradient(135deg, #f0c040 0%, #e0a020 100%)",
+                  border: avatarUrl ? "2px solid rgba(240, 192, 64, 0.4)" : "none",
                   borderRadius: "50%",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontWeight: 700,
                   fontSize: 13,
                   color: "#0a0a0a",
                   flexShrink: 0,
-                  boxShadow: "0 2px 8px rgba(240, 192, 64, 0.2)"
+                  boxShadow: "0 2px 8px rgba(240, 192, 64, 0.2)",
+                  overflow: "hidden"
                 }}>
-                  {initials}
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                  ) : initials}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
