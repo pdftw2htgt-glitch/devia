@@ -434,6 +434,7 @@ const [commune, setCommune] = useState("");
   const [savingRename, setSavingRename] = useState(false);
   const [renameError, setRenameError] = useState(null);
   const [showInfosEntreprise, setShowInfosEntreprise] = useState(false);
+  const [usageLogs, setUsageLogs] = useState([]);
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -523,6 +524,27 @@ const [projects, setProjects] = useState([]);
       }
     };
     loadGroupes();
+
+    // Chargement de l'historique de consommation
+    const loadUsageLogs = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from("usage_logs")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        if (error) {
+          console.error("Erreur chargement usage_logs:", error);
+          return;
+        }
+        if (data) setUsageLogs(data);
+      } catch (e) {
+        console.error("Erreur loadUsageLogs:", e);
+      }
+    };
+    loadUsageLogs();
   }, []);
 
   // Ferme le menu '...' au clic externe
@@ -1109,6 +1131,9 @@ messages: [{ role: "user", content: prompt }],
             tokens_in: (data.usage && data.usage.input_tokens) || 0,
             tokens_out: (data.usage && data.usage.output_tokens) || 0,
           };
+          const tokensIn = (data.usage && data.usage.input_tokens) || 0;
+          const tokensOut = (data.usage && data.usage.output_tokens) || 0;
+
           const { data: inserted, error: insertError } = await supabase
             .from("projects")
             .insert(newProject)
@@ -1118,6 +1143,30 @@ messages: [{ role: "user", content: prompt }],
             console.error("Erreur sauvegarde projet:", insertError);
             setProjects(prev => [{ id: Date.now(), nom: nomProjet.trim() || p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
           } else if (inserted) {
+            // Insert usage_logs : historique de consommation (survit a la suppression du projet)
+            (async () => {
+              try {
+                const { data: logData, error: logError } = await supabase
+                  .from("usage_logs")
+                  .insert({
+                    user_id: user.id,
+                    tokens_in: tokensIn,
+                    tokens_out: tokensOut,
+                    model: "claude-sonnet-4-20250514",
+                    project_id: inserted.id,
+                  })
+                  .select()
+                  .single();
+                if (logError) {
+                  console.error("Erreur insert usage_logs:", logError);
+                } else if (logData) {
+                  // Maj du state local immediatement (pas besoin de refresh)
+                  setUsageLogs(prev => [logData, ...prev]);
+                }
+              } catch (e) {
+                console.error("Erreur usage_logs async:", e);
+              }
+            })();
             setProjects(prev => [{
               id: inserted.id,
               nom: inserted.nom,
@@ -3139,8 +3188,14 @@ return (
               const d = new Date(p.created_at);
               return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
             });
-            const tokensTotal = projects.reduce((sum, p) => sum + (p.tokens_in || 0) + (p.tokens_out || 0), 0);
-            const tokensMonth = projetsThisMonth.reduce((sum, p) => sum + (p.tokens_in || 0) + (p.tokens_out || 0), 0);
+            // Tokens calcules depuis usage_logs (survit a la suppression de projets)
+            const tokensTotal = usageLogs.reduce((sum, l) => sum + (l.tokens_in || 0) + (l.tokens_out || 0), 0);
+            const logsThisMonth = usageLogs.filter(l => {
+              if (!l.created_at) return false;
+              const d = new Date(l.created_at);
+              return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+            });
+            const tokensMonth = logsThisMonth.reduce((sum, l) => sum + (l.tokens_in || 0) + (l.tokens_out || 0), 0);
             // CO2 : approximation Anthropic ~ 0.000175 g par token (cumul in+out)
             const co2TotalG = tokensTotal * 0.000175;
             const co2MonthG = tokensMonth * 0.000175;
