@@ -409,6 +409,9 @@ return (
 }
 
 function DeviaMain() {
+  const { user } = useAuth();
+  const { license } = useLicense();
+
 const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
 const [nomProjet, setNomProjet] = useState("");
@@ -1472,6 +1475,7 @@ return (
       <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>DEVIA</span>
       <span style={{ color: "#545870", fontSize: 11, fontWeight: 500, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>Devis charpente IA</span>
     </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
     <nav style={{
       display: "flex",
       gap: 2,
@@ -1501,6 +1505,8 @@ return (
         </button>
       ))}
     </nav>
+    {user && <UserMenu user={user} license={license} />}
+    </div>
   </header>
 
   <main className="devia-page devia-bg-noise" style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
@@ -4032,7 +4038,6 @@ function DeviaAuthGate() {
   return (
     <>
       <SubscriptionBanner license={license} />
-      <UserMenu user={user} license={license} />
       <DeviaMain />
     </>
   );
