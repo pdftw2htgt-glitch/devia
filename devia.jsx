@@ -428,6 +428,11 @@ const [commune, setCommune] = useState("");
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [openProjectGroupDropdown, setOpenProjectGroupDropdown] = useState(null); // id du projet dont le dropdown est ouvert
   const [pendingAssignProjectId, setPendingAssignProjectId] = useState(null); // si on cree un groupe depuis une card, on assigne apres
+  const [openProjectMenuId, setOpenProjectMenuId] = useState(null);
+  const [renameProjectModal, setRenameProjectModal] = useState(null);
+  const [renameProjectName, setRenameProjectName] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
+  const [renameError, setRenameError] = useState(null);
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
@@ -541,6 +546,19 @@ const [projects, setProjects] = useState([]);
       document.removeEventListener("click", handleClickOutside);
     };
   }, [openProjectGroupDropdown]);
+
+  // Ferme le menu '...' projet au clic externe
+  useEffect(() => {
+    if (!openProjectMenuId) return;
+    const handleClickOutside = () => setOpenProjectMenuId(null);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [openProjectMenuId]);
 
   // Charge les 2 catalogues depuis Supabase
   useEffect(() => {
@@ -856,6 +874,38 @@ return out;
   };
 
   // Suppression d'un groupe (les projets reviennent a 'Sans groupe')
+  const handleRenameProject = async () => {
+    if (!renameProjectModal) return;
+    const newName = renameProjectName.trim();
+    if (!newName) { setRenameError("Le nom est obligatoire"); return; }
+    if (newName.length > 120) { setRenameError("Le nom est trop long (120 caracteres maximum)"); return; }
+    setSavingRename(true);
+    setRenameError(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setRenameError("Vous devez etre connecte"); setSavingRename(false); return; }
+      const { error } = await supabase
+        .from("projects")
+        .update({ nom: newName, updated_at: new Date().toISOString() })
+        .eq("id", renameProjectModal.id)
+        .eq("user_id", user.id);
+      if (error) {
+        console.error("Erreur renommage projet:", error);
+        setRenameError("Erreur : " + (error.message || "echec du renommage"));
+        setSavingRename(false);
+        return;
+      }
+      setProjects(prev => prev.map(p => p.id === renameProjectModal.id ? { ...p, nom: newName } : p));
+      setRenameProjectModal(null);
+      setRenameProjectName("");
+      setSavingRename(false);
+    } catch (e) {
+      console.error("Erreur handleRenameProject:", e);
+      setRenameError("Erreur inattendue");
+      setSavingRename(false);
+    }
+  };
+
   const assignProjectToGroup = async (projectId, groupeId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -2201,7 +2251,7 @@ return (
                 transition: "all 0.18s",
                 gap: 14,
                 position: "relative",
-                zIndex: openProjectGroupDropdown === p.id ? 50 : 1
+                zIndex: (openProjectGroupDropdown === p.id || openProjectMenuId === p.id) ? 50 : 1
               }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "rgba(240, 192, 64, 0.4)";
@@ -2395,6 +2445,67 @@ return (
                       {p.ttc.toLocaleString("fr-FR")} <span style={{ fontSize: 12, fontWeight: 600 }}>EUR</span>
                     </div>
                     <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>TTC</div>
+                  </div>
+                  <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenProjectMenuId(openProjectMenuId === p.id ? null : p.id); }}
+                      title="Plus d'options"
+                      style={{
+                        background: openProjectMenuId === p.id ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                        border: "1px solid rgba(255, 255, 255, 0.06)",
+                        color: "#7a7d92",
+                        cursor: "pointer",
+                        borderRadius: 8,
+                        padding: "6px 8px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.15s"
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#d0d2dc"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = openProjectMenuId === p.id ? "rgba(255, 255, 255, 0.08)" : "transparent"; e.currentTarget.style.color = "#7a7d92"; }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
+                      </svg>
+                    </button>
+                    {openProjectMenuId === p.id && (
+                      <div style={{
+                        position: "absolute",
+                        top: "calc(100% + 4px)",
+                        right: 0,
+                        background: "rgba(22, 25, 35, 0.98)",
+                        backdropFilter: "blur(20px) saturate(140%)",
+                        WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        borderRadius: 10,
+                        padding: 4,
+                        minWidth: 160,
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+                        zIndex: 100
+                      }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenameProjectModal(p);
+                            setRenameProjectName(p.nom || "");
+                            setRenameError(null);
+                            setOpenProjectMenuId(null);
+                          }}
+                          style={{
+                            width: "100%", background: "transparent", border: "none",
+                            color: "#e8eaf2", textAlign: "left", padding: "8px 12px",
+                            fontSize: 13, cursor: "pointer", borderRadius: 7,
+                            display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                          Renommer
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <button
                     className="devia-delete-btn"
@@ -2937,6 +3048,126 @@ return (
     )}
 
   </main>
+
+  {renameProjectModal && (
+    <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0, 0, 0, 0.55)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 1000, padding: 16,
+        animation: "fadeInUp 0.18s ease-out"
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget && !savingRename) { setRenameProjectModal(null); setRenameProjectName(""); setRenameError(null); } }}>
+      <div style={{
+        background: "rgba(22, 25, 35, 0.95)",
+        backdropFilter: "blur(24px) saturate(140%)",
+        WebkitBackdropFilter: "blur(24px) saturate(140%)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        borderRadius: 20,
+        padding: 28,
+        maxWidth: 480,
+        width: "100%",
+        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.04) inset"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Renommer le projet</h2>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Modifiez le nom de ce projet</div>
+          </div>
+          <button onClick={() => { if (!savingRename) { setRenameProjectModal(null); setRenameProjectName(""); setRenameError(null); } }}
+            style={{
+              background: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              color: "#7a7d92",
+              cursor: savingRename ? "not-allowed" : "pointer",
+              borderRadius: 10,
+              padding: 8,
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.15s",
+              opacity: savingRename ? 0.5 : 1
+            }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Nom du projet <span style={{ color: "#f0c040" }}>*</span></label>
+          <input
+            type="text"
+            value={renameProjectName}
+            onChange={(e) => setRenameProjectName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !savingRename) handleRenameProject(); }}
+            placeholder="Ex: Maison Dupont, Chantier Lyon - M. Martin..."
+            autoFocus
+            disabled={savingRename}
+            style={inputStyle}
+            maxLength={120}
+          />
+        </div>
+
+        {renameError && (
+          <div style={{
+            background: "rgba(239, 68, 68, 0.08)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: 10,
+            padding: 14,
+            color: "#fca5a5",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "start",
+            gap: 10,
+            marginBottom: 16
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>{renameError}</div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+          <button onClick={() => { setRenameProjectModal(null); setRenameProjectName(""); setRenameError(null); }}
+            disabled={savingRename}
+            style={{ ...btnSecondary, opacity: savingRename ? 0.5 : 1 }}>
+            Annuler
+          </button>
+          <button onClick={handleRenameProject}
+            disabled={savingRename || !renameProjectName.trim()}
+            style={{
+              ...btnPrimary,
+              padding: "11px 22px",
+              opacity: (savingRename || !renameProjectName.trim()) ? 0.5 : 1,
+              cursor: (savingRename || !renameProjectName.trim()) ? "not-allowed" : "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              boxShadow: savingRename ? "none" : "0 4px 14px rgba(240, 192, 64, 0.25)"
+            }}>
+            {savingRename ? (
+              <>
+                <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
+                <span>Sauvegarde...</span>
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Enregistrer
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
   {deleteConfirmGroup && (
     <div style={{
