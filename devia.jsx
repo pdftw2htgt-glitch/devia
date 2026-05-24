@@ -3003,7 +3003,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Catalogue</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de référence utilisés pour vos devis</div>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gérez les prix de référence utilisés pour vos devis</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
