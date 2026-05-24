@@ -464,6 +464,151 @@ return (
 );
 }
 
+// ====== Detection intelligente du type de materiau ======
+const MATERIAL_TYPES = {
+  bois_structure: {
+    label: "Bois structure",
+    color: "#a78bfa",
+    keywords: ["panne", "chevron", "sabliere", "poteau", "ferme", "arbaletrier", "lambourde", "solive", "poutre", "muraille", "entrait", "blochet", "jambette", "contrefiche", "echantignole"],
+    showDimensions: true,
+    suggestedUnits: ["ml", "m3", "u"],
+    defaultUnit: "ml",
+    placeholder: "Ex: 75x175 mm"
+  },
+  bois_ossature: {
+    label: "Bois ossature",
+    color: "#a78bfa",
+    keywords: ["ossature", "montant", "traverse", "osb", "lamelle-colle", "lamellecolle", "kvh", "bois lamelle", "agglomere", "contreplaque"],
+    showDimensions: true,
+    suggestedUnits: ["ml", "m2", "u"],
+    defaultUnit: "ml",
+    placeholder: "Ex: 45x95 mm"
+  },
+  couverture: {
+    label: "Couverture",
+    color: "#60a5fa",
+    keywords: ["tuile", "ardoise", "volige", "liteau", "fait", "ecran sous-toiture", "ecran sous toiture", "membrane", "bac acier", "shingle", "zinc", "cuivre", "noue", "rive", "gouttiere", "descente"],
+    showDimensions: false,
+    suggestedUnits: ["m2", "u", "ml"],
+    defaultUnit: "m2",
+    placeholder: ""
+  },
+  visserie: {
+    label: "Visserie / fixations",
+    color: "#fcd34d",
+    keywords: ["vis", "clou", "boulon", "ecrou", "rondelle", "equerre", "sabot", "etrier", "tirefond", "agrafe", "cheville", "scellement", "broche", "pointe"],
+    showDimensions: true,
+    suggestedUnits: ["u", "kg", "forfait"],
+    defaultUnit: "u",
+    placeholder: "Ex: 5x80 mm"
+  },
+  outillage: {
+    label: "Outillage",
+    color: "#fb923c",
+    keywords: ["marteau", "scie", "perceuse", "visseuse", "niveau", "metre", "decametre", "rabot", "ciseau", "burin", "pied de biche", "echelle", "echafaudage", "tronconneuse", "ponceuse", "meuleuse", "cordeau", "outils"],
+    showDimensions: false,
+    suggestedUnits: ["u", "forfait"],
+    defaultUnit: "u",
+    placeholder: ""
+  },
+  isolation: {
+    label: "Isolation",
+    color: "#3ecf8e",
+    keywords: ["laine", "isolant", "ouate", "polystyrene", "panneau isolant", "chanvre", "lin", "fibre de bois", "fibralith", "knauf", "rockwool", "isover", "soufflage"],
+    showDimensions: true,
+    suggestedUnits: ["m2", "m3", "u"],
+    defaultUnit: "m2",
+    placeholder: "Ex: 200mm ep, R=5"
+  },
+  quincaillerie: {
+    label: "Quincaillerie",
+    color: "#94a3b8",
+    keywords: ["charniere", "gond", "poignee", "serrure", "verrou", "cremone", "fermeture", "loquet", "espagnolette"],
+    showDimensions: false,
+    suggestedUnits: ["u", "forfait"],
+    defaultUnit: "u",
+    placeholder: ""
+  },
+  epi: {
+    label: "EPI / Securite",
+    color: "#ef4444",
+    keywords: ["casque", "harnais", "gants", "chaussures securite", "lunettes", "masque", "protection", "antichute", "longe", "baudrier", "epi"],
+    showDimensions: false,
+    suggestedUnits: ["u", "forfait"],
+    defaultUnit: "u",
+    placeholder: ""
+  },
+  main_oeuvre: {
+    label: "Main d'oeuvre",
+    color: "#f0c040",
+    keywords: ["main d'oeuvre", "main doeuvre", "charpentier", "manoeuvre", "pose", "depose", "installation", "demontage", "ouvrier", "chef equipe", "compagnon"],
+    showDimensions: false,
+    suggestedUnits: ["h", "forfait", "m2"],
+    defaultUnit: "h",
+    placeholder: ""
+  },
+  autre: {
+    label: "Autre",
+    color: "#7a7d92",
+    keywords: [],
+    showDimensions: true,
+    suggestedUnits: ["u", "ml", "m2", "m3", "kg", "h", "forfait"],
+    defaultUnit: "u",
+    placeholder: ""
+  }
+};
+
+function detectMateriauType(designation) {
+  if (!designation || designation.trim().length < 2) return "autre";
+  const text = designation.toLowerCase().trim();
+  let bestMatch = { type: "autre", score: 0 };
+  for (const [type, config] of Object.entries(MATERIAL_TYPES)) {
+    if (type === "autre") continue;
+    let score = 0;
+    for (const keyword of config.keywords) {
+      if (text.includes(keyword)) {
+        score += keyword.length > 4 ? 2 : 1;
+      }
+    }
+    if (score > bestMatch.score) {
+      bestMatch = { type, score };
+    }
+  }
+  return bestMatch.type;
+}
+
+// Mapping : type detecte -> categorie sauvegardee en BDD
+function typeToCategorie(type) {
+  const mapping = {
+    bois_structure: "Charpente",
+    bois_ossature: "Charpente",
+    couverture: "Couverture",
+    isolation: "Isolation",
+    visserie: "Quincaillerie",
+    quincaillerie: "Quincaillerie",
+    main_oeuvre: "Main d'oeuvre",
+    outillage: "Outillage",
+    epi: "Outillage",
+    autre: "Autre"
+  };
+  return mapping[type] || "Autre";
+}
+
+// Mapping inverse : categorie BDD -> type (pour le mode edition)
+function categorieToType(categorie) {
+  const reverseMap = {
+    "Charpente": "bois_structure",
+    "Bardage": "bois_ossature",
+    "Couverture": "couverture",
+    "Isolation": "isolation",
+    "Quincaillerie": "quincaillerie",
+    "Main d'oeuvre": "main_oeuvre",
+    "Outillage": "outillage"
+  };
+  return reverseMap[categorie] || null;
+}
+// ====================================================
+
 function DeviaMain() {
   const { user } = useAuth();
   const { license } = useLicense();
@@ -590,6 +735,9 @@ const [projects, setProjects] = useState([]);
     prix_ht: "",
     notes: "",
   });
+  const [detectedType, setDetectedType] = useState("autre");
+  const [typeOverride, setTypeOverride] = useState(null);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [catalogFormError, setCatalogFormError] = useState(null);
   const [savingCatalog, setSavingCatalog] = useState(false);
   const [editingCatalogId, setEditingCatalogId] = useState(null);
@@ -1498,10 +1646,48 @@ const loadProjectDetails = (project) => {
     });
     setCatalogFormError(null);
     setEditingCatalogId(null);
+    setDetectedType("autre");
+    setTypeOverride(null);
+    setShowTypeMenu(false);
   };
 
+  // Re-detection du type quand designation change (utile en mode edition)
+  useEffect(() => {
+    if (catalogForm.designation && catalogForm.designation.trim().length >= 2) {
+      setDetectedType(detectMateriauType(catalogForm.designation));
+    }
+  }, [catalogForm.designation]);
+
+  // Auto-suggestion de l'unite selon le type detecte
+  useEffect(() => {
+    const activeType = typeOverride || detectedType;
+    const config = MATERIAL_TYPES[activeType];
+    if (!config) return;
+    if (!editingCatalogId && !config.suggestedUnits.includes(catalogForm.unite)) {
+      setCatalogForm(prev => ({ ...prev, unite: config.defaultUnit }));
+    }
+  }, [detectedType, typeOverride]);
+
+  // Fermeture du menu type au clic externe
+  useEffect(() => {
+    if (!showTypeMenu) return;
+    const handleClickOutside = () => setShowTypeMenu(false);
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showTypeMenu]);
+
   const openEditCatalogModal = (material) => {
-    const isStandardCat = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre"].includes(material.categorie);
+    const isStandardCat = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre", "Outillage"].includes(material.categorie);
+    // Pre-remplir le typeOverride depuis la categorie BDD
+    const typeFromCat = categorieToType(material.categorie);
+    if (typeFromCat) {
+      setTypeOverride(typeFromCat);
+    }
     setCatalogForm({
       categorie: isStandardCat ? material.categorie : "Autre",
       categorieAutre: isStandardCat ? "" : material.categorie,
@@ -1540,9 +1726,9 @@ const loadProjectDetails = (project) => {
     setCatalogFormError(null);
 
     // Validations
-    const categorieFinal = catalogForm.categorie === "Autre"
-      ? catalogForm.categorieAutre.trim()
-      : catalogForm.categorie;
+    // Categorie calculee automatiquement depuis le type detecte (ou override)
+    const activeType = typeOverride || detectedType;
+    const categorieFinal = typeToCategorie(activeType);
     if (!categorieFinal) {
       setCatalogFormError("La categorie est obligatoire.");
       return;
@@ -4211,61 +4397,121 @@ return (
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
-          {/* Categorie */}
-          <div>
-            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Categorie <span style={{ color: "#f0c040" }}>*</span></label>
-            <select value={catalogForm.categorie}
-              onChange={(e) => setCatalogForm({ ...catalogForm, categorie: e.target.value })}
-              style={{ ...inputStyle, cursor: "pointer" }}>
-              <option value="Charpente">Charpente</option>
-              <option value="Bardage">Bardage</option>
-              <option value="Couverture">Couverture</option>
-              <option value="Isolation">Isolation</option>
-              <option value="Quincaillerie">Quincaillerie</option>
-              <option value="Main d'oeuvre">Main d'oeuvre</option>
-              <option value="Autre">Autre (champ libre)</option>
-            </select>
-            {catalogForm.categorie === "Autre" && (
-              <input type="text" value={catalogForm.categorieAutre}
-                onChange={(e) => setCatalogForm({ ...catalogForm, categorieAutre: e.target.value })}
-                placeholder="Nom de votre categorie..."
-                style={{ ...inputStyle, marginTop: 8 }} />
-            )}
-          </div>
-
-          {/* Designation */}
+          {/* Designation - avec detection intelligente */}
           <div>
             <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Designation <span style={{ color: "#f0c040" }}>*</span></label>
             <input type="text" value={catalogForm.designation}
-              onChange={(e) => setCatalogForm({ ...catalogForm, designation: e.target.value })}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCatalogForm({ ...catalogForm, designation: v });
+                setDetectedType(detectMateriauType(v));
+              }}
               placeholder="Ex: Chevron sapin C24, Tuile mecanique, Vis 6x180..."
               style={inputStyle} />
+            {catalogForm.designation.trim().length >= 2 && (() => {
+              const activeType = typeOverride || detectedType;
+              const config = MATERIAL_TYPES[activeType];
+              const cBg = activeType === "main_oeuvre" ? "240, 192, 64" : activeType === "outillage" ? "251, 146, 60" : activeType === "couverture" ? "96, 165, 250" : activeType === "visserie" ? "252, 211, 77" : activeType === "isolation" ? "62, 207, 142" : activeType === "epi" ? "239, 68, 68" : activeType === "bois_structure" || activeType === "bois_ossature" ? "167, 139, 250" : "122, 125, 146";
+              return (
+                <div style={{ marginTop: 8, position: "relative", display: "inline-block" }}>
+                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTypeMenu(!showTypeMenu); }}
+                    type="button"
+                    style={{
+                      background: "rgba(" + cBg + ", 0.12)",
+                      border: "1px solid " + config.color + "40",
+                      color: config.color,
+                      borderRadius: 999,
+                      padding: "4px 10px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      letterSpacing: "0.02em"
+                    }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Type detecte : {config.label}
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, marginLeft: 2 }}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  {showTypeMenu && (
+                    <div style={{
+                      position: "absolute",
+                      top: "calc(100% + 6px)",
+                      left: 0,
+                      background: "rgba(22, 25, 35, 0.98)",
+                      backdropFilter: "blur(20px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(20px) saturate(140%)",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      borderRadius: 10,
+                      padding: 4,
+                      minWidth: 200,
+                      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+                      zIndex: 100
+                    }}>
+                      <div style={{ padding: "6px 12px 4px 12px", color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Changer le type</div>
+                      {Object.entries(MATERIAL_TYPES).map(([t2, c]) => (
+                        <button key={t2} type="button"
+                          onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); setTypeOverride(t2); setShowTypeMenu(false); }}
+                          style={{
+                            width: "100%", background: "transparent", border: "none",
+                            color: activeType === t2 ? c.color : "#e8eaf2",
+                            textAlign: "left", padding: "7px 12px",
+                            fontSize: 12, cursor: "pointer", borderRadius: 7,
+                            display: "flex", alignItems: "center", gap: 7, transition: "background 0.12s",
+                            fontWeight: activeType === t2 ? 600 : 500
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, flexShrink: 0 }}></span>
+                          {c.label}
+                          {activeType === t2 && (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto" }}>
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Dimensions et Unite */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
-              <input type="text" value={catalogForm.dimensions}
-                onChange={(e) => setCatalogForm({ ...catalogForm, dimensions: e.target.value })}
-                placeholder="Ex: 75x175 mm"
-                style={inputStyle} />
-            </div>
-            <div>
-              <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Unite <span style={{ color: "#f0c040" }}>*</span></label>
-              <select value={catalogForm.unite}
-                onChange={(e) => setCatalogForm({ ...catalogForm, unite: e.target.value })}
-                style={{ ...inputStyle, cursor: "pointer" }}>
-                <option value="ml">ml (metre lineaire)</option>
-                <option value="m2">m2 (metre carre)</option>
-                <option value="m3">m3 (metre cube)</option>
-                <option value="u">u (unite)</option>
-                <option value="kg">kg (kilo)</option>
-                <option value="h">h (heure)</option>
-                <option value="forfait">forfait</option>
-              </select>
-            </div>
-          </div>
+          {/* Dimensions et Unite - conditionnels */}
+          {(() => {
+            const activeType = typeOverride || detectedType;
+            const config = MATERIAL_TYPES[activeType] || MATERIAL_TYPES.autre;
+            const labels = { ml: "ml (metre lineaire)", m2: "m2 (metre carre)", m3: "m3 (metre cube)", u: "u (unite)", kg: "kg (kilo)", h: "h (heure)", forfait: "forfait" };
+            const others = ["ml", "m2", "m3", "u", "kg", "h", "forfait"].filter(u => !config.suggestedUnits.includes(u));
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: config.showDimensions ? "1fr 1fr" : "1fr", gap: 12 }}>
+                {config.showDimensions && (
+                  <div>
+                    <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
+                    <input type="text" value={catalogForm.dimensions}
+                      onChange={(e) => setCatalogForm({ ...catalogForm, dimensions: e.target.value })}
+                      placeholder={config.placeholder || "Ex: 75x175 mm"}
+                      style={inputStyle} />
+                  </div>
+                )}
+                <div>
+                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Unite <span style={{ color: "#f0c040" }}>*</span></label>
+                  <select value={catalogForm.unite}
+                    onChange={(e) => setCatalogForm({ ...catalogForm, unite: e.target.value })}
+                    style={{ ...inputStyle, cursor: "pointer" }}>
+                    {config.suggestedUnits.map(u => <option key={u} value={u}>{labels[u]}</option>)}
+                    {others.map(u => <option key={u} value={u}>{labels[u]}</option>)}
+                  </select>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Prix HT */}
           <div>
