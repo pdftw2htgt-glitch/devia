@@ -254,7 +254,7 @@ function Viewer3D({ params }) {
       }
 
       // TOITURE (1 seul pan, rotation sur axe X au lieu de Z)
-      // Le toit est tourne dans l'autre dimension par rapport a la structure
+      // Le toit est tourne dans l'autre dimension par rapport à la structure
       const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
       const roof = new THREE.Mesh(rg, roofMat);
       roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
@@ -274,7 +274,7 @@ function Viewer3D({ params }) {
       drawCharpenteTrad();
     }
 
-    // SOL (commun a tous les types)
+    // SOL (commun à tous les types)
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(30, 30),
       new THREE.MeshLambertMaterial({ color: 0x1a1f2e })
@@ -384,7 +384,7 @@ background: allAnswered ? "#f0c040" : "#2a2e40",
 color: allAnswered ? "#000" : "#545870",
 fontWeight: 700, fontSize: 15, cursor: allAnswered ? "pointer" : "not-allowed", marginTop: 8,
 }}>
-Generer le devis
+Générer le devis
 </button>
 </div>
 );
@@ -530,7 +530,7 @@ const MATERIAL_TYPES = {
     placeholder: ""
   },
   epi: {
-    label: "EPI / Securite",
+    label: "EPI / Sécurité",
     color: "#ef4444",
     keywords: ["casque", "harnais", "gants", "chaussures securite", "lunettes", "masque", "protection", "antichute", "longe", "baudrier", "epi"],
     showDimensions: false,
@@ -568,7 +568,7 @@ function detectMateriauType(designation) {
   return bestMatch.type;
 }
 
-// Mapping : type detecte -> categorie sauvegardee en BDD
+// Mapping : type détecté -> categorie sauvegardee en BDD
 function typeToCategorie(type) {
   const mapping = {
     bois_structure: "Charpente",
@@ -620,7 +620,7 @@ const [commune, setCommune] = useState("");
   const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null); // objet groupe ou null
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [openProjectGroupDropdown, setOpenProjectGroupDropdown] = useState(null); // id du projet dont le dropdown est ouvert
-  const [pendingAssignProjectId, setPendingAssignProjectId] = useState(null); // si on cree un groupe depuis une card, on assigne apres
+  const [pendingAssignProjectId, setPendingAssignProjectId] = useState(null); // si on créé un groupe depuis une card, on assigne apres
   const [openProjectMenuId, setOpenProjectMenuId] = useState(null);
   const [renameProjectModal, setRenameProjectModal] = useState(null);
   const [renameProjectName, setRenameProjectName] = useState("");
@@ -881,7 +881,7 @@ const [projects, setProjects] = useState([]);
     const loadCatalogues = async () => {
       setLoadingCatalogues(true);
       try {
-        // Catalogue marche DEVIA (lecture seule, accessible a tous)
+        // Catalogue marche DEVIA (lecture seule, accessible à tous)
         const { data: marcheData, error: marcheError } = await supabase
           .from("marche_prix")
           .select("*")
@@ -960,7 +960,7 @@ return out;
       return;
     }
     if (commune && commune.trim() !== "") {
-      console.log("[DEVIA] Localisation deja remplie, pas d'extraction");
+      console.log("[DEVIA] Localisation déjà remplie, pas d'extraction");
       return;
     }
 
@@ -986,9 +986,9 @@ return out;
   // Auto-remplissage de l'altitude quand addressData est mis a jour
   useEffect(() => {
     if (!addressData || !addressData.lat || !addressData.lng) return;
-    // Si l'user a deja saisi une altitude differente de la valeur par defaut 200, on ne touche pas
+    // Si l'user a déjà saisi une altitude differente de la valeur par defaut 200, on ne touche pas
     if (altitude && altitude !== "200" && altitude.trim() !== "") {
-      console.log("[DEVIA] Altitude deja saisie par l'user, pas de remplissage auto");
+      console.log("[DEVIA] Altitude déjà saisie par l'user, pas de remplissage auto");
       return;
     }
 
@@ -1017,7 +1017,7 @@ return out;
     fetchAltitude();
   }, [addressData]);
 
-  // Helper : extrait les morceaux du texte qui RESSEMBLENT a une adresse
+  // Helper : extrait les morceaux du texte qui RESSEMBLENT à une adresse
   const extractAddressCandidates = (text) => {
     const candidates = [];
 
@@ -1028,7 +1028,7 @@ return out;
       candidates.push(cpMatch[0].trim());
     }
 
-    // 2. Numero + voie + reste : "12 rue Merciere Lyon" / "5 avenue Foch Paris"
+    // 2. Numéro + voie + reste : "12 rue Merciere Lyon" / "5 avenue Foch Paris"
     const adresseMatch = text.match(/\b(\d{1,4})\s+(rue|avenue|av\.?|boulevard|bd\.?|place|impasse|chemin|route|allee|all\.?|quai)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\-\s']{2,60})/i);
     if (adresseMatch) {
       candidates.push(adresseMatch[0].trim());
@@ -1039,7 +1039,7 @@ return out;
     //    On capture le mot + d'eventuels mots suivants commencant aussi par majuscule (Saint-Tropez, etc.)
     const mots = text.split(/[\s,;.()\[\]]+/);
     const motsAvecMaj = mots.filter(m => /^[A-ZÀ-Ÿ][a-zà-ÿ\-']{2,}/.test(m));
-    // On garde les noms propres qui ne sont pas des materiaux/types connus
+    // On garde les noms propres qui ne sont pas des matériaux/types connus
     const blacklist = new Set([
       // Types de constructions
       "Carport", "Charpente", "Garage", "Maison", "Toiture", "Abri", "Pergola",
@@ -1170,7 +1170,7 @@ return out;
         }
         setGroupes(prev => [...prev, data].sort((a, b) => a.nom.localeCompare(b.nom)));
         setSelectedGroupe(data.id);
-        // Si on creait depuis une card projet, on assigne le projet a ce nouveau groupe
+        // Si on creait depuis une card projet, on assigne le projet à ce nouveau groupe
         if (pendingAssignProjectId) {
           await assignProjectToGroup(pendingAssignProjectId, data.id);
           setPendingAssignProjectId(null);
@@ -1391,7 +1391,7 @@ setError(null);
 // Simulation de progression par etapes
 // Etape 0: Analyse de la demande (0-1.5s)
 // Etape 1: Calcul de la zone climatique (1.5-3s)
-// Etape 2: Generation du modele 3D (3-5s)
+// Etape 2: Génération du modele 3D (3-5s)
 // Etape 3: Creation du devis IA (5-7s)
 // Etape 4: Finalisation (7s+ jusqu'a la fin de l'API)
 const stepTimers = [];
@@ -1399,7 +1399,7 @@ stepTimers.push(setTimeout(() => { setLoadingStep(1); setLoadingProgress(20); },
 stepTimers.push(setTimeout(() => { setLoadingStep(2); setLoadingProgress(40); }, 3000));
 stepTimers.push(setTimeout(() => { setLoadingStep(3); setLoadingProgress(65); }, 5000));
 stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); }, 7000));
-// Garde une reference pour nettoyer si necessaire
+// Garde une référence pour nettoyer si necessaire
 window._deviaStepTimers = stepTimers;
 setLoadingProgress(5);
 const zoneInfo = getZone(commune, altitude);
@@ -1430,7 +1430,7 @@ const zoneInfo = getZone(commune, altitude);
     // Format compact pour le prompt (economiser les tokens)
     const prixListText = prixList.length > 0
       ? prixList.map(p => `- ${p.categorie} | ${p.designation} | ${p.dimensions || "-"} | ${p.unite} | ${Number(p.prix_ht).toFixed(2)} EUR`).join("\n")
-      : "Aucun catalogue fourni - estime les prix toi-meme.";
+      : "Aucun catalogue fourni - estimé les prix toi-meme.";
 
     const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
 "DETECTION DU TYPE DE PROJET : analyse la description et choisis 1 valeur pour type_projet : " +
@@ -1443,19 +1443,19 @@ const zoneInfo = getZone(commune, altitude);
 (catalogSource === "perso" ?
   // MODE STRICT : que le catalogue perso, pas d'invention
   "REGLES PRIX (MODE STRICT - CATALOGUE PERSO UNIQUEMENT) : " +
-  "1) INTERDICTION ABSOLUE d'inventer un prix ou de creer un poste pour un materiau qui n'est PAS dans le catalogue ci-dessus. " +
+  "1) INTERDICTION ABSOLUE d'inventer un prix ou de creer un poste pour un matériau qui n'est PAS dans le catalogue ci-dessus. " +
   "2) Tu DOIS uniquement creer des postes correspondant aux materiaux LISTES dans le catalogue. " +
   "3) Le prix unitaire HT doit correspondre EXACTEMENT au prix du catalogue. " +
-  "4) Si tu n'as pas assez de materiaux pour faire un devis complet (par exemple, pas de tuiles, pas de fixations), ne genere QUE les postes pour lesquels tu as un materiau dans le catalogue. " +
+  "4) Si tu n'as pas assez de materiaux pour faire un devis complet (par exemple, pas de tuiles, pas de fixations), ne genere QUE les postes pour lesquels tu as un matériau dans le catalogue. " +
   "5) Le devis sera donc PARTIEL. C'est ok et voulu. " +
   "6) Adapte les quantites au projet decrit. " +
-  "7) Dans le tableau 'notes' du JSON, AJOUTE en premiere note : 'Devis partiel : seuls les materiaux de votre catalogue sont inclus. Les postes manquants doivent etre completes manuellement ou en activant l option Completer avec marche.' " +
+  "7) Dans le tableau 'notes' du JSON, AJOUTE en premiere note : 'Devis partiel : seuls les materiaux de votre catalogue sont inclus. Les postes manquants doivent etre completes manuellement ou en activant l option Compléter avec marche.' " +
   "8) Genere entre 3 et 8 postes (selon le nombre de materiaux disponibles). "
   :
   // MODE NORMAL : avec complement marche
-  "REGLES PRIX : 1) Pour chaque poste de devis, utilise EN PRIORITE un materiau du catalogue ci-dessus si disponible. " +
+  "REGLES PRIX : 1) Pour chaque poste de devis, utilise EN PRIORITE un matériau du catalogue ci-dessus si disponible. " +
   "2) Le prix unitaire HT doit correspondre exactement au prix du catalogue. " +
-  "3) Si un materiau necessaire n'existe pas dans le catalogue, estime le prix au mieux mais signale-le dans les notes. " +
+  "3) Si un matériau necessaire n'existe pas dans le catalogue, estimé le prix au mieux mais signale-le dans les notes. " +
   "4) Adapte les quantites au projet decrit. "
 ) +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
@@ -1469,7 +1469,7 @@ const zoneInfo = getZone(commune, altitude);
 '"type_projet":"carport_OU_charpente_trad_OU_hangar_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"notes":["Note 1"]}. ' +
-"Genere 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
+"Généré 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
 try {
 const response = await fetch("/api/chat", {
 method: "POST",
@@ -1495,7 +1495,7 @@ messages: [{ role: "user", content: prompt }],
     : "";
 
   if (!text) {
-    throw new Error("Reponse vide du serveur. Verifie la cle API dans Vercel.");
+    throw new Error("Reponse vide du serveur. Vérifié la cle API dans Vercel.");
   }
 
   // Nettoyage : supprime les backticks markdown si presents
@@ -1519,7 +1519,7 @@ messages: [{ role: "user", content: prompt }],
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre"
       });
-      console.log("[DEVIA] Type de projet detecte par l'IA :", p.type_projet || "non specifie");
+      console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -1554,7 +1554,7 @@ messages: [{ role: "user", content: prompt }],
             console.error("Erreur sauvegarde projet:", insertError);
             setProjects(prev => [{ id: Date.now(), nom: nomProjet.trim() || p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
           } else if (inserted) {
-            // Insert usage_logs : historique de consommation (survit a la suppression du projet)
+            // Insert usage_logs : historique de consommation (survit à la suppression du projet)
             (async () => {
               try {
                 const { data: logData, error: logError } = await supabase
@@ -1711,7 +1711,7 @@ const loadProjectDetails = (project) => {
   };
 
   const handleDeleteMaterial = async (material) => {
-    const confirmed = window.confirm("Supprimer le materiau \"" + material.designation + "\" ? Cette action est irreversible.");
+    const confirmed = window.confirm("Supprimer le matériau \"" + material.designation + "\" ? Cette action est irreversible.");
     if (!confirmed) return;
     try {
       const { error } = await supabase
@@ -1734,7 +1734,7 @@ const loadProjectDetails = (project) => {
     setCatalogFormError(null);
 
     // Validations
-    // Categorie calculee automatiquement depuis le type detecte (ou override)
+    // Categorie calculee automatiquement depuis le type détecté (ou override)
     const activeType = typeOverride || detectedType;
     const categorieFinal = typeToCategorie(activeType);
     if (!categorieFinal) {
@@ -1883,7 +1883,7 @@ return (
       borderRadius: 999,
       padding: 4
     }}>
-      {[{ id: "devis", label: "Devis" }, { id: "projets", label: "Projets" }, { id: "catalogue", label: "Catalogue" }, { id: "parametres", label: "Parametres" }, { id: "compte", label: "Compte" }].map(tab => (
+      {[{ id: "devis", label: "Devis" }, { id: "projets", label: "Projets" }, { id: "catalogue", label: "Catalogue" }, { id: "parametres", label: "Paramètres" }, { id: "compte", label: "Compte" }].map(tab => (
         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
           style={{
             background: activeTab === tab.id ? t.navTabActive : "transparent",
@@ -2171,7 +2171,7 @@ return (
                   </>
                 ) : (
                   <>
-                    <span>Generer le devis</span>
+                    <span>Générer le devis</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 12h14M13 5l7 7-7 7"/>
                     </svg>
@@ -2240,7 +2240,7 @@ return (
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#fb923c", marginBottom: 3 }}>Devis partiel</div>
                     <div style={{ fontSize: 12, color: "#fdba74", lineHeight: 1.5 }}>
                       Ce devis ne contient que les materiaux presents dans votre catalogue d&apos;entreprise.
-                      Pour un devis complet, cochez &quot;Completer avec marche&quot; lors de la prochaine generation.
+                      Pour un devis complet, cochez &quot;Compléter avec marche&quot; lors de la prochaine generation.
                     </div>
                   </div>
                 </div>
@@ -2683,10 +2683,10 @@ return (
                 <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun resultat</div>
                 <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
                   {selectedGroupe !== "all" && searchProjects.trim() !== ""
-                    ? "Aucun projet ne correspond a votre recherche dans ce groupe."
+                    ? "Aucun projet ne correspond à votre recherche dans ce groupe."
                     : selectedGroupe !== "all"
                     ? "Aucun projet dans ce groupe."
-                    : "Aucun projet ne correspond a votre recherche."}
+                    : "Aucun projet ne correspond à votre recherche."}
                 </div>
               </div>
             ) : projects.filter(p => {
@@ -2797,7 +2797,7 @@ return (
                                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                                   </svg>
-                                  Ajouter a un groupe
+                                  Ajouter à un groupe
                                 </>
                               )}
                               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
@@ -3003,7 +3003,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Catalogue</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de reference utilises pour vos devis</div>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de référence utilises pour vos devis</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -3200,7 +3200,7 @@ return (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
-                    Ajouter un materiau
+                    Ajouter un matériau
                   </button>
                 </div>
                 {catalogueEntreprise.length === 0 ? (
@@ -3216,8 +3216,8 @@ return (
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
                       </svg>
                     </div>
-                    <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun materiau dans votre catalogue</div>
-                    <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Cliquez sur &quot;Ajouter un materiau&quot; pour creer votre premier prix personnalise.</div>
+                    <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun matériau dans votre catalogue</div>
+                    <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Cliquez sur &quot;Ajouter un matériau&quot; pour creer votre premier prix personnalise.</div>
                   </div>
                 ) : (
                   <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
@@ -3382,7 +3382,7 @@ return (
           </div>
         </div>
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Parametres</h2>
+          <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Paramètres</h2>
           <div style={{ color: "#7a7d92", fontSize: 13 }}>Configurez votre entreprise et vos tarifs par defaut</div>
         </div>
 
@@ -3427,7 +3427,7 @@ return (
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Tarification par defaut</div>
-              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces valeurs s&apos;appliquent automatiquement a vos devis</div>
+              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces valeurs s&apos;appliquent automatiquement à vos devis</div>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -3491,7 +3491,7 @@ return (
       <div>
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Mon compte</h2>
-          <div style={{ color: "#7a7d92", fontSize: 13 }}>Apercu de votre activite DEVIA</div>
+          <div style={{ color: "#7a7d92", fontSize: 13 }}>Aperçu de votre activite DEVIA</div>
         </div>
 
         {/* Card Identite + Plan */}
@@ -3683,7 +3683,7 @@ return (
 
                 {/* Bloc 2 - Parametres financiers */}
                 <div style={{ marginBottom: 6 }}>
-                  <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Parametres financiers</div>
+                  <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Paramètres financiers</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                     <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
                       <div style={{ color: "#7a7d92", fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Taux horaire</div>
@@ -3703,7 +3703,7 @@ return (
                 {/* Lien vers Parametres */}
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255, 255, 255, 0.04)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ color: "#545870", fontSize: 11, lineHeight: 1.4 }}>
-                    Pour modifier ces informations,<br/>rendez-vous dans <span style={{ color: "#9ca0b8" }}>Parametres</span>.
+                    Pour modifier ces informations,<br/>rendez-vous dans <span style={{ color: "#9ca0b8" }}>Paramètres</span>.
                   </div>
                   <button onClick={() => setActiveTab("parametres")}
                     style={{
@@ -3744,7 +3744,7 @@ return (
               const d = new Date(p.created_at);
               return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
             });
-            // Tokens calcules depuis usage_logs (survit a la suppression de projets)
+            // Tokens calcules depuis usage_logs (survit à la suppression de projets)
             const tokensTotal = usageLogs.reduce((sum, l) => sum + (l.tokens_in || 0) + (l.tokens_out || 0), 0);
             const logsThisMonth = usageLogs.filter(l => {
               if (!l.created_at) return false;
@@ -4390,7 +4390,7 @@ return (
             </svg>
           </div>
           <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Generation en cours</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Génération en cours</h2>
             <div style={{ color: "#7a7d92", fontSize: 12 }}>DEVIA prepare votre devis...</div>
           </div>
         </div>
@@ -4425,7 +4425,7 @@ return (
           {[
             { icon: "search", label: "Analyse de la demande" },
             { icon: "globe", label: "Calcul de la zone climatique" },
-            { icon: "cube", label: "Generation du modele 3D" },
+            { icon: "cube", label: "Génération du modele 3D" },
             { icon: "brain", label: "Creation du devis IA" },
             { icon: "check-circle", label: "Finalisation" }
           ].map((step, idx) => {
@@ -4545,8 +4545,8 @@ return (
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingCatalogId ? "Modifier un materiau" : "Ajouter un materiau"}</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingCatalogId ? "Mettez a jour les informations" : "Ajoutez un prix a votre catalogue personnel"}</div>
+            <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingCatalogId ? "Modifier un matériau" : "Ajouter un matériau"}</h2>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingCatalogId ? "Mettez a jour les informations" : "Ajoutez un prix à votre catalogue personnel"}</div>
           </div>
           <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
             style={{
@@ -4573,7 +4573,7 @@ return (
         <div style={{ display: "grid", gap: 14 }}>
           {/* Designation - avec detection intelligente */}
           <div>
-            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Designation <span style={{ color: "#f0c040" }}>*</span></label>
+            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Désignation <span style={{ color: "#f0c040" }}>*</span></label>
             <input type="text" value={catalogForm.designation}
               onChange={(e) => {
                 const v = e.target.value;
@@ -4607,7 +4607,7 @@ return (
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
-                    Type detecte : {config.label}
+                    Type détecté : {config.label}
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, marginLeft: 2 }}>
                       <polyline points="6 9 12 15 18 9"/>
                     </svg>
@@ -4661,7 +4661,7 @@ return (
           {(() => {
             const activeType = typeOverride || detectedType;
             const config = MATERIAL_TYPES[activeType] || MATERIAL_TYPES.autre;
-            const labels = { ml: "ml (metre lineaire)", m2: "m2 (metre carre)", m3: "m3 (metre cube)", u: "u (unite)", kg: "kg (kilo)", h: "h (heure)", forfait: "forfait" };
+            const labels = { ml: "ml (mètre linéaire)", m2: "m2 (mètre carré)", m3: "m3 (mètre cube)", u: "u (unite)", kg: "kg (kilo)", h: "h (heure)", forfait: "forfait" };
             const others = ["ml", "m2", "m3", "u", "kg", "h", "forfait"].filter(u => !config.suggestedUnits.includes(u));
             return (
               <div style={{ display: "grid", gridTemplateColumns: config.showDimensions ? "1fr 1fr" : "1fr", gap: 12 }}>
@@ -4770,7 +4770,7 @@ return (
 // ============================================================
 // DEVIA - Gate d'authentification (Micro-etape 2.2)
 // Ce wrapper affiche Login si l'utilisateur n'est pas connecte.
-// Il ne verifie PAS encore la licence (c'est la micro-etape 2.3).
+// Il ne vérifié PAS encore la licence (c'est la micro-etape 2.3).
 // ============================================================
 
 function DeviaAuthGate() {
