@@ -228,9 +228,9 @@ function Viewer3D({ params }) {
       addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
 
       // 2 SABLIERES
-      // Sabliere avant (en bas)
+      // Sablière avant (en bas)
       addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
-      // Sabliere arriere (en haut)
+      // Sablière arriere (en haut)
       addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
 
       // PANNES (entre sablieres, suivent la pente)
@@ -315,7 +315,7 @@ label: "Type de charpente",
 options: [
 { val: "fermette", label: "Fermette industrielle", icon: "🏭" },
 { val: "traditionnelle", label: "Charpente traditionnelle", icon: "🪵" },
-{ val: "lamelle", label: "Lamelle-colle", icon: "✨" },
+{ val: "lamelle", label: "Lamellé-collé", icon: "✨" },
 { val: "metalique", label: "Charpente metallique", icon: "⚙️" },
 ],
 },
@@ -323,7 +323,7 @@ couverture: {
 label: "Type de couverture",
 options: [
 { val: "tuile_terre", label: "Tuile terre cuite", icon: "🟤" },
-{ val: "tuile_beton", label: "Tuile beton", icon: "⬜" },
+{ val: "tuile_beton", label: "Tuile béton", icon: "⬜" },
 { val: "ardoise", label: "Ardoise naturelle", icon: "🔲" },
 { val: "bac_acier", label: "Bac acier", icon: "📐" },
 ],
@@ -331,7 +331,7 @@ options: [
 essence: {
 label: "Essence du bois",
 options: [
-{ val: "sapin", label: "Sapin / Epicea", icon: "🌲" },
+{ val: "sapin", label: "Sapin / Épicéa", icon: "🌲" },
 { val: "pin", label: "Pin Maritime", icon: "🌳" },
 { val: "douglas", label: "Douglas", icon: "🌲" },
 { val: "chene", label: "Chene", icon: "🌳" },
@@ -464,7 +464,7 @@ return (
 );
 }
 
-// ====== Detection intelligente du type de materiau ======
+// ====== Détection intelligente du type de materiau ======
 const MATERIAL_TYPES = {
   bois_structure: {
     label: "Bois structure",
@@ -478,7 +478,7 @@ const MATERIAL_TYPES = {
   bois_ossature: {
     label: "Bois ossature",
     color: "#a78bfa",
-    keywords: ["ossature", "montant", "traverse", "osb", "lamelle-colle", "lamellecolle", "kvh", "bois lamelle", "agglomere", "contreplaque"],
+    keywords: ["ossature", "montant", "traverse", "osb", "lamellé-collé", "lamellecolle", "kvh", "bois lamelle", "agglomere", "contreplaque"],
     showDimensions: true,
     suggestedUnits: ["ml", "m2", "u"],
     defaultUnit: "ml",
@@ -881,7 +881,7 @@ const [projects, setProjects] = useState([]);
     const loadCatalogues = async () => {
       setLoadingCatalogues(true);
       try {
-        // Catalogue marche DEVIA (lecture seule, accessible à tous)
+        // Catalogue marché DEVIA (lecture seule, accessible à tous)
         const { data: marcheData, error: marcheError } = await supabase
           .from("marche_prix")
           .select("*")
@@ -936,7 +936,7 @@ if (/tuile.*terre|terre.*cuite/i.test(text)) out.couverture = "tuile_terre";
 else if (/tuile.*beton/i.test(text)) out.couverture = "tuile_beton";
 else if (/ardoise/i.test(text)) out.couverture = "ardoise";
 else if (/bac.*acier/i.test(text)) out.couverture = "bac_acier";
-if (/sapin|epicea/i.test(text)) out.essence = "sapin";
+if (/sapin|épicéa/i.test(text)) out.essence = "sapin";
 else if (/douglas/i.test(text)) out.essence = "douglas";
 else if (/chene/i.test(text)) out.essence = "chene";
 else if (/pin/i.test(text)) out.essence = "pin";
@@ -1045,14 +1045,14 @@ return out;
       "Carport", "Charpente", "Garage", "Maison", "Toiture", "Abri", "Pergola",
       "Hangar", "Veranda", "Extension", "Ossature", "Cabanon", "Atelier",
       // Materiaux
-      "Sapin", "Douglas", "Chene", "Pin", "Epicea", "Melèze", "Meleze",
+      "Sapin", "Douglas", "Chene", "Pin", "Épicéa", "Melèze", "Mélèze",
       "Ardoise", "Tuile", "Bardeau", "Bac", "Acier", "Zinc", "Cuivre", "Plomb",
       "Beton", "Terre", "Cuite", "Lauze", "Shingle",
       // Types de charpente
       "Traditionnelle", "Fermette", "Industriel", "Industrielle", "Metalique", "Metallique",
       "Lamelle", "Lamellee", "Colle", "Massif", "Bois",
       // Etat travaux
-      "Neuve", "Neuf", "Renovation", "Refection", "Combles", "Perdus",
+      "Neuve", "Neuf", "Rénovation", "Refection", "Combles", "Perdus",
       "Amenagees", "Amenageables",
       // Adjectifs courants (faux positifs)
       "Petit", "Petite", "Grand", "Grande", "Nouveau", "Nouvelle",
@@ -1061,7 +1061,7 @@ return out;
       // Autres
       "Pente", "Pentes", "Toit", "Faite", "Faitage", "Pignon", "Pignons",
       "Sablieres", "Sabliere", "Chevrons", "Chevron", "Pannes", "Panne",
-      "Liteaux", "Liteau", "Arbaletriers", "Arbaletrier"
+      "Liteaux", "Liteau", "Arbalétriers", "Arbalétrier"
     ]);
     motsAvecMaj.forEach(m => {
       if (!blacklist.has(m)) candidates.push(m);
@@ -1392,7 +1392,7 @@ setError(null);
 // Etape 0: Analyse de la demande (0-1.5s)
 // Etape 1: Calcul de la zone climatique (1.5-3s)
 // Etape 2: Génération du modele 3D (3-5s)
-// Etape 3: Creation du devis IA (5-7s)
+// Etape 3: Création du devis IA (5-7s)
 // Etape 4: Finalisation (7s+ jusqu'a la fin de l'API)
 const stepTimers = [];
 stepTimers.push(setTimeout(() => { setLoadingStep(1); setLoadingProgress(20); }, 1500));
@@ -1917,10 +1917,10 @@ return (
         ) : !result ? (
           <div>
             <div style={{ marginBottom: 20, paddingTop: 4 }}>
-              <p style={{ color: "#7a7d92", fontSize: 14, lineHeight: 1.55 }}>Decrivez votre projet en langage naturel. DEVIA genere un devis professionnel et une visualisation 3D.</p>
+              <p style={{ color: "#7a7d92", fontSize: 14, lineHeight: 1.55 }}>Décrivez votre projet en langage naturel. DEVIA génère un devis professionnel et une visualisation 3D.</p>
             </div>
 
-            {/* Toggle Neuf / Renovation */}
+            {/* Toggle Neuf / Rénovation */}
             <div style={{
               display: "flex",
               alignItems: "center",
@@ -1936,7 +1936,7 @@ return (
                   Type de travaux
                 </div>
                 <div style={{ color: "#e8eaf2", fontSize: 13, fontWeight: 500 }}>
-                  {typeTravaux === "neuf" ? "Construction neuve" : "Renovation"}
+                  {typeTravaux === "neuf" ? "Construction neuve" : "Rénovation"}
                 </div>
               </div>
               <div style={{
@@ -1949,7 +1949,7 @@ return (
               }}>
                 {[
                   { id: "neuf", label: "Neuf", color: "#f0c040" },
-                  { id: "renovation", label: "Renovation", color: "#3ecf8e" }
+                  { id: "renovation", label: "Rénovation", color: "#3ecf8e" }
                 ].map(t => (
                   <button key={t.id} type="button" onClick={() => setTypeTravaux(t.id)}
                     style={{
@@ -1997,13 +1997,13 @@ return (
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Description du projet</label>
                 <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-                  placeholder="Ex: Charpente traditionnelle en sapin pour maison de 10x8m, tuile terre cuite, pente 35 deg, combles amenageables..."
+                  placeholder="Ex: Charpente traditionnelle en sapin pour maison de 10x8m, tuile terre cuite, pente 35°, combles aménageables..."
                   rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Localisation</label>
-                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ville, code postal ou adresse complete" style={inputStyle} />
+                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ville, code postal ou adresse complète" style={inputStyle} />
                 </div>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
@@ -2070,7 +2070,7 @@ return (
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "marche" ? "#f5f6fa" : "#d0d2dc" }}>Marche DEVIA</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "marche" ? "#f5f6fa" : "#d0d2dc" }}>Marché DEVIA</div>
                           {catalogChoice === "marche" && (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto" }}>
                               <path d="M20 6L9 17l-5-5"/>
@@ -2201,7 +2201,7 @@ return (
                         display: "inline-flex", alignItems: "center", gap: 5
                       }}>
                         <span style={{ width: 5, height: 5, borderRadius: "50%", background: result._catalogSource === "perso" ? "#3ecf8e" : (result._catalogSource === "perso+marche" ? "#a78bfa" : "#f0c040") }}></span>
-                        {result._catalogSource === "perso" ? "Catalogue perso" : (result._catalogSource === "perso+marche" ? "Perso + marche" : "Marche DEVIA")}
+                        {result._catalogSource === "perso" ? "Catalogue perso" : (result._catalogSource === "perso+marche" ? "Perso + marche" : "Marché DEVIA")}
                       </span>
                     )}
                   </div>
@@ -2398,7 +2398,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Mes projets</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Retrouvez tous vos devis sauvegardes</div>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Retrouvez tous vos devis sauvegardés</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -3023,7 +3023,7 @@ return (
         {/* Onglets internes - style pills */}
         <div style={{ display: "inline-flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 999, padding: 4 }}>
           {[
-            { id: "marche", label: "Marche DEVIA", color: "#f0c040" },
+            { id: "marche", label: "Marché DEVIA", color: "#f0c040" },
             { id: "perso", label: "Mon catalogue", color: "#3ecf8e" }
           ].map(t => (
             <button key={t.id} onClick={() => setActiveCatalogTab(t.id)}
@@ -3081,10 +3081,10 @@ return (
                     </svg>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Catalogue marche DEVIA</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Catalogue marché DEVIA</div>
                     <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
-                      Prix moyens du marche francais 2026, mis a jour regulierement par DEVIA.
-                      Vos prix dans &quot;Mon catalogue&quot; ont la priorite sur ces references.
+                      Prix moyens du marché français 2026, mis à jour régulièrement par DEVIA.
+                      Vos prix dans &quot;Mon catalogue&quot; ont la priorité sur ces références.
                     </div>
                   </div>
                 </div>
@@ -3327,8 +3327,8 @@ return (
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {[
-              { id: "dark", label: "Sombre", desc: "Noir profond, accents dores", isActive: themeMode === "dark" },
-              { id: "light", label: "Clair", desc: "Blanc pur, design epure", isActive: themeMode === "light" }
+              { id: "dark", label: "Sombre", desc: "Noir profond, accents dorés", isActive: themeMode === "dark" },
+              { id: "light", label: "Clair", desc: "Blanc pur, design épuré", isActive: themeMode === "light" }
             ].map(opt => (
               <button key={opt.id} onClick={() => setThemeMode(opt.id)}
                 style={{
@@ -3383,7 +3383,7 @@ return (
         </div>
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Paramètres</h2>
-          <div style={{ color: "#7a7d92", fontSize: 13 }}>Configurez votre entreprise et vos tarifs par defaut</div>
+          <div style={{ color: "#7a7d92", fontSize: 13 }}>Configurez votre entreprise et vos tarifs par défaut</div>
         </div>
 
         {/* Section Informations entreprise */}
@@ -3401,7 +3401,7 @@ return (
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Informations entreprise</div>
-              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces informations apparaitront sur vos devis</div>
+              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces informations apparaîtront sur vos devis</div>
             </div>
           </div>
           {[{ label: "Nom de l'entreprise", key: "entreprise" }, { label: "SIRET", key: "siret" }, { label: "Adresse", key: "adresse" }].map(f => (
@@ -3465,7 +3465,7 @@ return (
           <textarea value={params.mentions} onChange={e => setParams(prev => ({ ...prev, mentions: e.target.value }))} rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
         </div>
 
-        {/* Bouton Sauvegarder */}
+        {/* Bouton Sauvegardér */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
           <button style={{
             ...btnPrimary,
@@ -3481,7 +3481,7 @@ return (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
             </svg>
-            Sauvegarder
+            Sauvegardér
           </button>
         </div>
       </div>
@@ -3648,7 +3648,7 @@ return (
                 </div>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#e8eaf2", marginBottom: 1 }}>Infos entreprise</div>
-                  <div style={{ fontSize: 11, color: "#7a7d92" }}>{showInfosEntreprise ? "Cliquez pour replier" : "Cliquez pour deplier"}</div>
+                  <div style={{ fontSize: 11, color: "#7a7d92" }}>{showInfosEntreprise ? "Cliquez pour replier" : "Cliquez pour déplier"}</div>
                 </div>
               </div>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7d92" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
@@ -3839,7 +3839,7 @@ return (
         <div style={{ marginTop: 20 }}>
           <div style={{ marginBottom: 14 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", marginBottom: 2 }}>Votre abonnement</h3>
-            <div style={{ color: "#7a7d92", fontSize: 12 }}>Plan actuel et offres a venir</div>
+            <div style={{ color: "#7a7d92", fontSize: 12 }}>Plan actuel et offres à venir</div>
           </div>
 
           {/* PLAN ACTUEL : DEVIA Charpente */}
@@ -3884,7 +3884,7 @@ return (
                       Plan actuel
                     </span>
                   </div>
-                  <div style={{ color: "#9ca0b8", fontSize: 12 }}>Devis de charpente assistes par intelligence artificielle</div>
+                  <div style={{ color: "#9ca0b8", fontSize: 12 }}>Devis de charpente assistés par intelligence artificielle</div>
                 </div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -3948,7 +3948,7 @@ return (
                 )
               },
               {
-                nom: "DEVIA Maconnerie",
+                nom: "DEVIA Maçonnerie",
                 desc: "Devis gros oeuvre, fondations, murs",
                 color1: "#a78bfa",
                 color2: "#8b5cf6",
@@ -4124,7 +4124,7 @@ return (
             {savingRename ? (
               <>
                 <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
-                <span>Sauvegarde...</span>
+                <span>Sauvegardé...</span>
               </>
             ) : (
               <>
@@ -4282,7 +4282,7 @@ return (
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !savingGroup) handleCreateGroup(); }}
-            placeholder="Ex: Maisons neuves, Renovations..."
+            placeholder="Ex: Maisons neuves, Rénovations..."
             autoFocus
             disabled={savingGroup}
             style={inputStyle}
@@ -4331,7 +4331,7 @@ return (
             {savingGroup ? (
               <>
                 <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
-                <span>{editingGroupId ? "Sauvegarde..." : "Creation..."}</span>
+                <span>{editingGroupId ? "Sauvegardé..." : "Creation..."}</span>
               </>
             ) : (
               <>
@@ -4391,7 +4391,7 @@ return (
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Génération en cours</h2>
-            <div style={{ color: "#7a7d92", fontSize: 12 }}>DEVIA prepare votre devis...</div>
+            <div style={{ color: "#7a7d92", fontSize: 12 }}>DEVIA prépare votre devis...</div>
           </div>
         </div>
 
@@ -4426,7 +4426,7 @@ return (
             { icon: "search", label: "Analyse de la demande" },
             { icon: "globe", label: "Calcul de la zone climatique" },
             { icon: "cube", label: "Génération du modele 3D" },
-            { icon: "brain", label: "Creation du devis IA" },
+            { icon: "brain", label: "Création du devis IA" },
             { icon: "check-circle", label: "Finalisation" }
           ].map((step, idx) => {
             const status = idx < loadingStep ? "done" : idx === loadingStep ? "active" : "pending";
@@ -4546,7 +4546,7 @@ return (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingCatalogId ? "Modifier un matériau" : "Ajouter un matériau"}</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingCatalogId ? "Mettez a jour les informations" : "Ajoutez un prix à votre catalogue personnel"}</div>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingCatalogId ? "Mettez à jour les informations" : "Ajoutez un prix à votre catalogue personnel"}</div>
           </div>
           <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
             style={{
@@ -4745,7 +4745,7 @@ return (
               {savingCatalog ? (
                 <>
                   <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
-                  <span>{editingCatalogId ? "Sauvegarde..." : "Ajout en cours..."}</span>
+                  <span>{editingCatalogId ? "Sauvegardé..." : "Ajout en cours..."}</span>
                 </>
               ) : (
                 <>
