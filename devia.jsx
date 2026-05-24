@@ -469,7 +469,7 @@ const MATERIAL_TYPES = {
   bois_structure: {
     label: "Bois structure",
     color: "#a78bfa",
-    keywords: ["panne", "chevron", "sabliere", "poteau", "ferme", "arbaletrier", "lambourde", "solive", "poutre", "muraille", "entrait", "blochet", "jambette", "contrefiche", "echantignole"],
+    keywords: ["panne", "chevron", "sabliere", "poteau", "ferme", "arbalétrier", "lambourde", "solive", "poutre", "muraille", "entrait", "blochet", "jambette", "contrefiche", "echantignole"],
     showDimensions: true,
     suggestedUnits: ["ml", "m3", "u"],
     defaultUnit: "ml",
@@ -1044,7 +1044,7 @@ return out;
       // Types de constructions
       "Carport", "Charpente", "Garage", "Maison", "Toiture", "Abri", "Pergola",
       "Hangar", "Veranda", "Extension", "Ossature", "Cabanon", "Atelier",
-      // Materiaux
+      // Matériaux
       "Sapin", "Douglas", "Chene", "Pin", "Épicéa", "Melèze", "Mélèze",
       "Ardoise", "Tuile", "Bardeau", "Bac", "Acier", "Zinc", "Cuivre", "Plomb",
       "Beton", "Terre", "Cuite", "Lauze", "Shingle",
@@ -3003,7 +3003,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Catalogue</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de référence utilises pour vos devis</div>
+            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gerez les prix de référence utilisés pour vos devis</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -3322,7 +3322,7 @@ return (
             </div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14, color: t.textPrimary }}>Apparence</div>
-              <div style={{ color: t.textMuted, fontSize: 12 }}>Choisissez le theme de l&apos;application</div>
+              <div style={{ color: t.textMuted, fontSize: 12 }}>Choisissez le thème de l&apos;application</div>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -3491,7 +3491,7 @@ return (
       <div>
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Mon compte</h2>
-          <div style={{ color: "#7a7d92", fontSize: 13 }}>Aperçu de votre activite DEVIA</div>
+          <div style={{ color: "#7a7d92", fontSize: 13 }}>Aperçu de votre activité DEVIA</div>
         </div>
 
         {/* Card Identite + Plan */}
