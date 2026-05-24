@@ -703,6 +703,8 @@ const [commune, setCommune] = useState("");
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 const [result, setResult] = useState(null);
 const [error, setError] = useState(null);
 const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, hauteur: 3, pente: 35 });
@@ -1382,7 +1384,24 @@ return out;
   const handleGenerate = async (finalParams) => {
 setShowQuestions(false);
 setLoading(true);
+setLoadingStep(0);
+setLoadingProgress(0);
 setError(null);
+
+// Simulation de progression par etapes
+// Etape 0: Analyse de la demande (0-1.5s)
+// Etape 1: Calcul de la zone climatique (1.5-3s)
+// Etape 2: Generation du modele 3D (3-5s)
+// Etape 3: Creation du devis IA (5-7s)
+// Etape 4: Finalisation (7s+ jusqu'a la fin de l'API)
+const stepTimers = [];
+stepTimers.push(setTimeout(() => { setLoadingStep(1); setLoadingProgress(20); }, 1500));
+stepTimers.push(setTimeout(() => { setLoadingStep(2); setLoadingProgress(40); }, 3000));
+stepTimers.push(setTimeout(() => { setLoadingStep(3); setLoadingProgress(65); }, 5000));
+stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); }, 7000));
+// Garde une reference pour nettoyer si necessaire
+window._deviaStepTimers = stepTimers;
+setLoadingProgress(5);
 const zoneInfo = getZone(commune, altitude);
 // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
@@ -4329,6 +4348,172 @@ return (
               </>
             )}
           </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Pop-up de chargement avec progression */}
+  {loading && (
+    <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+        background: "rgba(0, 0, 0, 0.65)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 2000, padding: 16,
+        animation: "fadeInUp 0.18s ease-out"
+      }}>
+      <div style={{
+        background: "rgba(22, 25, 35, 0.98)",
+        backdropFilter: "blur(24px) saturate(140%)",
+        WebkitBackdropFilter: "blur(24px) saturate(140%)",
+        border: "1px solid rgba(240, 192, 64, 0.2)",
+        borderRadius: 20,
+        padding: 32,
+        maxWidth: 480,
+        width: "100%",
+        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04) inset, 0 0 32px rgba(240, 192, 64, 0.08)"
+      }}>
+        {/* En-tete */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: "linear-gradient(135deg, rgba(240, 192, 64, 0.18), rgba(240, 192, 64, 0.05))",
+            border: "1px solid rgba(240, 192, 64, 0.3)",
+            display: "flex", alignItems: "center", justifyContent: "center"
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" style={{ display: "none" }}/>
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Generation en cours</h2>
+            <div style={{ color: "#7a7d92", fontSize: 12 }}>DEVIA prepare votre devis...</div>
+          </div>
+        </div>
+
+        {/* Jauge de progression */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            width: "100%",
+            height: 6,
+            background: "rgba(255, 255, 255, 0.06)",
+            borderRadius: 999,
+            overflow: "hidden",
+            position: "relative"
+          }}>
+            <div style={{
+              height: "100%",
+              width: loadingProgress + "%",
+              background: "linear-gradient(90deg, #e0a020 0%, #f0c040 50%, #fcd34d 100%)",
+              borderRadius: 999,
+              transition: "width 0.4s ease-out",
+              boxShadow: "0 0 8px rgba(240, 192, 64, 0.5)"
+            }}/>
+          </div>
+          <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7a7d92" }}>
+            <span>Progression</span>
+            <span style={{ fontFamily: "ui-monospace, monospace", color: "#f0c040", fontWeight: 600 }}>{loadingProgress}%</span>
+          </div>
+        </div>
+
+        {/* Liste des etapes */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { icon: "search", label: "Analyse de la demande" },
+            { icon: "globe", label: "Calcul de la zone climatique" },
+            { icon: "cube", label: "Generation du modele 3D" },
+            { icon: "brain", label: "Creation du devis IA" },
+            { icon: "check-circle", label: "Finalisation" }
+          ].map((step, idx) => {
+            const status = idx < loadingStep ? "done" : idx === loadingStep ? "active" : "pending";
+            const color = status === "done" ? "#3ecf8e" : status === "active" ? "#f0c040" : "#545870";
+            const bgColor = status === "done" ? "rgba(62, 207, 142, 0.08)" : status === "active" ? "rgba(240, 192, 64, 0.08)" : "rgba(255, 255, 255, 0.02)";
+            const borderColor = status === "done" ? "rgba(62, 207, 142, 0.2)" : status === "active" ? "rgba(240, 192, 64, 0.25)" : "rgba(255, 255, 255, 0.04)";
+            return (
+              <div key={idx} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                background: bgColor,
+                border: "1px solid " + borderColor,
+                borderRadius: 12,
+                padding: "10px 14px",
+                transition: "all 0.25s"
+              }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: status === "active" ? "rgba(240, 192, 64, 0.15)" : status === "done" ? "rgba(62, 207, 142, 0.15)" : "rgba(255, 255, 255, 0.04)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "all 0.25s"
+                }}>
+                  {status === "done" ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  ) : status === "active" ? (
+                    <span style={{
+                      display: "inline-block",
+                      width: 14, height: 14,
+                      border: "2px solid rgba(240, 192, 64, 0.25)",
+                      borderTopColor: "#f0c040",
+                      borderRadius: "50%",
+                      animation: "spin 0.7s linear infinite"
+                    }}></span>
+                  ) : (
+                    step.icon === "search" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                      </svg>
+                    ) : step.icon === "globe" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                      </svg>
+                    ) : step.icon === "cube" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+                      </svg>
+                    ) : step.icon === "brain" ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9.5 2A2.5 2.5 0 0112 4.5v15a2.5 2.5 0 01-4.96.44 2.5 2.5 0 01-2.96-3.08 3 3 0 01-.34-5.58 2.5 2.5 0 011.32-4.24 2.5 2.5 0 014.44-1.04zM14.5 2A2.5 2.5 0 0012 4.5v15a2.5 2.5 0 004.96.44 2.5 2.5 0 002.96-3.08 3 3 0 00.34-5.58 2.5 2.5 0 00-1.32-4.24 2.5 2.5 0 00-4.44-1.04z"/>
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                      </svg>
+                    )
+                  )}
+                </div>
+                <div style={{
+                  flex: 1,
+                  fontSize: 13,
+                  fontWeight: status === "active" ? 600 : 500,
+                  color: status === "pending" ? "#7a7d92" : "#e8eaf2",
+                  transition: "color 0.25s"
+                }}>
+                  {step.label}
+                </div>
+                {status === "active" && (
+                  <span style={{ fontSize: 11, color: "#f0c040", fontWeight: 600, letterSpacing: "0.02em" }}>EN COURS</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pied de page */}
+        <div style={{
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+          fontSize: 11,
+          color: "#545870",
+          textAlign: "center",
+          letterSpacing: "0.02em"
+        }}>
+          Cela peut prendre quelques secondes
         </div>
       </div>
     </div>
