@@ -538,15 +538,6 @@ const MATERIAL_TYPES = {
     defaultUnit: "u",
     placeholder: ""
   },
-  main_oeuvre: {
-    label: "Main d'oeuvre",
-    color: "#f0c040",
-    keywords: ["main d'oeuvre", "main doeuvre", "charpentier", "manoeuvre", "pose", "depose", "installation", "demontage", "ouvrier", "chef equipe", "compagnon"],
-    showDimensions: false,
-    suggestedUnits: ["h", "forfait", "m2"],
-    defaultUnit: "h",
-    placeholder: ""
-  },
   autre: {
     label: "Autre",
     color: "#7a7d92",
@@ -586,7 +577,6 @@ function typeToCategorie(type) {
     isolation: "Isolation",
     visserie: "Quincaillerie",
     quincaillerie: "Quincaillerie",
-    main_oeuvre: "Main d'oeuvre",
     outillage: "Outillage",
     epi: "Outillage",
     autre: "Autre"
@@ -602,7 +592,6 @@ function categorieToType(categorie) {
     "Couverture": "couverture",
     "Isolation": "isolation",
     "Quincaillerie": "quincaillerie",
-    "Main d'oeuvre": "main_oeuvre",
     "Outillage": "outillage"
   };
   return reverseMap[categorie] || null;
@@ -1682,7 +1671,7 @@ const loadProjectDetails = (project) => {
   }, [showTypeMenu]);
 
   const openEditCatalogModal = (material) => {
-    const isStandardCat = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre", "Outillage"].includes(material.categorie);
+    const isStandardCat = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Outillage"].includes(material.categorie);
     // Pre-remplir le typeOverride depuis la categorie BDD
     const typeFromCat = categorieToType(material.categorie);
     if (typeFromCat) {
@@ -3086,7 +3075,7 @@ return (
                     acc[m.categorie].push(m);
                     return acc;
                   }, {});
-                  const orderedCats = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Main d'oeuvre"];
+                  const orderedCats = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie"];
                   const icons = {
                     "Charpente": "&#x1FAB5;",
                     "Bardage": "&#x1F3E0;",
@@ -4411,7 +4400,7 @@ return (
             {catalogForm.designation.trim().length >= 2 && (() => {
               const activeType = typeOverride || detectedType;
               const config = MATERIAL_TYPES[activeType];
-              const cBg = activeType === "main_oeuvre" ? "240, 192, 64" : activeType === "outillage" ? "251, 146, 60" : activeType === "couverture" ? "96, 165, 250" : activeType === "visserie" ? "252, 211, 77" : activeType === "isolation" ? "62, 207, 142" : activeType === "epi" ? "239, 68, 68" : activeType === "bois_structure" || activeType === "bois_ossature" ? "167, 139, 250" : "122, 125, 146";
+              const cBg = activeType === "outillage" ? "251, 146, 60" : activeType === "couverture" ? "96, 165, 250" : activeType === "visserie" ? "252, 211, 77" : activeType === "isolation" ? "62, 207, 142" : activeType === "epi" ? "239, 68, 68" : activeType === "bois_structure" || activeType === "bois_ossature" ? "167, 139, 250" : "122, 125, 146";
               return (
                 <div style={{ marginTop: 8, position: "relative", display: "inline-block" }}>
                   <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowTypeMenu(!showTypeMenu); }}
