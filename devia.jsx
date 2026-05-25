@@ -364,8 +364,8 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
     p.designation || "",
     p.quantite ? String(p.quantite) : "—",
     p.unite || "—",
-    p.prix_unitaire ? Number(p.prix_unitaire).toFixed(2) + " EUR" : "—",
-    p.total ? Number(p.total).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " EUR" : "—"
+    p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "—",
+    p.totalHT ? Number(p.totalHT).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " EUR" : "—"
   ]);
 
   autoTable(doc, {
