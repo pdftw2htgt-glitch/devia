@@ -1468,8 +1468,16 @@ const zoneInfo = getZone(commune, altitude);
 '"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '",' +
 '"type_projet":"carport_OU_charpente_trad_OU_hangar_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
-'"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"notes":["Note 1"]}. ' +
-"Généré 12 a 18 postes realistes avec prix marche francais 2024. IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
+'"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"temps_fabrication_h":24,"temps_pose_h":16,"notes":["Note 1"]}. ' +
+"Genere 12 a 18 postes realistes avec prix marche francais 2024. " +
+"ESTIMATION TEMPS : Tu DOIS aussi estimer le temps de fabrication en atelier (debit, assemblage des pieces) et le temps de pose sur chantier (montage de la charpente) en HEURES. " +
+"Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
+"Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
+"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. " +
+"Pour un hangar : 0.3-0.5h fabrication par m2 + 0.2-0.4h pose par m2. " +
+"Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
+"AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
+"IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
 try {
 const response = await fetch("/api/chat", {
 method: "POST",
@@ -2385,6 +2393,94 @@ return (
 
             {activeResultTab === "calcul" && (
               <div style={cardStyle}>
+                {/* Card Estimation temps fabrication + pose */}
+                {(result.temps_fabrication_h !== undefined || result.temps_pose_h !== undefined) && (() => {
+                  const fab = Number(result.temps_fabrication_h) || 0;
+                  const pose = Number(result.temps_pose_h) || 0;
+                  const total = fab + pose;
+                  return (
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(167, 139, 250, 0.04))",
+                      border: "1px solid rgba(96, 165, 250, 0.18)",
+                      borderRadius: 16,
+                      padding: 20,
+                      marginBottom: 16,
+                      backdropFilter: "blur(24px) saturate(140%)",
+                      WebkitBackdropFilter: "blur(24px) saturate(140%)"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: "rgba(96, 165, 250, 0.12)",
+                          border: "1px solid rgba(96, 165, 250, 0.2)",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Estimation temps</div>
+                          <div style={{ color: "#7a7d92", fontSize: 12 }}>Fabrication atelier + pose chantier</div>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                        <div style={{
+                          background: "rgba(255, 255, 255, 0.025)",
+                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          borderRadius: 12,
+                          padding: 14
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                            </svg>
+                            <span style={{ color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Fabrication</span>
+                          </div>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: "#e8eaf2", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                            {fab}<span style={{ fontSize: 13, color: "#7a7d92", fontWeight: 500, marginLeft: 4 }}>h</span>
+                          </div>
+                          <div style={{ color: "#545870", fontSize: 11, marginTop: 4 }}>Atelier</div>
+                        </div>
+                        <div style={{
+                          background: "rgba(255, 255, 255, 0.025)",
+                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          borderRadius: 12,
+                          padding: 14
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            <span style={{ color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pose</span>
+                          </div>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: "#e8eaf2", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                            {pose}<span style={{ fontSize: 13, color: "#7a7d92", fontWeight: 500, marginLeft: 4 }}>h</span>
+                          </div>
+                          <div style={{ color: "#545870", fontSize: 11, marginTop: 4 }}>Chantier</div>
+                        </div>
+                        <div style={{
+                          background: "linear-gradient(135deg, rgba(240, 192, 64, 0.1), rgba(240, 192, 64, 0.03))",
+                          border: "1px solid rgba(240, 192, 64, 0.25)",
+                          borderRadius: 12,
+                          padding: 14
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                            <span style={{ color: "#f0c040", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Total</span>
+                          </div>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: "#f0c040", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                            {total}<span style={{ fontSize: 13, color: "#a8841f", fontWeight: 500, marginLeft: 4 }}>h</span>
+                          </div>
+                          <div style={{ color: "#a8841f", fontSize: 11, marginTop: 4 }}>{Math.ceil(total / 8)} jour(s) - 8h</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <FeuilleCalcTable devisData={result.projet || {}} zoneData={zoneInfo} />
               </div>
             )}
