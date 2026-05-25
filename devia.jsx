@@ -306,6 +306,7 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   y = Math.max(y, yClient) + 8;
 
   // ============ VUES 3D ============
+  console.log("DEBUG PDF view3DParams:", view3DParams);
   if (view3DParams) {
     try {
       const views = capture3DViews(view3DParams);
