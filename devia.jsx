@@ -313,39 +313,61 @@ const QUESTIONS = {
 type: {
 label: "Type de charpente",
 options: [
-{ val: "fermette", label: "Fermette industrielle", icon: "🏭" },
+{ val: "fermette", label: "Fermette industrielle", icon: "factory" },
 { val: "traditionnelle", label: "Charpente traditionnelle", icon: "🪵" },
-{ val: "lamelle", label: "Lamellé-collé", icon: "✨" },
-{ val: "metalique", label: "Charpente metallique", icon: "⚙️" },
+{ val: "lamelle", label: "Lamellé-collé", icon: "sparkles" },
+{ val: "metalique", label: "Charpente metallique", icon: "gear" },
 ],
 },
 couverture: {
 label: "Type de couverture",
 options: [
-{ val: "tuile_terre", label: "Tuile terre cuite", icon: "🟤" },
+{ val: "tuile_terre", label: "Tuile terre cuite", icon: "circle-brown" },
 { val: "tuile_beton", label: "Tuile béton", icon: "⬜" },
-{ val: "ardoise", label: "Ardoise naturelle", icon: "🔲" },
-{ val: "bac_acier", label: "Bac acier", icon: "📐" },
+{ val: "ardoise", label: "Ardoise naturelle", icon: "square" },
+{ val: "bac_acier", label: "Bac acier", icon: "ruler" },
 ],
 },
 essence: {
 label: "Essence du bois",
 options: [
-{ val: "sapin", label: "Sapin / Épicéa", icon: "🌲" },
-{ val: "pin", label: "Pin Maritime", icon: "🌳" },
-{ val: "douglas", label: "Douglas", icon: "🌲" },
-{ val: "chene", label: "Chene", icon: "🌳" },
+{ val: "sapin", label: "Sapin / Épicéa", icon: "tree-conifer" },
+{ val: "pin", label: "Pin Maritime", icon: "tree-leaf" },
+{ val: "douglas", label: "Douglas", icon: "tree-conifer" },
+{ val: "chene", label: "Chene", icon: "tree-leaf" },
 ],
 },
 combles: {
 label: "Utilisation des combles",
 options: [
-{ val: "perdus", label: "Combles perdus", icon: "📦" },
-{ val: "amenageables", label: "Amenageables", icon: "🏠" },
-{ val: "amenages", label: "Amenages", icon: "🛋️" },
+{ val: "perdus", label: "Combles perdus", icon: "box" },
+{ val: "amenageables", label: "Amenageables", icon: "home" },
+{ val: "amenages", label: "Amenages", icon: "sofa" },
 ],
 },
 };
+
+// Mapping des identifiants vers des SVG (style line icons, stroke 2px)
+function renderIcon(name, size = 20, color = "#e8eaf2") {
+  const stroke = color;
+  const sw = "2";
+  const svgs = {
+    "factory": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M2 20a2 2 0 002 2h16a2 2 0 002-2V8l-7 5V8l-7 5V4a2 2 0 00-2-2H4a2 2 0 00-2 2z"/></svg>,
+    "sparkles": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 18l.75 2.25L8 21l-2.25.75L5 24l-.75-2.25L2 21l2.25-.75L5 18z"/></svg>,
+    "gear": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+    "circle-brown": <svg width={size} height={size} viewBox="0 0 24 24" fill="#a8841f" stroke="#a8841f" strokeWidth={sw}><circle cx="12" cy="12" r="9"/></svg>,
+    "square": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>,
+    "ruler": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M16 2l6 6L8 22l-6-6L16 2z"/><path d="M7.5 10.5l2 2"/><path d="M10.5 7.5l2 2"/><path d="M13.5 4.5l2 2"/></svg>,
+    "tree-conifer": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l4 6h-2l3 5h-2l3 5H6l3-5H7l3-5H8l4-6z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>,
+    "tree-leaf": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V12"/><path d="M12 12c-3 0-7-2-7-7 0 0 4-1 7 4 3-5 7-4 7-4 0 5-4 7-7 7z"/></svg>,
+    "box": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+    "home": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    "sofa": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M20 9V7a2 2 0 00-2-2H6a2 2 0 00-2 2v2"/><path d="M2 11v5a2 2 0 002 2h16a2 2 0 002-2v-5a2 2 0 00-4 0v3H6v-3a2 2 0 00-4 0z"/><line x1="6" y1="18" x2="6" y2="20"/><line x1="18" y1="18" x2="18" y2="20"/></svg>,
+    "help-circle": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+    "paperclip": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
+  };
+  return svgs[name] || null;
+}
 
 function QuestionsScreen({ detected, onValidate }) {
 const [answers, setAnswers] = useState({});
@@ -354,7 +376,7 @@ const allAnswered = missing.every(k => answers[k]);
 return (
 <div style={{ padding: 24, maxWidth: 600, margin: "0 auto" }}>
 <div style={{ textAlign: "center", marginBottom: 28 }}>
-<div style={{ fontSize: 40, marginBottom: 8 }}>🤔</div>
+<div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>{renderIcon("help-circle", 40, "#f0c040")}</div>
 <div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf2" }}>Quelques precisions</div>
 <div style={{ color: "#545870", fontSize: 14, marginTop: 4 }}>Pour un devis precis, quelques informations manquantes</div>
 </div>
@@ -371,7 +393,7 @@ borderRadius: 8, padding: "12px 10px", cursor: "pointer",
 color: answers[key] === opt.val ? "#f0c040" : "#e8eaf2",
 textAlign: "left", display: "flex", alignItems: "center", gap: 8, fontSize: 14,
 }}>
-<span style={{ fontSize: 20 }}>{opt.icon}</span>{opt.label}
+<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20 }}>{renderIcon(opt.icon, 18, "#e8eaf2")}</span>{opt.label}
 </button>
 ))}
 </div>
@@ -2029,7 +2051,7 @@ return (
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
                 <div onClick={() => fileInputRef.current && fileInputRef.current.click()}
                   style={{ border: "2px dashed #1e2231", borderRadius: 8, padding: 20, textAlign: "center", cursor: "pointer", color: "#545870" }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>📎</div>
+                  <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>{renderIcon("paperclip", 24, "#7a7d92")}</div>
                   <div style={{ fontSize: 13 }}>Cliquez pour ajouter des fichiers</div>
                   {files.length > 0 && (
                     <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
