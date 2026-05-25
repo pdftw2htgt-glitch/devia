@@ -306,7 +306,6 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   y = Math.max(y, yClient) + 8;
 
   // ============ VUES 3D ============
-  console.log("DEBUG PDF view3DParams:", view3DParams);
   if (view3DParams) {
     try {
       const views = capture3DViews(view3DParams);
@@ -2843,7 +2842,7 @@ return (
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); setNomProjet(""); }}>Nouveau</button>
-                  <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet)}>
+                  <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
