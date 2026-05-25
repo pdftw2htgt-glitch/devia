@@ -314,7 +314,7 @@ type: {
 label: "Type de charpente",
 options: [
 { val: "fermette", label: "Fermette industrielle", icon: "factory" },
-{ val: "traditionnelle", label: "Charpente traditionnelle", icon: "🪵" },
+{ val: "traditionnelle", label: "Charpente traditionnelle", icon: "tree-log" },
 { val: "lamelle", label: "Lamellé-collé", icon: "sparkles" },
 { val: "metalique", label: "Charpente metallique", icon: "gear" },
 ],
@@ -323,7 +323,7 @@ couverture: {
 label: "Type de couverture",
 options: [
 { val: "tuile_terre", label: "Tuile terre cuite", icon: "circle-brown" },
-{ val: "tuile_beton", label: "Tuile béton", icon: "⬜" },
+{ val: "tuile_beton", label: "Tuile béton", icon: "square" },
 { val: "ardoise", label: "Ardoise naturelle", icon: "square" },
 { val: "bac_acier", label: "Bac acier", icon: "ruler" },
 ],
@@ -358,6 +358,7 @@ function renderIcon(name, size = 20, color = "#e8eaf2") {
     "circle-brown": <svg width={size} height={size} viewBox="0 0 24 24" fill="#a8841f" stroke="#a8841f" strokeWidth={sw}><circle cx="12" cy="12" r="9"/></svg>,
     "square": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>,
     "ruler": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M16 2l6 6L8 22l-6-6L16 2z"/><path d="M7.5 10.5l2 2"/><path d="M10.5 7.5l2 2"/><path d="M13.5 4.5l2 2"/></svg>,
+    "tree-log": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="6" rx="9" ry="3"/><path d="M3 6v12c0 1.66 4.03 3 9 3s9-1.34 9-3V6"/><line x1="12" y1="9" x2="12" y2="9.01"/><line x1="9" y1="8.5" x2="9" y2="8.51"/><line x1="15" y1="8.5" x2="15" y2="8.51"/></svg>,
     "tree-conifer": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l4 6h-2l3 5h-2l3 5H6l3-5H7l3-5H8l4-6z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>,
     "tree-leaf": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V12"/><path d="M12 12c-3 0-7-2-7-7 0 0 4-1 7 4 3-5 7-4 7-4 0 5-4 7-7 7z"/></svg>,
     "box": <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
@@ -3212,14 +3213,34 @@ return (
                     acc[m.categorie].push(m);
                     return acc;
                   }, {});
-                  const orderedCats = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie"];
-                  const icons = {
-                    "Charpente": "&#x1FAB5;",
-                    "Bardage": "&#x1F3E0;",
-                    "Couverture": "&#x1F7EB;",
-                    "Isolation": "&#x1F9CA;",
-                    "Quincaillerie": "&#x1F529;",
-                    "Main d'oeuvre": "&#x1F477;"
+                  const orderedCats = ["Charpente", "Bardage", "Couverture", "Isolation", "Quincaillerie", "Outillage"];
+                  const catColors = {
+                    "Charpente": "#a78bfa",
+                    "Bardage": "#fb923c",
+                    "Couverture": "#60a5fa",
+                    "Isolation": "#3ecf8e",
+                    "Quincaillerie": "#fcd34d",
+                    "Outillage": "#f0c040"
+                  };
+                  const renderCatIcon = (cat) => {
+                    const c = catColors[cat] || "#7a7d92";
+                    const sw = "2";
+                    switch(cat) {
+                      case "Charpente":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l4 6h-2l3 5h-2l3 5H6l3-5H7l3-5H8l4-6z"/><line x1="12" y1="18" x2="12" y2="22"/></svg>;
+                      case "Bardage":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+                      case "Couverture":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M2 12l10-9 10 9"/><path d="M5 10v10h14V10"/></svg>;
+                      case "Isolation":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M2 6l10 6 10-6"/><path d="M2 12l10 6 10-6"/><path d="M2 18l10 6 10-6"/></svg>;
+                      case "Quincaillerie":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/></svg>;
+                      case "Outillage":
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>;
+                      default:
+                        return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/></svg>;
+                    }
                   };
                   return orderedCats.map(cat => {
                     const items = grouped[cat] || [];
@@ -3227,7 +3248,7 @@ return (
                     return (
                       <div key={cat} style={{ marginBottom: 24 }}>
                         <h3 style={{ fontSize: 15, fontWeight: 700, color: "#f0c040", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                          <span dangerouslySetInnerHTML={{ __html: icons[cat] || "" }} />
+                          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22 }}>{renderCatIcon(cat)}</span>
                           {cat} <span style={{ color: "#545870", fontWeight: 400, fontSize: 13 }}>({items.length})</span>
                         </h3>
                         <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", background: "rgba(255, 255, 255, 0.015)" }}>
