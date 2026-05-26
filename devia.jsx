@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
 import { signOut } from "./src/lib/auth.js";
@@ -807,23 +808,60 @@ function Viewer3D({ params }) {
     ground.rotation.x = -Math.PI/2;
     scene.add(ground);
 
-    // ANIMATION (rotation camera)
-    let angle = 0, animId;
+    // ============================================================
+    // CAMERA INTERACTIVE (OrbitControls)
+    // ============================================================
+
+    // Centre cible de la camera (adapte selon type)
+    const yCentre = typeProjet === "carport"
+      ? H + (lg * Math.tan((pente * Math.PI) / 180)) / 2
+      : H/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
+
+    // Configuration OrbitControls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, yCentre, 0);
+    controls.enableDamping = true;          // mouvement fluide
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.6;
+    controls.zoomSpeed = 0.8;
+    controls.panSpeed = 0.5;
+    controls.minDistance = 5;               // limite zoom in
+    controls.maxDistance = 50;              // limite zoom out
+    controls.minPolarAngle = 0.1;           // empeche de passer en dessous
+    controls.maxPolarAngle = Math.PI / 2.1; // empeche de passer sous le sol
+    controls.autoRotate = true;             // rotation lente au demarrage
+    controls.autoRotateSpeed = 0.5;
+    camera.lookAt(0, yCentre, 0);
+    controls.update();
+
+    // Arreter l'auto-rotation au premier mouvement utilisateur
+    const stopAutoRotate = () => { controls.autoRotate = false; };
+    controls.addEventListener("start", stopAutoRotate);
+
+    // Boucle de rendu
+    let animId;
     const animate = () => {
       animId = requestAnimationFrame(animate);
-      angle += 0.005;
-      camera.position.x = Math.cos(angle) * 16;
-      camera.position.z = Math.sin(angle) * 16;
-      // Centre de la camera : adapter selon type
-      const yCentre = typeProjet === "carport"
-        ? H + (lg * Math.tan((pente * Math.PI) / 180)) / 2
-        : H/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
-      camera.lookAt(0, yCentre, 0);
+      controls.update();
       renderer.render(scene, camera);
     };
     animate();
 
+    // Gestion du resize
+    const handleResize = () => {
+      if (!mountRef.current) return;
+      const newW = mountRef.current.clientWidth;
+      const newH = mountRef.current.clientHeight;
+      camera.aspect = newW / newH;
+      camera.updateProjectionMatrix();
+      renderer.setSize(newW, newH);
+    };
+    window.addEventListener("resize", handleResize);
+
     return () => {
+      window.removeEventListener("resize", handleResize);
+      controls.removeEventListener("start", stopAutoRotate);
+      controls.dispose();
       cancelAnimationFrame(animId);
       renderer.dispose();
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
