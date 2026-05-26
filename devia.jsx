@@ -188,12 +188,77 @@ function buildScene3D(scene, params, opts) {
   };
 
   // ============================================================
+  // HANGAR (poteaux + 2 pans, sans murs, grande portee)
+  // ============================================================
+  const drawHangar = () => {
+    const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
+    const sectionPotau = 0.22; // poteaux plus gros pour hangar
+
+    // POTEAUX (4 coins + intermediaires selon longueur)
+    const nbPoteauxLong = Math.max(2, Math.ceil(L / 4)); // 1 poteau tous les 4m max
+    for (let i = 0; i <= nbPoteauxLong; i++) {
+      const x = -L/2 + (i / nbPoteauxLong) * L;
+      // Poteau cote Z+
+      addBox(sectionPotau, Ht, sectionPotau, x, Ht/2, lg/2);
+      // Poteau cote Z-
+      addBox(sectionPotau, Ht, sectionPotau, x, Ht/2, -lg/2);
+    }
+
+    // SABLIERES (2 longues poutres entre les poteaux)
+    addBox(L + 0.4, 0.20, 0.20, 0, Ht, lg/2);   // sabliere Z+
+    addBox(L + 0.4, 0.20, 0.20, 0, Ht, -lg/2);  // sabliere Z-
+
+    // FERMES (assemblees comme charpente trad mais sans murs)
+    const nbFermes = Math.max(2, Math.ceil(L / 3)); // 1 ferme tous les 3m
+    for (let i = 0; i <= nbFermes; i++) {
+      const x = -L/2 + (i / nbFermes) * L;
+      const ang = Math.atan(hf / (lg/2));
+      const pl = (lg/2) / Math.cos(ang);
+      // Arbaletriers (les 2 pans inclines)
+      addBox(pl, 0.14, 0.14, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
+      addBox(pl, 0.14, 0.14, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
+      // Entrait (poutre horizontale en bas)
+      addBox(0.14, 0.14, lg, x, Ht, 0);
+      // Poincon (vertical central)
+      addBox(0.14, hf, 0.14, x, Ht + hf/2, 0);
+    }
+
+    // FAITAGE
+    addBox(L + 0.5, 0.16, 0.16, 0, Ht + hf, 0);
+
+    // PANNES (le long de la longueur, sur les pans)
+    const nbPannes = 3;
+    for (let i = 1; i < nbPannes; i++) {
+      const t = i / nbPannes;
+      const yPanne = Ht + hf * (1 - t);
+      const zPanne = (lg/2) * t;
+      addBox(L + 0.4, 0.12, 0.12, 0, yPanne, zPanne);
+      addBox(L + 0.4, 0.12, 0.12, 0, yPanne, -zPanne);
+    }
+
+    // TOITURE (2 pans)
+    const ang = Math.atan(hf / (lg/2));
+    const pl = (lg/2) / Math.cos(ang);
+    const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.3);
+    const r1 = new THREE.Mesh(rg, roofMat);
+    r1.position.set(0, Ht + hf/2, lg/4);
+    r1.rotation.x = ang - Math.PI/2;
+    scene.add(r1);
+    const r2 = new THREE.Mesh(rg, roofMat);
+    r2.position.set(0, Ht + hf/2, -lg/4);
+    r2.rotation.x = -(ang - Math.PI/2);
+    scene.add(r2);
+  };
+
+  // ============================================================
   // SWITCH SELON TYPE PROJET
   // ============================================================
   if (typeProjet === "carport") {
     drawCarport();
   } else if (typeProjet === "monopente") {
     drawMonopente();
+  } else if (typeProjet === "hangar") {
+    drawHangar();
   } else {
     drawCharpenteTrad();
   }
@@ -202,6 +267,9 @@ function buildScene3D(scene, params, opts) {
   let yCentre;
   if (typeProjet === "carport" || typeProjet === "monopente") {
     yCentre = Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2;
+  } else if (typeProjet === "hangar") {
+    // Hangar : centre plus haut pour bien voir le toit
+    yCentre = Ht * 0.7 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   } else {
     yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   }
@@ -878,6 +946,7 @@ options: [
 { val: "lamelle", label: "Lamellé-collé", icon: "sparkles" },
 { val: "metalique", label: "Charpente metallique", icon: "gear" },
 { val: "monopente", label: "Monopente", icon: "ruler" },
+{ val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
 ],
 },
 couverture: {
@@ -2122,7 +2191,7 @@ const zoneInfo = getZone(commune, altitude);
 "ESTIMATION TEMPS : Tu DOIS aussi estimer le temps de fabrication en atelier (debit, assemblage des pieces) et le temps de pose sur chantier (montage de la charpente) en HEURES. " +
 "Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
 "Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
-"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. " +
+"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. " +
 "Pour un hangar : 0.3-0.5h fabrication par m2 + 0.2-0.4h pose par m2. " +
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
