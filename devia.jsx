@@ -112,18 +112,99 @@ function buildScene3D(scene, params, opts) {
   };
 
   // ============================================================
+  // MONOPENTE (1 pan + murs, mur arriere haut, mur avant bas)
+  // ============================================================
+  const drawMonopente = () => {
+    // Calcul deniveles
+    const denivele = lg * Math.tan((pente * Math.PI) / 180);
+    const Hbas = Ht;            // hauteur mur avant
+    const Hhaut = Ht + denivele; // hauteur mur arriere
+
+    // 4 MURS (avec hauteurs variables sur les cotes)
+    // Mur arriere (Z+, haut)
+    addBox(L, Hhaut, 0.15, 0, Hhaut/2, lg/2, wallMat);
+    // Mur avant (Z-, bas)
+    addBox(L, Hbas, 0.15, 0, Hbas/2, -lg/2, wallMat);
+
+    // Mur lateral gauche (forme trapezoidale - approxime avec 2 boxes)
+    // Partie basse : rectangle Hbas
+    addBox(0.15, Hbas, lg, -L/2, Hbas/2, 0, wallMat);
+    // Partie haute : triangle (approxime par un prisme)
+    const triGeo = new THREE.BufferGeometry();
+    const triVertices = new Float32Array([
+      // Triangle gauche
+      -L/2, Hbas, -lg/2,
+      -L/2, Hbas, lg/2,
+      -L/2, Hhaut, lg/2,
+    ]);
+    triGeo.setAttribute("position", new THREE.BufferAttribute(triVertices, 3));
+    triGeo.computeVertexNormals();
+    const triMeshG = new THREE.Mesh(triGeo, wallMat);
+    scene.add(triMeshG);
+
+    // Mur lateral droit
+    addBox(0.15, Hbas, lg, L/2, Hbas/2, 0, wallMat);
+    const triGeo2 = new THREE.BufferGeometry();
+    const triVertices2 = new Float32Array([
+      L/2, Hbas, -lg/2,
+      L/2, Hbas, lg/2,
+      L/2, Hhaut, lg/2,
+    ]);
+    triGeo2.setAttribute("position", new THREE.BufferAttribute(triVertices2, 3));
+    triGeo2.computeVertexNormals();
+    const triMeshD = new THREE.Mesh(triGeo2, wallMat);
+    scene.add(triMeshD);
+
+    // SABLIERES
+    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);  // sabliere avant
+    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);  // sabliere arriere
+
+    // PANNES (3 pannes entre sablieres)
+    const nbPannes = 3;
+    for (let i = 0; i < nbPannes; i++) {
+      const t = i / (nbPannes - 1);
+      const z = -lg/2 + t * lg;
+      const y = Hbas + t * denivele;
+      addBox(L + 0.3, 0.14, 0.14, 0, y, z);
+    }
+
+    // CHEVRONS (en pente, sens largeur)
+    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
+    const ang = Math.atan(denivele / lg);
+    const longueurChevron = lg / Math.cos(ang);
+    for (let i = 0; i <= nbChevrons; i++) {
+      const x = -L/2 + (i / nbChevrons) * L;
+      const yCentre = Hbas + denivele/2;
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+    }
+
+    // TOITURE (1 pan)
+    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const roof = new THREE.Mesh(rg, roofMat);
+    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+    roof.rotation.z = ang;
+    roof.rotation.y = Math.PI/2;
+    scene.add(roof);
+  };
+
+  // ============================================================
   // SWITCH SELON TYPE PROJET
   // ============================================================
   if (typeProjet === "carport") {
     drawCarport();
+  } else if (typeProjet === "monopente") {
+    drawMonopente();
   } else {
     drawCharpenteTrad();
   }
 
   // Retourne le centre Y pour la camera
-  const yCentre = typeProjet === "carport"
-    ? Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2
-    : Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
+  let yCentre;
+  if (typeProjet === "carport" || typeProjet === "monopente") {
+    yCentre = Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2;
+  } else {
+    yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
+  }
 
   return { yCentre };
 }
@@ -796,6 +877,7 @@ options: [
 { val: "traditionnelle", label: "Charpente traditionnelle", icon: "tree-log" },
 { val: "lamelle", label: "Lamellé-collé", icon: "sparkles" },
 { val: "metalique", label: "Charpente metallique", icon: "gear" },
+{ val: "monopente", label: "Monopente", icon: "ruler" },
 ],
 },
 couverture: {
@@ -2040,7 +2122,7 @@ const zoneInfo = getZone(commune, altitude);
 "ESTIMATION TEMPS : Tu DOIS aussi estimer le temps de fabrication en atelier (debit, assemblage des pieces) et le temps de pose sur chantier (montage de la charpente) en HEURES. " +
 "Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
 "Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
-"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. " +
+"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. " +
 "Pour un hangar : 0.3-0.5h fabrication par m2 + 0.2-0.4h pose par m2. " +
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
