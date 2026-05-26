@@ -1,6 +1,132 @@
 import { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+// ================================================================
+// BUILD SCENE 3D - Construit la geometrie selon type de projet
+// Utilisee par Viewer3D (interactif) et capture3DViews (PDF)
+// ================================================================
+function buildScene3D(scene, params, opts) {
+  const L = params.longueur || 8;
+  const lg = params.largeur || 6;
+  const Ht = params.hauteur || 3;
+  const pente = params.pente || 35;
+  const typeProjet = params.type_projet || "charpente_trad";
+
+  // Options : couleurs (peuvent varier pour le PDF vs interactif)
+  const woodColor = opts && opts.woodColor ? opts.woodColor : 0xc4894a;
+  const roofColor = opts && opts.roofColor ? opts.roofColor : 0x8b6355;
+  const wallColor = opts && opts.wallColor ? opts.wallColor : 0xf0ece0;
+  const wallOpacity = opts && opts.wallOpacity !== undefined ? opts.wallOpacity : 0.2;
+
+  const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
+  const roofMat = new THREE.MeshLambertMaterial({ color: roofColor, side: THREE.DoubleSide });
+  const wallMat = new THREE.MeshLambertMaterial({ color: wallColor, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
+
+  const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
+    m.position.set(px, py, pz);
+    if (rot) m.rotation.set(...rot);
+    m.castShadow = true;
+    scene.add(m);
+  };
+
+  // ============================================================
+  // CHARPENTE TRADITIONNELLE (2 pans)
+  // ============================================================
+  const drawCharpenteTrad = () => {
+    const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
+
+    [
+      [L, Ht, 0.15, 0, Ht/2, lg/2],
+      [L, Ht, 0.15, 0, Ht/2, -lg/2],
+      [0.15, Ht, lg, -L/2, Ht/2, 0],
+      [0.15, Ht, lg, L/2, Ht/2, 0]
+    ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
+
+    const nb = Math.max(2, Math.ceil(L / 2.5));
+    for (let i = 0; i <= nb; i++) {
+      const x = -L/2 + (i/nb) * L;
+      const ang = Math.atan(hf / (lg/2));
+      const pl = (lg/2) / Math.cos(ang);
+      addBox(pl, 0.12, 0.12, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
+      addBox(pl, 0.12, 0.12, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
+      addBox(0.12, hf + 0.1, 0.12, x, Ht + hf/2, 0);
+    }
+
+    addBox(L + 0.4, 0.14, 0.14, 0, Ht + hf, 0);
+
+    const ang = Math.atan(hf / (lg/2));
+    const pl = (lg/2) / Math.cos(ang);
+    const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.2);
+    const r1 = new THREE.Mesh(rg, roofMat);
+    r1.position.set(0, Ht + hf/2, lg/4);
+    r1.rotation.x = ang - Math.PI/2;
+    scene.add(r1);
+    const r2 = new THREE.Mesh(rg, roofMat);
+    r2.position.set(0, Ht + hf/2, -lg/4);
+    r2.rotation.x = -(ang - Math.PI/2);
+    scene.add(r2);
+  };
+
+  // ============================================================
+  // CARPORT (1 pente, pas de murs)
+  // ============================================================
+  const drawCarport = () => {
+    const denivele = lg * Math.tan((pente * Math.PI) / 180);
+    const Hbas = Ht;
+    const Hhaut = Ht + denivele;
+    const sectionPotau = 0.18;
+
+    addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
+    addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
+    addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, lg/2);
+    addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
+
+    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
+    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
+
+    const nbPannes = 3;
+    for (let i = 0; i < nbPannes; i++) {
+      const t = i / (nbPannes - 1);
+      const z = -lg/2 + t * lg;
+      const y = Hbas + t * denivele;
+      addBox(L + 0.3, 0.14, 0.14, 0, y, z);
+    }
+
+    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
+    const ang = Math.atan(denivele / lg);
+    const longueurChevron = lg / Math.cos(ang);
+    for (let i = 0; i <= nbChevrons; i++) {
+      const x = -L/2 + (i / nbChevrons) * L;
+      const yCentre = Hbas + denivele/2;
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+    }
+
+    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const roof = new THREE.Mesh(rg, roofMat);
+    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+    roof.rotation.z = ang;
+    roof.rotation.y = Math.PI/2;
+    scene.add(roof);
+  };
+
+  // ============================================================
+  // SWITCH SELON TYPE PROJET
+  // ============================================================
+  if (typeProjet === "carport") {
+    drawCarport();
+  } else {
+    drawCharpenteTrad();
+  }
+
+  // Retourne le centre Y pour la camera
+  const yCentre = typeProjet === "carport"
+    ? Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2
+    : Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
+
+  return { yCentre };
+}
 import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
 import { signOut } from "./src/lib/auth.js";
@@ -54,104 +180,17 @@ function capture3DViews(view3DParams) {
   const pente = view3DParams.pente || 35;
   const typeProjet = view3DParams.type_projet || "charpente_trad";
 
-  // Materials (couleurs plus contrastees pour le PDF blanc)
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0xa8743a });
-  const roofMat = new THREE.MeshLambertMaterial({ color: 0x6b4a3f, side: THREE.DoubleSide });
-  const wallMat = new THREE.MeshLambertMaterial({ color: 0xd8d2c0, transparent: true, opacity: 0.25, side: THREE.DoubleSide });
-
-  const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
-    m.position.set(px, py, pz);
-    if (rot) m.rotation.set(...rot);
-    scene.add(m);
-  };
-
-  // ============ CHARPENTE TRAD ============
-  const drawCharpenteTrad = () => {
-    const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
-    [
-      [L, Ht, 0.15, 0, Ht/2, lg/2],
-      [L, Ht, 0.15, 0, Ht/2, -lg/2],
-      [0.15, Ht, lg, -L/2, Ht/2, 0],
-      [0.15, Ht, lg, L/2, Ht/2, 0]
-    ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
-
-    const nb = Math.max(2, Math.ceil(L / 2.5));
-    for (let i = 0; i <= nb; i++) {
-      const x = -L/2 + (i/nb) * L;
-      const ang = Math.atan(hf / (lg/2));
-      const pl = (lg/2) / Math.cos(ang);
-      addBox(pl, 0.12, 0.12, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
-      addBox(pl, 0.12, 0.12, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
-      addBox(0.12, hf + 0.1, 0.12, x, Ht + hf/2, 0);
-    }
-    addBox(L + 0.4, 0.14, 0.14, 0, Ht + hf, 0);
-
-    const ang2 = Math.atan(hf / (lg/2));
-    const pl2 = (lg/2) / Math.cos(ang2);
-    const rg = new THREE.PlaneGeometry(L + 0.6, pl2 + 0.2);
-    const r1 = new THREE.Mesh(rg, roofMat);
-    r1.position.set(0, Ht + hf/2, lg/4);
-    r1.rotation.x = ang2 - Math.PI/2;
-    scene.add(r1);
-    const r2 = new THREE.Mesh(rg, roofMat);
-    r2.position.set(0, Ht + hf/2, -lg/4);
-    r2.rotation.x = -(ang2 - Math.PI/2);
-    scene.add(r2);
-  };
-
-  // ============ CARPORT ============
-  const drawCarport = () => {
-    const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;
-    const Hhaut = Ht + denivele;
-    const sectionPotau = 0.18;
-
-    addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
-    addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
-    addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, lg/2);
-    addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
-
-    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
-    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
-
-    const nbPannes = 3;
-    for (let i = 0; i < nbPannes; i++) {
-      const t = i / (nbPannes - 1);
-      const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.14, 0.14, 0, y, z);
-    }
-
-    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
-    const ang = Math.atan(denivele / lg);
-    const longueurChevron = lg / Math.cos(ang);
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
-    }
-
-    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
-    const roof = new THREE.Mesh(rg, roofMat);
-    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-    roof.rotation.z = ang;
-    roof.rotation.y = Math.PI/2;
-    scene.add(roof);
-  };
-
-  if (typeProjet === "carport") {
-    drawCarport();
-  } else {
-    drawCharpenteTrad();
-  }
+  // Construction de la scene via fonction commune
+  // Couleurs adaptees pour le PDF (plus contrastees sur fond blanc)
+  const buildResult = buildScene3D(scene, view3DParams, {
+    woodColor: 0xa8743a,
+    roofColor: 0x6b4a3f,
+    wallColor: 0xd8d2c0,
+    wallOpacity: 0.25
+  });
+  const yCentre = buildResult.yCentre;
 
   // Pas de sol (sinon ca pollue les vues sur fond blanc)
-
-  // Centre de la camera (selon type)
-  const yCentre = typeProjet === "carport"
-    ? Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2
-    : Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
 
   // Distance camera proportionnelle a la taille
   const maxDim = Math.max(L, lg, Ht * 2);
@@ -670,137 +709,14 @@ function Viewer3D({ params }) {
     sun.castShadow = true;
     scene.add(sun);
 
-    const L = params.longueur || 8;
-    const lg = params.largeur || 6;
+    // Construction de la scene via fonction commune
+    const buildResultViewer = buildScene3D(scene, params);
     const H = params.hauteur || 3;
+    const lg = params.largeur || 6;
     const pente = params.pente || 35;
     const typeProjet = params.type_projet || "charpente_trad";
 
-    const woodMat = new THREE.MeshLambertMaterial({ color: 0xc4894a });
-    const roofMat = new THREE.MeshLambertMaterial({ color: 0x8b6355, side: THREE.DoubleSide });
-    const wallMat = new THREE.MeshLambertMaterial({ color: 0xf0ece0, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
-
-    const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
-      m.position.set(px, py, pz);
-      if (rot) m.rotation.set(...rot);
-      m.castShadow = true;
-      scene.add(m);
-    };
-
-    // ============================================================
-    // FONCTION : dessine une charpente traditionnelle (2 pans)
-    // ============================================================
-    const drawCharpenteTrad = () => {
-      const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
-
-      // Murs (4 cotes)
-      [
-        [L, H, 0.15, 0, H/2, lg/2],
-        [L, H, 0.15, 0, H/2, -lg/2],
-        [0.15, H, lg, -L/2, H/2, 0],
-        [0.15, H, lg, L/2, H/2, 0]
-      ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
-
-      // Fermes
-      const nb = Math.max(2, Math.ceil(L / 2.5));
-      for (let i = 0; i <= nb; i++) {
-        const x = -L/2 + (i/nb) * L;
-        const ang = Math.atan(hf / (lg/2));
-        const pl = (lg/2) / Math.cos(ang);
-        addBox(pl, 0.12, 0.12, x, H + hf/2, lg/4, woodMat, [ang, 0, 0]);
-        addBox(pl, 0.12, 0.12, x, H + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
-        addBox(0.12, hf + 0.1, 0.12, x, H + hf/2, 0);
-      }
-
-      // Faitage
-      addBox(L + 0.4, 0.14, 0.14, 0, H + hf, 0);
-
-      // Toiture (2 pans)
-      const ang = Math.atan(hf / (lg/2));
-      const pl = (lg/2) / Math.cos(ang);
-      const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.2);
-      const r1 = new THREE.Mesh(rg, roofMat);
-      r1.position.set(0, H + hf/2, lg/4);
-      r1.rotation.x = ang - Math.PI/2;
-      scene.add(r1);
-      const r2 = new THREE.Mesh(rg, roofMat);
-      r2.position.set(0, H + hf/2, -lg/4);
-      r2.rotation.x = -(ang - Math.PI/2);
-      scene.add(r2);
-    };
-
-    // ============================================================
-    // FONCTION : dessine un carport (1 pente + potaux + pas de murs)
-    // ============================================================
-    const drawCarport = () => {
-      // Carport : la pente descend de l'ARRIERE (Z=+lg/2, haut) vers l'AVANT (Z=-lg/2, bas)
-      // C'est l'inverse du fix precedent.
-      const denivele = lg * Math.tan((pente * Math.PI) / 180);
-      const Hbas = H;
-      const Hhaut = H + denivele;
-
-      // 4 POTAUX
-      // AVANT (Z negatif, cube ROUGE) = potaux BAS
-      // ARRIERE (Z positif, cube BLEU) = potaux HAUTS
-      const sectionPotau = 0.18;
-      // Potau avant gauche (BAS)
-      addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
-      // Potau avant droit (BAS)
-      addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
-      // Potau arriere gauche (HAUT)
-      addBox(sectionPotau, Hhaut, sectionPotau, -L/2, Hhaut/2, lg/2);
-      // Potau arriere droit (HAUT)
-      addBox(sectionPotau, Hhaut, sectionPotau, L/2, Hhaut/2, lg/2);
-
-      // 2 SABLIERES
-      // Sablière avant (en bas)
-      addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);
-      // Sablière arriere (en haut)
-      addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);
-
-      // PANNES (entre sablieres, suivent la pente)
-      const nbPannes = 3;
-      for (let i = 0; i < nbPannes; i++) {
-        const t = i / (nbPannes - 1); // 0 a 1
-        const z = -lg/2 + t * lg;       // de avant a arriere
-        const y = Hbas + t * denivele;  // de bas a haut (pente montante avant->arriere)
-        addBox(L + 0.3, 0.14, 0.14, 0, y, z);
-      }
-
-      // CHEVRONS (sens largeur, en pente)
-      const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
-      const ang = Math.atan(denivele / lg);
-      const longueurChevron = lg / Math.cos(ang);
-      for (let i = 0; i <= nbChevrons; i++) {
-        const x = -L/2 + (i / nbChevrons) * L;
-        const yCentre = Hbas + denivele/2;
-        // Rotation X positive pour pente avant bas -> arriere haut
-        addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
-      }
-
-      // TOITURE (1 seul pan, rotation sur axe X au lieu de Z)
-      // Le toit est tourne dans l'autre dimension par rapport à la structure
-      const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
-      const roof = new THREE.Mesh(rg, roofMat);
-      roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-      // Combinaison de rotations pour que le toit penche cote gauche/droite
-      roof.rotation.z = ang;
-      roof.rotation.y = Math.PI/2;
-      scene.add(roof);
-
-    };
-
-    // ============================================================
-    // SWITCH : choisir la fonction selon type_projet
-    // ============================================================
-    if (typeProjet === "carport") {
-      drawCarport();
-    } else {
-      drawCharpenteTrad();
-    }
-
-    // SOL (commun à tous les types)
+        // SOL (commun à tous les types)
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(30, 30),
       new THREE.MeshLambertMaterial({ color: 0x1a1f2e })
