@@ -251,6 +251,92 @@ function buildScene3D(scene, params, opts) {
   };
 
   // ============================================================
+  // APPENTIS (toit 1 pan accole a un mur arriere haut)
+  // ============================================================
+  const drawAppentis = () => {
+    const denivele = lg * Math.tan((pente * Math.PI) / 180);
+    const Hbas = Ht;            // hauteur cote avant (libre)
+    const Hhaut = Ht + denivele; // hauteur mur arriere (simule mur maison)
+
+    // MUR ARRIERE PLEIN ET HAUT (simule un mur existant)
+    // On le rend opaque et un peu plus epais pour bien le distinguer
+    const murArriereMat = new THREE.MeshLambertMaterial({
+      color: 0xd4ccb6,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide
+    });
+    addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
+
+    // 2 POTEAUX AVANT (pour soutenir le toit)
+    const sectionPotau = 0.18;
+    addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
+    addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
+
+    // PETITS MURS LATERAUX TRAPEZOIDAUX (option : peuvent etre transparents)
+    // Cote gauche
+    const triGeoL = new THREE.BufferGeometry();
+    const triVertL = new Float32Array([
+      -L/2, 0, -lg/2,
+      -L/2, Hbas, -lg/2,
+      -L/2, Hhaut, lg/2,
+      -L/2, 0, -lg/2,
+      -L/2, Hhaut, lg/2,
+      -L/2, 0, lg/2,
+    ]);
+    triGeoL.setAttribute("position", new THREE.BufferAttribute(triVertL, 3));
+    triGeoL.computeVertexNormals();
+    const triMeshL = new THREE.Mesh(triGeoL, wallMat);
+    scene.add(triMeshL);
+
+    // Cote droit
+    const triGeoR = new THREE.BufferGeometry();
+    const triVertR = new Float32Array([
+      L/2, 0, -lg/2,
+      L/2, Hbas, -lg/2,
+      L/2, Hhaut, lg/2,
+      L/2, 0, -lg/2,
+      L/2, Hhaut, lg/2,
+      L/2, 0, lg/2,
+    ]);
+    triGeoR.setAttribute("position", new THREE.BufferAttribute(triVertR, 3));
+    triGeoR.computeVertexNormals();
+    const triMeshR = new THREE.Mesh(triGeoR, wallMat);
+    scene.add(triMeshR);
+
+    // SABLIERES
+    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);   // sabliere avant (basse)
+    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);   // sabliere arriere (haute, contre mur)
+
+    // CHEVRONS en pente (du mur arriere vers l'avant)
+    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
+    const ang = Math.atan(denivele / lg);
+    const longueurChevron = lg / Math.cos(ang);
+    for (let i = 0; i <= nbChevrons; i++) {
+      const x = -L/2 + (i / nbChevrons) * L;
+      const yCentre = Hbas + denivele/2;
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+    }
+
+    // 2 PANNES intermediaires
+    const nbPannes = 2;
+    for (let i = 0; i < nbPannes; i++) {
+      const t = (i + 1) / (nbPannes + 1);
+      const z = -lg/2 + t * lg;
+      const y = Hbas + t * denivele;
+      addBox(L + 0.3, 0.12, 0.12, 0, y, z);
+    }
+
+    // TOITURE 1 pan
+    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const roof = new THREE.Mesh(rg, roofMat);
+    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+    roof.rotation.z = ang;
+    roof.rotation.y = Math.PI/2;
+    scene.add(roof);
+  };
+
+  // ============================================================
   // SWITCH SELON TYPE PROJET
   // ============================================================
   if (typeProjet === "carport") {
@@ -259,16 +345,17 @@ function buildScene3D(scene, params, opts) {
     drawMonopente();
   } else if (typeProjet === "hangar") {
     drawHangar();
+  } else if (typeProjet === "appentis") {
+    drawAppentis();
   } else {
     drawCharpenteTrad();
   }
 
   // Retourne le centre Y pour la camera
   let yCentre;
-  if (typeProjet === "carport" || typeProjet === "monopente") {
+  if (typeProjet === "carport" || typeProjet === "monopente" || typeProjet === "appentis") {
     yCentre = Ht + (lg * Math.tan((pente * Math.PI) / 180)) / 2;
   } else if (typeProjet === "hangar") {
-    // Hangar : centre plus haut pour bien voir le toit
     yCentre = Ht * 0.7 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   } else {
     yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
@@ -947,6 +1034,7 @@ options: [
 { val: "metalique", label: "Charpente metallique", icon: "gear" },
 { val: "monopente", label: "Monopente", icon: "ruler" },
 { val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
+{ val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
 ],
 },
 couverture: {
@@ -2191,7 +2279,7 @@ const zoneInfo = getZone(commune, altitude);
 "ESTIMATION TEMPS : Tu DOIS aussi estimer le temps de fabrication en atelier (debit, assemblage des pieces) et le temps de pose sur chantier (montage de la charpente) en HEURES. " +
 "Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
 "Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
-"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. " +
+"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. Pour un appentis (toit accole a mur existant, terrasse couverte, abri a bois) : 0.4-0.6h fabrication par m2 + 0.35-0.5h pose par m2. " +
 "Pour un hangar : 0.3-0.5h fabrication par m2 + 0.2-0.4h pose par m2. " +
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
