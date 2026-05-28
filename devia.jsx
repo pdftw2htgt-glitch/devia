@@ -31,6 +31,20 @@ function buildScene3D(scene, params, opts) {
     scene.add(m);
   };
 
+  // Poutre orientee entre 2 points (touche forcement les 2 extremites)
+  const addBeam = (x1, y1, z1, x2, y2, z2, thick, mat) => {
+    const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(thick, thick, len), mat || woodMat);
+    m.position.set((x1+x2)/2, (y1+y2)/2, (z1+z2)/2);
+    const dir = new THREE.Vector3(dx, dy, dz).normalize();
+    const q = new THREE.Quaternion();
+    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    m.quaternion.copy(q);
+    m.castShadow = true;
+    scene.add(m);
+  };
+
   // ============================================================
   // CHARPENTE TRADITIONNELLE (2 pans)
   // ============================================================
@@ -60,18 +74,20 @@ function buildScene3D(scene, params, opts) {
       addBox(0.16, 0.16, lg, x, Ht, 0, woodMat);
 
       // ARBALETRIERS (les 2 pans inclines, section forte)
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, lg/4, woodMat, [-ang + Math.PI/2, 0, 0]);
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, -lg/4, woodMat, [ang + Math.PI/2, 0, 0]);
+      addBox(0.16, 0.16, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
+      addBox(0.16, 0.16, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
 
       // POINCON (poteau vertical central, du faitage a l'entrait)
       addBox(0.14, hf, 0.14, x, Ht + hf/2, 0, woodMat);
 
-      // CONTREFICHES (jambes de force diagonales du poincon vers les arbaletriers)
-      const cfLen = pl * 0.5;
-      // Contrefiche cote Z+
-      addBox(0.10, 0.10, cfLen, x, Ht + hf*0.28, lg*0.14, woodMat, [-ang + Math.PI/2, 0, 0]);
-      // Contrefiche cote Z-
-      addBox(0.10, 0.10, cfLen, x, Ht + hf*0.28, -lg*0.14, woodMat, [ang + Math.PI/2, 0, 0]);
+      // CONTREFICHES (jambes de force du bas du poincon vers les arbaletriers)
+      // Dessinees point-a-point : touchent forcement les 2 extremites
+      const cfBaseY = Ht + hf * 0.15;           // depart : bas du poincon
+      const cfT = 0.55;                          // arrivee : 55% le long de l'arbaletrier
+      const cfEndY = Ht + cfT * hf;
+      const cfEndZ = (lg/2) * (1 - cfT);
+      addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, 0.10, woodMat);   // vers pan Z+
+      addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, 0.10, woodMat);  // vers pan Z-
     }
 
     // ===== SABLIERES (poutres basses sur les murs longs) =====
@@ -97,9 +113,9 @@ function buildScene3D(scene, params, opts) {
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       // Chevron pan Z+ (section fine)
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [-ang + Math.PI/2, 0, 0]);
+      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
       // Chevron pan Z-
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [ang + Math.PI/2, 0, 0]);
+      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
     // ===== COUVERTURE (2 pans, semi-transparente pour voir l'ossature) =====
