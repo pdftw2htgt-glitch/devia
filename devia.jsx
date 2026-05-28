@@ -334,6 +334,125 @@ function buildScene3D(scene, params, opts) {
   };
 
   // ============================================================
+  // 4 PANS (toit en croupe)
+  // ============================================================
+  const draw4Pans = () => {
+    const hf = lg / 2 * Math.tan((pente * Math.PI) / 180); // hauteur faitage
+    // Longueur du faitage : plus court que L (recule de lg/2 de chaque cote)
+    const retraitCroupe = lg / 2;
+    const Lfait = Math.max(0.5, L - 2 * retraitCroupe);
+
+    // MURS (4 cotes)
+    [
+      [L, Ht, 0.15, 0, Ht/2, lg/2],
+      [L, Ht, 0.15, 0, Ht/2, -lg/2],
+      [0.15, Ht, lg, -L/2, Ht/2, 0],
+      [0.15, Ht, lg, L/2, Ht/2, 0]
+    ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
+
+    // FAITAGE (central, court)
+    addBox(Lfait, 0.14, 0.14, 0, Ht + hf, 0);
+
+    // Points cles du faitage
+    const xFaitGauche = -Lfait/2;
+    const xFaitDroit = Lfait/2;
+    const yFait = Ht + hf;
+
+    // ===== 2 GRANDS PANS (avant Z+ et arriere Z-) =====
+    // Chaque grand pan est un trapeze. On l'approxime avec une geometrie custom.
+    const angLong = Math.atan(hf / (lg/2));
+    const plLong = (lg/2) / Math.cos(angLong);
+
+    // Grand pan AVANT (Z+)
+    const panAvGeo = new THREE.BufferGeometry();
+    const panAvVerts = new Float32Array([
+      // Trapeze : 2 points bas (eaves) + 2 points haut (faitage)
+      -L/2, Ht, lg/2,        // bas gauche
+       L/2, Ht, lg/2,        // bas droit
+       xFaitDroit, yFait, 0, // haut droit (faitage)
+      -L/2, Ht, lg/2,        // bas gauche
+       xFaitDroit, yFait, 0, // haut droit
+       xFaitGauche, yFait, 0,// haut gauche
+    ]);
+    panAvGeo.setAttribute("position", new THREE.BufferAttribute(panAvVerts, 3));
+    panAvGeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(panAvGeo, roofMat));
+
+    // Grand pan ARRIERE (Z-)
+    const panArGeo = new THREE.BufferGeometry();
+    const panArVerts = new Float32Array([
+      -L/2, Ht, -lg/2,
+       xFaitGauche, yFait, 0,
+       xFaitDroit, yFait, 0,
+      -L/2, Ht, -lg/2,
+       xFaitDroit, yFait, 0,
+       L/2, Ht, -lg/2,
+    ]);
+    panArGeo.setAttribute("position", new THREE.BufferAttribute(panArVerts, 3));
+    panArGeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(panArGeo, roofMat));
+
+    // ===== 2 CROUPES (triangles sur cotes courts) =====
+    // Croupe GAUCHE (X-)
+    const croupeGGeo = new THREE.BufferGeometry();
+    const croupeGVerts = new Float32Array([
+      -L/2, Ht, -lg/2,
+      -L/2, Ht, lg/2,
+      xFaitGauche, yFait, 0,
+    ]);
+    croupeGGeo.setAttribute("position", new THREE.BufferAttribute(croupeGVerts, 3));
+    croupeGGeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(croupeGGeo, roofMat));
+
+    // Croupe DROITE (X+)
+    const croupeDGeo = new THREE.BufferGeometry();
+    const croupeDVerts = new Float32Array([
+      L/2, Ht, -lg/2,
+      xFaitDroit, yFait, 0,
+      L/2, Ht, lg/2,
+    ]);
+    croupeDGeo.setAttribute("position", new THREE.BufferAttribute(croupeDVerts, 3));
+    croupeDGeo.computeVertexNormals();
+    scene.add(new THREE.Mesh(croupeDGeo, roofMat));
+
+    // ===== ARETIERS (4 aretes diagonales des coins vers le faitage) =====
+    const aretiers = [
+      [-L/2, Ht, lg/2, xFaitGauche, yFait, 0],   // coin avant-gauche -> faitage gauche
+      [-L/2, Ht, -lg/2, xFaitGauche, yFait, 0],  // coin arriere-gauche -> faitage gauche
+      [L/2, Ht, lg/2, xFaitDroit, yFait, 0],     // coin avant-droit -> faitage droit
+      [L/2, Ht, -lg/2, xFaitDroit, yFait, 0],    // coin arriere-droit -> faitage droit
+    ];
+    aretiers.forEach(([x1, y1, z1, x2, y2, z2]) => {
+      const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+      const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, cz = (z1 + z2) / 2;
+      const aretier = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, len),
+        woodMat
+      );
+      aretier.position.set(cx, cy, cz);
+      // Orienter l'aretier le long du vecteur
+      const dir = new THREE.Vector3(dx, dy, dz).normalize();
+      const quaternion = new THREE.Quaternion();
+      quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+      aretier.quaternion.copy(quaternion);
+      scene.add(aretier);
+    });
+
+    // ===== QUELQUES PANNES sur les grands pans =====
+    const nbPannes = 2;
+    for (let i = 1; i <= nbPannes; i++) {
+      const t = i / (nbPannes + 1);
+      const yPanne = Ht + hf * t;
+      const zPanne = (lg/2) * (1 - t);
+      // Panne sur pan avant
+      addBox(Lfait + (L - Lfait) * (1 - t), 0.1, 0.1, 0, yPanne, zPanne);
+      // Panne sur pan arriere
+      addBox(Lfait + (L - Lfait) * (1 - t), 0.1, 0.1, 0, yPanne, -zPanne);
+    }
+  };
+
+  // ============================================================
   // SWITCH SELON TYPE PROJET
   // ============================================================
   if (typeProjet === "carport") {
@@ -344,6 +463,8 @@ function buildScene3D(scene, params, opts) {
     drawHangar();
   } else if (typeProjet === "appentis") {
     drawAppentis();
+  } else if (typeProjet === "4_pans") {
+    draw4Pans();
   } else {
     drawCharpenteTrad();
   }
@@ -355,6 +476,7 @@ function buildScene3D(scene, params, opts) {
   } else if (typeProjet === "hangar") {
     yCentre = Ht * 0.7 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   } else {
+    // charpente_trad ET 4_pans
     yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   }
 
@@ -1032,6 +1154,7 @@ options: [
 { val: "monopente", label: "Monopente", icon: "ruler" },
 { val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
 { val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
+{ val: "4_pans", label: "Toit 4 pans (croupe)", icon: "home" },
 ],
 },
 couverture: {
@@ -2242,6 +2365,7 @@ const zoneInfo = getZone(commune, altitude);
 "'monopente' (batiment ferme avec murs et toit a 1 SEULE pente, atelier, garage), " +
 "'hangar' (hangar agricole, batiment industriel, grand volume couvert, poteaux + 2 pans sans murs), " +
 "'appentis' (toit 1 pan ACCOLE a un mur existant, terrasse couverte, abri a bois contre une maison), " +
+"'4_pans' (toit en croupe a 4 pentes, maison pavillon, toit avec aretiers), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
@@ -2272,14 +2396,14 @@ const zoneInfo = getZone(commune, altitude);
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
 '"type":"' + (finalParams.type || "traditionnelle") + '","couverture":"' + (finalParams.couverture || "tuile_terre") + '",' +
 '"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '",' +
-'"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_abri_OU_autre"},' +
+'"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_4_pans_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"temps_fabrication_h":24,"temps_pose_h":16,"notes":["Note 1"]}. ' +
 "Genere 12 a 18 postes realistes avec prix marche francais 2024. " +
 "ESTIMATION TEMPS : Tu DOIS aussi estimer le temps de fabrication en atelier (debit, assemblage des pieces) et le temps de pose sur chantier (montage de la charpente) en HEURES. " +
 "Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
 "Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
-"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. Pour un appentis (toit accole a mur existant, terrasse couverte, abri a bois) : 0.4-0.6h fabrication par m2 + 0.35-0.5h pose par m2. " +
+"Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. Pour un appentis (toit accole a mur existant, terrasse couverte, abri a bois) : 0.4-0.6h fabrication par m2 + 0.35-0.5h pose par m2. Pour un toit 4 pans / croupe (plus complexe, aretiers) : 1.0-1.4h fabrication par m2 + 0.6-0.9h pose par m2. " +
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
 "IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
