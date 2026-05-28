@@ -2240,11 +2240,14 @@ const zoneInfo = getZone(commune, altitude);
 
     const systemPrompt = "Tu es DEVIA, expert charpente bois. Genere un devis professionnel EN FRANCAIS. " +
 "DETECTION DU TYPE DE PROJET : analyse la description et choisis 1 valeur pour type_projet : " +
-"'carport' (si carport, abri voiture, auvent ouvert sans murs, structure sur potaux), " +
+"'carport' (carport, abri voiture, auvent ouvert sans murs, structure sur poteaux, toit 1 pan), " +
 "'charpente_trad' (charpente traditionnelle de maison, toit 2 pans avec murs), " +
-"'hangar' (hangar agricole, batiment industriel, grand volume couvert), " +
+"'monopente' (batiment ferme avec murs et toit a 1 SEULE pente, atelier, garage), " +
+"'hangar' (hangar agricole, batiment industriel, grand volume couvert, poteaux + 2 pans sans murs), " +
+"'appentis' (toit 1 pan ACCOLE a un mur existant, terrasse couverte, abri a bois contre une maison), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
+"IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
 "\n\nCATALOGUE DE PRIX A UTILISER (source: " + catalogSource + ") :\n" + prixListText + "\n\n" +
 (catalogSource === "perso" ?
   // MODE STRICT : que le catalogue perso, pas d'invention
@@ -2272,7 +2275,7 @@ const zoneInfo = getZone(commune, altitude);
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
 '"type":"' + (finalParams.type || "traditionnelle") + '","couverture":"' + (finalParams.couverture || "tuile_terre") + '",' +
 '"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '",' +
-'"type_projet":"carport_OU_charpente_trad_OU_hangar_OU_abri_OU_autre"},' +
+'"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"temps_fabrication_h":24,"temps_pose_h":16,"notes":["Note 1"]}. ' +
 "Genere 12 a 18 postes realistes avec prix marche francais 2024. " +
@@ -2280,7 +2283,6 @@ const zoneInfo = getZone(commune, altitude);
 "Base tes estimations sur la complexite du projet, la surface, le type de charpente, le nombre de pieces. " +
 "Pour une charpente traditionnelle standard : compter environ 0.8-1.2h de fabrication par m2 + 0.5-0.8h de pose par m2. " +
 "Pour un carport simple : 0.4-0.6h fabrication par m2 + 0.3-0.5h pose par m2. Pour une monopente (atelier/garage avec 1 pente) : 0.5-0.7h fabrication par m2 + 0.4-0.6h pose par m2. Pour un hangar (batiment agricole, grande portee, poteaux + 2 pans) : 0.3-0.5h fabrication par m2 + 0.25-0.4h pose par m2. Pour un appentis (toit accole a mur existant, terrasse couverte, abri a bois) : 0.4-0.6h fabrication par m2 + 0.35-0.5h pose par m2. " +
-"Pour un hangar : 0.3-0.5h fabrication par m2 + 0.2-0.4h pose par m2. " +
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
 "IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
