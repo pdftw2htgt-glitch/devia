@@ -100,14 +100,13 @@ function buildScene3D(scene, params, opts) {
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
     }
 
-    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
     const roof = new THREE.Mesh(rg, roofMat);
     roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-    roof.rotation.z = ang;
-    roof.rotation.y = Math.PI/2;
+    roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
 
@@ -175,15 +174,14 @@ function buildScene3D(scene, params, opts) {
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
     }
 
     // TOITURE (1 pan)
-    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
     const roof = new THREE.Mesh(rg, roofMat);
     roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-    roof.rotation.z = ang;
-    roof.rotation.y = Math.PI/2;
+    roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
 
@@ -315,7 +313,7 @@ function buildScene3D(scene, params, opts) {
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [ang, 0, 0]);
+      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
     }
 
     // 2 PANNES intermediaires
@@ -328,11 +326,10 @@ function buildScene3D(scene, params, opts) {
     }
 
     // TOITURE 1 pan
-    const rg = new THREE.PlaneGeometry(longueurChevron + 0.3, L + 0.4);
+    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
     const roof = new THREE.Mesh(rg, roofMat);
     roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
-    roof.rotation.z = ang;
-    roof.rotation.y = Math.PI/2;
+    roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
 
