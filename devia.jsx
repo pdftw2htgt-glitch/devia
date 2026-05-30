@@ -267,8 +267,8 @@ function buildScene3D(scene, params, opts) {
       pannePositions.push({ y, z, t });
     }
 
-    // ===== CHEVRONS RAPPROCHES (~tous les 0.5m) =====
-    const espChevron = 0.5;
+    // ===== CHEVRONS RAPPROCHES (espacement selon couverture) =====
+    const espChevron = couv.espChevron;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
