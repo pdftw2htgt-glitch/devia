@@ -60,6 +60,77 @@ function buildScene3D(scene, params, opts) {
   const getCouverture = (code) => COUVERTURES[code] || COUVERTURES.tuile_terre;
 
   // ============================================================
+  // TEXTURES PROCEDURALES DE COUVERTURE (mode realiste)
+  // ============================================================
+  const makeCouvTexture = (couv) => {
+    const c = document.createElement("canvas");
+    c.width = 256; c.height = 256;
+    const x = c.getContext("2d");
+    const hex = "#" + couv.couleur.toString(16).padStart(6, "0");
+    x.fillStyle = hex; x.fillRect(0, 0, 256, 256);
+    const lab = couv.label || "";
+    const darker = (f) => {
+      const r = (couv.couleur >> 16) & 255, g = (couv.couleur >> 8) & 255, b = couv.couleur & 255;
+      return `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
+    };
+    if (lab.indexOf("Bac") >= 0 || lab.indexOf("Zinc") >= 0) {
+      // Rainures verticales (nervures du bac/zinc)
+      for (let i = 0; i < 256; i += 16) {
+        x.fillStyle = darker(0.78); x.fillRect(i, 0, 6, 256);
+        x.fillStyle = darker(1.12); x.fillRect(i + 6, 0, 2, 256);
+      }
+    } else if (lab.indexOf("Fibrociment") >= 0) {
+      // Ondulations verticales douces
+      for (let i = 0; i < 256; i += 22) {
+        x.fillStyle = darker(0.85); x.fillRect(i, 0, 11, 256);
+        x.fillStyle = darker(1.08); x.fillRect(i + 11, 0, 11, 256);
+      }
+    } else if (lab.indexOf("Ardoise") >= 0) {
+      // Ecailles fines decalees (ardoise)
+      const w = 34, h = 26;
+      for (let row = 0; row * h < 280; row++) {
+        const off = (row % 2) * (w / 2);
+        for (let col = -1; col * w < 280; col++) {
+          x.fillStyle = darker(0.9 + (((row + col) % 2) * 0.12));
+          x.fillRect(col * w + off, row * h, w - 3, h - 3);
+        }
+      }
+    } else {
+      // Tuiles : ecailles arrondies decalees (terre cuite / beton / shingle)
+      const w = 40, h = 30;
+      for (let row = 0; row * h < 300; row++) {
+        const off = (row % 2) * (w / 2);
+        for (let col = -1; col * w < 300; col++) {
+          x.fillStyle = darker(0.86 + (((row + col) % 2) * 0.16));
+          x.beginPath();
+          x.moveTo(col * w + off, row * h);
+          x.lineTo(col * w + off + w, row * h);
+          x.lineTo(col * w + off + w, row * h + h * 0.6);
+          x.quadraticCurveTo(col * w + off + w/2, row * h + h, col * w + off, row * h + h*0.6);
+          x.closePath(); x.fill();
+        }
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  };
+
+  // Materiau de couverture selon le mode (technique = transparent / realiste = texture opaque)
+  const makeRoofMaterial = (couv, surfX, surfY) => {
+    const mode = (opts && opts.mode) ? opts.mode : "technique";
+    if (mode === "realiste") {
+      const tex = makeCouvTexture(couv);
+      tex.repeat.set(Math.max(1, (surfX || 4) / 1.2), Math.max(1, (surfY || 4) / 1.2));
+      return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
+    }
+    return new THREE.MeshLambertMaterial({
+      color: couv.couleur, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+    });
+  };
+
+
+  // ============================================================
   // CHARPENTE TRADITIONNELLE (2 pans)
   // ============================================================
   const drawCharpenteTrad = () => {
@@ -218,9 +289,7 @@ function buildScene3D(scene, params, opts) {
     // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
     const couv = getCouverture(opts && opts.couverture);
     const couvColor = couv.couleur;
-    const monopenteRoofMat = new THREE.MeshLambertMaterial({
-      color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-    });
+    const monopenteRoofMat = makeRoofMaterial(couv, L, longueurChevron);
 
     // ===== 4 MURS (hauteurs variables sur les cotes) =====
     // Mur arriere (Z+, haut)
@@ -421,9 +490,7 @@ function buildScene3D(scene, params, opts) {
     const couvColor = couv.couleur;
     const espChevron = couv.espChevron;
     const espLiteau = couv.espLiteau;
-    const appentisRoofMat = new THREE.MeshLambertMaterial({
-      color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-    });
+    const appentisRoofMat = makeRoofMaterial(couv, L, longueurRampant);
 
     // 2) Nb de pannes : un chevron ne franchit pas plus de ~2.2 m sans appui
     const porteeMaxChevron = 2.2;
@@ -549,9 +616,7 @@ function buildScene3D(scene, params, opts) {
     const couvColor = couv.couleur;
     const espChevron = couv.espChevron;
     const espLiteau = couv.espLiteau;
-    const roof4Mat = new THREE.MeshLambertMaterial({
-      color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-    });
+    const roof4Mat = makeRoofMaterial(couv, L, plLong);
 
     // Geometrie des grands pans
     const angLong = Math.atan(hf / (lg / 2));
@@ -1309,7 +1374,7 @@ function Viewer3D({ params }) {
     scene.add(sun);
 
     // Construction de la scene via fonction commune
-    const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture });
+    const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
     const pente = params.pente || 35;
@@ -1814,6 +1879,7 @@ const [result, setResult] = useState(null);
 const [error, setError] = useState(null);
 const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, hauteur: 3, pente: 35 });
 const [activeResultTab, setActiveResultTab] = useState("devis");
+  const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
@@ -3562,8 +3628,25 @@ return (
             )}
 
             {activeResultTab === "3d" && (
-              <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
-                <Viewer3D params={view3DParams} />
+              <div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {[{ id: "technique", label: "Vue technique" }, { id: "realiste", label: "Vue realiste" }].map(m => (
+                    <button key={m.id} onClick={() => setMode3D(m.id)}
+                      style={{
+                        padding: "7px 16px", borderRadius: 8, cursor: "pointer",
+                        fontSize: 13, fontWeight: mode3D === m.id ? 600 : 500,
+                        border: "1px solid " + (mode3D === m.id ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.08)"),
+                        background: mode3D === m.id ? "rgba(240,192,64,0.12)" : "transparent",
+                        color: mode3D === m.id ? "#f0c040" : "#7a7d92",
+                        transition: "all 0.12s"
+                      }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
+                  <Viewer3D params={{ ...view3DParams, mode3D }} />
+                </div>
               </div>
             )}
 
