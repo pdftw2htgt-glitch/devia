@@ -208,7 +208,7 @@ function buildScene3D(scene, params, opts) {
       couvColor = 0xc87650;  // tuile terre cuite (defaut)
     }
     const monopenteRoofMat = new THREE.MeshLambertMaterial({
-      color: couvColor, side: THREE.DoubleSide
+      color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
     });
 
     // ===== 4 MURS (hauteurs variables sur les cotes) =====
