@@ -46,6 +46,20 @@ function buildScene3D(scene, params, opts) {
   };
 
   // ============================================================
+  // REGISTRE DES COUVERTURES (source unique de verite)
+  // ============================================================
+  const COUVERTURES = {
+    tuile_terre: { label: "Tuile terre cuite", couleur: 0xc87650, espChevron: 0.50, espLiteau: 0.35, penteMin: 30, poids: 45, prixM2: null },
+    tuile_beton: { label: "Tuile beton", couleur: 0x8b6355, espChevron: 0.45, espLiteau: 0.32, penteMin: 25, poids: 48, prixM2: null },
+    ardoise: { label: "Ardoise", couleur: 0x4a4f57, espChevron: 0.45, espLiteau: 0.33, penteMin: 22, poids: 30, prixM2: null },
+    bac_acier: { label: "Bac acier", couleur: 0x3a3a3f, espChevron: 0.70, espLiteau: 0.50, penteMin: 7, poids: 10, prixM2: null },
+    zinc: { label: "Zinc (joint debout)", couleur: 0x9aa0a6, espChevron: 0.60, espLiteau: 0.45, penteMin: 5, poids: 12, prixM2: null },
+    shingle: { label: "Shingle / bardeau bitume", couleur: 0x5a4632, espChevron: 0.45, espLiteau: 0.32, penteMin: 18, poids: 12, prixM2: null },
+    fibrociment: { label: "Fibrociment ondule", couleur: 0xb8bcc0, espChevron: 0.90, espLiteau: 0.60, penteMin: 12, poids: 18, prixM2: null },
+  };
+  const getCouverture = (code) => COUVERTURES[code] || COUVERTURES.tuile_terre;
+
+  // ============================================================
   // CHARPENTE TRADITIONNELLE (2 pans)
   // ============================================================
   const drawCharpenteTrad = () => {
@@ -202,15 +216,8 @@ function buildScene3D(scene, params, opts) {
     const yCentre = Hbas + denivele/2;
 
     // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
-    const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
-    let couvColor;
-    if (typeCouv === "bac_acier") {
-      couvColor = 0x3a3a3f;  // anthracite
-    } else if (typeCouv === "tuile_beton") {
-      couvColor = 0x8b6355;  // brun-gris
-    } else {
-      couvColor = 0xc87650;  // tuile terre cuite (defaut)
-    }
+    const couv = getCouverture(opts && opts.couverture);
+    const couvColor = couv.couleur;
     const monopenteRoofMat = new THREE.MeshLambertMaterial({
       color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
     });
@@ -270,7 +277,7 @@ function buildScene3D(scene, params, opts) {
 
     // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
     // Petites planchettes paralleles aux sablieres, sur toute la longueur
-    const espLiteau = 0.35;
+    const espLiteau = couv.espLiteau;
     const nbLiteaux = Math.max(4, Math.floor(longueurChevron / espLiteau));
     for (let i = 0; i <= nbLiteaux; i++) {
       const t = i / nbLiteaux;
@@ -410,15 +417,10 @@ function buildScene3D(scene, params, opts) {
 
     // ===== REGLES METIER ADAPTATIVES =====
     // 1) Couverture -> couleur + espacement chevrons + espacement liteaux
-    const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
-    let couvColor, espChevron, espLiteau;
-    if (typeCouv === "bac_acier") {
-      couvColor = 0x3a3a3f;  espChevron = 0.70;  espLiteau = 0.50;  // porte loin
-    } else if (typeCouv === "tuile_beton") {
-      couvColor = 0x8b6355;  espChevron = 0.45;  espLiteau = 0.32;  // lourde
-    } else {
-      couvColor = 0xc87650;  espChevron = 0.50;  espLiteau = 0.35;  // tuile terre
-    }
+    const couv = getCouverture(opts && opts.couverture);
+    const couvColor = couv.couleur;
+    const espChevron = couv.espChevron;
+    const espLiteau = couv.espLiteau;
     const appentisRoofMat = new THREE.MeshLambertMaterial({
       color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
     });
@@ -543,15 +545,10 @@ function buildScene3D(scene, params, opts) {
     const xFaitDroit = Lfait / 2;
 
     // ===== REGLES METIER ADAPTATIVES =====
-    const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
-    let couvColor, espChevron, espLiteau;
-    if (typeCouv === "bac_acier") {
-      couvColor = 0x3a3a3f;  espChevron = 0.70;  espLiteau = 0.50;
-    } else if (typeCouv === "tuile_beton") {
-      couvColor = 0x8b6355;  espChevron = 0.45;  espLiteau = 0.32;
-    } else {
-      couvColor = 0xc87650;  espChevron = 0.50;  espLiteau = 0.35;
-    }
+    const couv = getCouverture(opts && opts.couverture);
+    const couvColor = couv.couleur;
+    const espChevron = couv.espChevron;
+    const espLiteau = couv.espLiteau;
     const roof4Mat = new THREE.MeshLambertMaterial({
       color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
     });
@@ -787,7 +784,8 @@ function capture3DViews(view3DParams) {
     woodColor: 0xa8743a,
     roofColor: 0x6b4a3f,
     wallColor: 0xd8d2c0,
-    wallOpacity: 0.25
+    wallOpacity: 0.25,
+    couverture: view3DParams.couverture
   });
   const yCentre = buildResult.yCentre;
 
@@ -1311,7 +1309,7 @@ function Viewer3D({ params }) {
     scene.add(sun);
 
     // Construction de la scene via fonction commune
-    const buildResultViewer = buildScene3D(scene, params);
+    const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture });
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
     const pente = params.pente || 35;
@@ -2700,7 +2698,8 @@ messages: [{ role: "user", content: prompt }],
         largeur: p.largeur || 8,
         hauteur: p.hauteur || 3,
         pente: p.pente || 35,
-        type_projet: p.type_projet || "autre"
+        type_projet: p.type_projet || "autre",
+        couverture: p.couverture || "tuile_terre"
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -2800,7 +2799,9 @@ const loadProjectDetails = (project) => {
         longueur: p.longueur || 10,
         largeur: p.largeur || 8,
         hauteur: p.hauteur || 3,
-        pente: p.pente || 35
+        pente: p.pente || 35,
+        type_projet: p.type_projet || "autre",
+        couverture: p.couverture || "tuile_terre"
       });
     }
     setActiveResultTab("devis");
