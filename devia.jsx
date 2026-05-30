@@ -288,8 +288,8 @@ function buildScene3D(scene, params, opts) {
       aisselierAngles.forEach((p) => {
         // Point bas : sur le mur lateral, a 80% de Hbas, decale vers z=0
         const xb = xMur;
-        const yb = Hbas * 0.5;
-        const zb = -lg/2 + (p.t * lg) * 0.4;  // decale vers la sabliere basse
+        const yb = Hbas * 0.7;
+        const zb = -lg/2 + 0.3;  // decale vers la sabliere basse
         // Point haut : sous la panne, a la position de la panne
         const xh = xMur;
         const yh = p.y - 0.08;
@@ -298,7 +298,7 @@ function buildScene3D(scene, params, opts) {
         const dy = yh - yb;
         const dz = zh - zb;
         const longueur = Math.sqrt(dy*dy + dz*dz);
-        const rotX = Math.atan2(dy, dz) - Math.PI/2;  // rotation autour de X
+        const rotX = -Math.atan2(dy, dz);  // rotation autour de X
         const xc = (xb + xh) / 2;
         const yc = (yb + yh) / 2;
         const zc = (zb + zh) / 2;
