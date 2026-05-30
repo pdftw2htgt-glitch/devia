@@ -57,7 +57,11 @@ function buildScene3D(scene, params, opts) {
     shingle: { label: "Shingle / bardeau bitume", couleur: 0x5a4632, espChevron: 0.45, espLiteau: 0.32, penteMin: 18, poids: 12, prixM2: null },
     fibrociment: { label: "Fibrociment ondule", couleur: 0xb8bcc0, espChevron: 0.90, espLiteau: 0.60, penteMin: 12, poids: 18, prixM2: null },
   };
-  const getCouverture = (code) => COUVERTURES[code] || COUVERTURES.tuile_terre;
+  const getCouverture = (code) => {
+    const c = COUVERTURES[code] || COUVERTURES.tuile_terre;
+    const key = COUVERTURES[code] ? code : "tuile_terre";
+    return { ...c, code: key };
+  };
 
   // ============================================================
   // TEXTURES PROCEDURALES DE COUVERTURE (mode realiste)
@@ -126,14 +130,43 @@ function buildScene3D(scene, params, opts) {
   // Materiau de couverture selon le mode (technique = transparent / realiste = texture opaque)
   const makeRoofMaterial = (couv, surfX, surfY) => {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
-    if (mode === "realiste") {
-      const tex = makeCouvTexture(couv);
-      tex.repeat.set(Math.max(1, (surfX||4)/2.4), Math.max(1, (surfY||4)/2.4));
-      return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
+    if (mode !== "realiste") {
+      // Vue technique : couleur transparente
+      return new THREE.MeshLambertMaterial({
+        color: couv.couleur, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+      });
     }
-    return new THREE.MeshLambertMaterial({
-      color: couv.couleur, transparent: true, opacity: 0.4, side: THREE.DoubleSide
-    });
+    // Vue realiste : on tente l'image, fallback procedural
+    const code = couv.code || "";
+    const rx = Math.max(1, (surfX || 4) / 2.4);
+    const ry = Math.max(1, (surfY || 4) / 2.4);
+
+    // Materiau procedural par defaut (s'affiche immediatement)
+    const ptex = makeCouvTexture(couv);
+    ptex.repeat.set(rx, ry);
+    const mat = new THREE.MeshLambertMaterial({ map: ptex, side: THREE.DoubleSide });
+
+    // Tentative de chargement de l'image reelle (async, remplace si trouvee)
+    if (code) {
+      const loader = new THREE.TextureLoader();
+      const tryLoad = (ext, onFail) => {
+        loader.load(
+          "/textures/" + code + "." + ext,
+          (img) => {
+            img.wrapS = THREE.RepeatWrapping;
+            img.wrapT = THREE.RepeatWrapping;
+            img.repeat.set(rx, ry);
+            mat.map = img;
+            mat.needsUpdate = true;
+          },
+          undefined,
+          () => { if (onFail) onFail(); }
+        );
+      };
+      // essaie .png puis .jpg
+      tryLoad("png", () => tryLoad("jpg", null));
+    }
+    return mat;
   };
 
 
