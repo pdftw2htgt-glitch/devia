@@ -192,32 +192,44 @@ function buildScene3D(scene, params, opts) {
   const drawMonopente = () => {
     // Calcul deniveles
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;            // hauteur mur avant
+    const Hbas = Ht;             // hauteur mur avant
     const Hhaut = Ht + denivele; // hauteur mur arriere
+    const ang = Math.atan(denivele / lg);
+    const longueurChevron = lg / Math.cos(ang);
 
-    // 4 MURS (avec hauteurs variables sur les cotes)
+    // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
+    const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
+    let couvColor;
+    if (typeCouv === "bac_acier") {
+      couvColor = 0x3a3a3f;  // anthracite
+    } else if (typeCouv === "tuile_beton") {
+      couvColor = 0x8b6355;  // brun-gris
+    } else {
+      couvColor = 0xc87650;  // tuile terre cuite (defaut)
+    }
+    const monopenteRoofMat = new THREE.MeshLambertMaterial({
+      color: couvColor, side: THREE.DoubleSide
+    });
+
+    // ===== 4 MURS (hauteurs variables sur les cotes) =====
     // Mur arriere (Z+, haut)
     addBox(L, Hhaut, 0.15, 0, Hhaut/2, lg/2, wallMat);
     // Mur avant (Z-, bas)
     addBox(L, Hbas, 0.15, 0, Hbas/2, -lg/2, wallMat);
 
-    // Mur lateral gauche (forme trapezoidale - approxime avec 2 boxes)
-    // Partie basse : rectangle Hbas
+    // Mur lateral gauche (partie basse + triangle haut)
     addBox(0.15, Hbas, lg, -L/2, Hbas/2, 0, wallMat);
-    // Partie haute : triangle (approxime par un prisme)
     const triGeo = new THREE.BufferGeometry();
     const triVertices = new Float32Array([
-      // Triangle gauche
       -L/2, Hbas, -lg/2,
       -L/2, Hbas, lg/2,
       -L/2, Hhaut, lg/2,
     ]);
     triGeo.setAttribute("position", new THREE.BufferAttribute(triVertices, 3));
     triGeo.computeVertexNormals();
-    const triMeshG = new THREE.Mesh(triGeo, wallMat);
-    scene.add(triMeshG);
+    scene.add(new THREE.Mesh(triGeo, wallMat));
 
-    // Mur lateral droit
+    // Mur lateral droit (partie basse + triangle haut)
     addBox(0.15, Hbas, lg, L/2, Hbas/2, 0, wallMat);
     const triGeo2 = new THREE.BufferGeometry();
     const triVertices2 = new Float32Array([
@@ -227,36 +239,34 @@ function buildScene3D(scene, params, opts) {
     ]);
     triGeo2.setAttribute("position", new THREE.BufferAttribute(triVertices2, 3));
     triGeo2.computeVertexNormals();
-    const triMeshD = new THREE.Mesh(triGeo2, wallMat);
-    scene.add(triMeshD);
+    scene.add(new THREE.Mesh(triGeo2, wallMat));
 
-    // SABLIERES
-    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);  // sabliere avant
-    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);  // sabliere arriere
+    // ===== SABLIERES (basse avant + haute arriere) =====
+    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
 
-    // PANNES (3 pannes entre sablieres)
+    // ===== PANNES INTERMEDIAIRES (suivent la pente) =====
     const nbPannes = 3;
     for (let i = 0; i < nbPannes; i++) {
       const t = i / (nbPannes - 1);
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.14, 0.14, 0, y, z);
+      addBox(L + 0.3, 0.12, 0.12, 0, y, z, woodMat);
     }
 
-    // CHEVRONS (en pente, sens largeur)
-    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
-    const ang = Math.atan(denivele / lg);
-    const longueurChevron = lg / Math.cos(ang);
+    // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
+    const espChevron = 0.6;
+    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
+    const yCentre = Hbas + denivele/2;
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
+      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
     }
 
-    // TOITURE (1 pan)
+    // ===== COUVERTURE (1 pan, opaque, couleur selon type) =====
     const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
-    const roof = new THREE.Mesh(rg, roofMat);
-    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+    const roof = new THREE.Mesh(rg, monopenteRoofMat);
+    roof.position.set(0, yCentre + 0.16, 0);
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
