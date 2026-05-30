@@ -68,59 +68,52 @@ function buildScene3D(scene, params, opts) {
     c.width = S; c.height = S;
     const x = c.getContext("2d");
     const r = (couv.couleur >> 16) & 255, g = (couv.couleur >> 8) & 255, b = couv.couleur & 255;
-    const shade = (f) => `rgb(${Math.min(255,Math.round(r*f))},${Math.min(255,Math.round(g*f))},${Math.min(255,Math.round(b*f))})`;
+    const shade = (f) => `rgb(${Math.min(255,Math.max(0,Math.round(r*f)))},${Math.min(255,Math.max(0,Math.round(g*f)))},${Math.min(255,Math.max(0,Math.round(b*f)))})`;
     const lab = couv.label || "";
-    x.fillStyle = shade(1); x.fillRect(0, 0, S, S);
+
+    const rr = (px, py, pw, ph, rad, col) => {
+      x.fillStyle = col;
+      x.beginPath();
+      x.moveTo(px+rad, py);
+      x.arcTo(px+pw, py, px+pw, py+ph, rad);
+      x.arcTo(px+pw, py+ph, px, py+ph, rad);
+      x.arcTo(px, py+ph, px, py, rad);
+      x.arcTo(px, py, px+pw, py, rad);
+      x.closePath(); x.fill();
+    };
 
     if (lab.indexOf("Bac") >= 0 || lab.indexOf("Zinc") >= 0) {
-      // Nervures verticales franches
-      const step = 42;
-      for (let i = 0; i < S; i += step) {
-        x.fillStyle = shade(0.62); x.fillRect(i, 0, 4, S);          // creux sombre
-        x.fillStyle = shade(1.25); x.fillRect(i + step/2 - 1, 0, 3, S); // arete claire
-      }
-    } else if (lab.indexOf("Fibrociment") >= 0) {
+      x.fillStyle = shade(1); x.fillRect(0, 0, S, S);
       const step = 46;
       for (let i = 0; i < S; i += step) {
+        x.fillStyle = shade(0.6); x.fillRect(i, 0, 5, S);
+        x.fillStyle = shade(1.28); x.fillRect(i + step/2, 0, 3, S);
+      }
+    } else if (lab.indexOf("Fibrociment") >= 0) {
+      const step = 50;
+      for (let i = 0; i < S; i += step) {
         const grad = x.createLinearGradient(i, 0, i + step, 0);
-        grad.addColorStop(0, shade(0.7)); grad.addColorStop(0.5, shade(1.15)); grad.addColorStop(1, shade(0.7));
+        grad.addColorStop(0, shade(0.65)); grad.addColorStop(0.5, shade(1.2)); grad.addColorStop(1, shade(0.65));
         x.fillStyle = grad; x.fillRect(i, 0, step, S);
       }
-    } else if (lab.indexOf("Ardoise") >= 0) {
-      // Ardoises : rectangles fins, joints noirs nets
-      const w = 64, h = 42;
-      for (let row = 0; row * h < S + h; row++) {
-        const off = (row % 2) * (w / 2);
-        for (let col = -1; col * w < S + w; col++) {
-          const px = col * w + off, py = row * h;
-          x.fillStyle = shade(0.80 + ((row * 7 + col * 3) % 5) * 0.05);
-          x.fillRect(px, py, w, h);
-          x.strokeStyle = shade(0.45); x.lineWidth = 3;
-          x.strokeRect(px, py, w, h);
-        }
-      }
     } else {
-      // Tuiles : rangees d'ecailles arrondies, joints marques + ombre basse
-      const w = 70, h = 50;
-      for (let row = 0; row * (h*0.7) < S + h; row++) {
+      // TUILES / ARDOISE / SHINGLE : ecailles bombees avec relief
+      x.fillStyle = shade(0.5); x.fillRect(0, 0, S, S);
+      const w = 74, h = 58;
+      const rows = Math.ceil(S / (h * 0.62)) + 2;
+      for (let row = 0; row < rows; row++) {
+        const py = Math.round(row * h * 0.62);
         const off = (row % 2) * (w / 2);
-        const py = row * (h * 0.7);
-        for (let col = -1; col * w < S + w; col++) {
-          const px = col * w + off;
-          // corps de tuile
-          x.fillStyle = shade(0.92 + ((row + col) % 2) * 0.10);
+        const cols = Math.ceil(S / w) + 2;
+        for (let col = -1; col < cols; col++) {
+          const px = Math.round(col * w + off);
+          const v = 0.82 + ((row * 5 + col * 7) % 6) * 0.06;
+          rr(px + 2, py, w - 4, h, Math.round(w * 0.42), shade(v));         // corps
+          rr(px + 4, py + 2, w - 8, Math.round(h * 0.4), Math.round(w * 0.3), shade(v * 1.18)); // lumiere haut
+          x.strokeStyle = shade(0.45); x.lineWidth = 4;                      // ombre bas
           x.beginPath();
-          x.moveTo(px, py);
-          x.lineTo(px + w, py);
-          x.lineTo(px + w, py + h * 0.45);
-          x.arc(px + w/2, py + h*0.45, w/2, 0, Math.PI, false);
-          x.lineTo(px, py);
-          x.closePath(); x.fill();
-          // ombre en bas de tuile (relief)
-          x.fillStyle = shade(0.6);
-          x.beginPath();
-          x.arc(px + w/2, py + h*0.45, w/2, 0.15, Math.PI - 0.15, false);
-          x.lineWidth = 4; x.strokeStyle = shade(0.55); x.stroke();
+          x.arc(px + w/2, py + h * 0.62, w/2, 0.35, Math.PI - 0.35, false);
+          x.stroke();
         }
       }
     }
@@ -135,7 +128,7 @@ function buildScene3D(scene, params, opts) {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
     if (mode === "realiste") {
       const tex = makeCouvTexture(couv);
-      tex.repeat.set(Math.max(2, Math.round((surfX || 4) / 0.55)), Math.max(2, Math.round((surfY || 4) / 0.55)));
+      tex.repeat.set(Math.max(1, (surfX||4)/2.4), Math.max(1, (surfY||4)/2.4));
       return new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide });
     }
     return new THREE.MeshLambertMaterial({
