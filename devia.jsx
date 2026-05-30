@@ -282,7 +282,7 @@ function buildScene3D(scene, params, opts) {
     // ===== AISSELIERS (jambes de force obliques aux pignons) =====
     // Sur chaque mur lateral, 2 jambes obliques qui soutiennent les pannes
     // Partent du mur en haut (Hbas + 0.3) vers une panne intermediaire
-    const aisselierAngles = [pannePositions[1], pannePositions[2]];  // 2eme et 3eme panne
+    const aisselierAngles = [];  // aisseliers desactives (rendu plus propre)  // 2eme et 3eme panne
     [-1, 1].forEach((cote) => {
       const xMur = cote * (L/2 - 0.08);
       aisselierAngles.forEach((p) => {
@@ -502,7 +502,7 @@ function buildScene3D(scene, params, opts) {
 
     // ===== AISSELIERS (jambes de force obliques aux pignons) =====
     // Effet "fan" : tous partent du meme point bas et rayonnent vers les pannes
-    const aisselierAngles = [pannePositions[0], pannePositions[1]];
+    const aisselierAngles = [];  // aisseliers desactives (rendu plus propre)
     [-1, 1].forEach((cote) => {
       const xMur = cote * (L/2 - 0.08);
       aisselierAngles.forEach((p) => {
