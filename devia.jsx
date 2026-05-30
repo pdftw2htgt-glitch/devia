@@ -396,12 +396,31 @@ function buildScene3D(scene, params, opts) {
   // APPENTIS (toit 1 pan accole a un mur arriere haut)
   // ============================================================
   const drawAppentis = () => {
+    // ============================================================
+    // APPENTIS REALISTE - charpente complete adossee
+    // ============================================================
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;            // hauteur cote avant (libre)
-    const Hhaut = Ht + denivele; // hauteur mur arriere (simule mur maison)
+    const Hbas = Ht;             // hauteur cote avant (libre)
+    const Hhaut = Ht + denivele; // hauteur mur arriere (mur maison)
+    const ang = Math.atan(denivele / lg);
+    const longueurChevron = lg / Math.cos(ang);
+    const yCentre = Hbas + denivele/2;
 
-    // MUR ARRIERE PLEIN ET HAUT (simule un mur existant)
-    // On le rend opaque et un peu plus epais pour bien le distinguer
+    // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
+    const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
+    let couvColor;
+    if (typeCouv === "bac_acier") {
+      couvColor = 0x3a3a3f;  // anthracite
+    } else if (typeCouv === "tuile_beton") {
+      couvColor = 0x8b6355;  // brun-gris
+    } else {
+      couvColor = 0xc87650;  // tuile terre cuite (defaut)
+    }
+    const appentisRoofMat = new THREE.MeshLambertMaterial({
+      color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+    });
+
+    // ===== MUR ARRIERE D'ADOSSEMENT (simule mur existant maison) =====
     const murArriereMat = new THREE.MeshLambertMaterial({
       color: 0xd4ccb6,
       transparent: true,
@@ -410,12 +429,16 @@ function buildScene3D(scene, params, opts) {
     });
     addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
 
-    // 2 POTEAUX AVANT (pour soutenir le toit)
+    // ===== POTEAUX AVANT (specificite appentis : cote ouvert) =====
+    // Poteaux intermediaires si appentis long
     const sectionPotau = 0.18;
-    addBox(sectionPotau, Hbas, sectionPotau, -L/2, Hbas/2, -lg/2);
-    addBox(sectionPotau, Hbas, sectionPotau, L/2, Hbas/2, -lg/2);
+    const nbPoteauxLong = Math.max(1, Math.ceil(L / 4));
+    for (let i = 0; i <= nbPoteauxLong; i++) {
+      const x = -L/2 + (i / nbPoteauxLong) * L;
+      addBox(sectionPotau, Hbas, sectionPotau, x, Hbas/2, -lg/2, woodMat);
+    }
 
-    // PETITS MURS LATERAUX TRAPEZOIDAUX (option : peuvent etre transparents)
+    // ===== PETITS MURS LATERAUX TRAPEZOIDAUX =====
     // Cote gauche
     const triGeoL = new THREE.BufferGeometry();
     const triVertL = new Float32Array([
@@ -428,8 +451,7 @@ function buildScene3D(scene, params, opts) {
     ]);
     triGeoL.setAttribute("position", new THREE.BufferAttribute(triVertL, 3));
     triGeoL.computeVertexNormals();
-    const triMeshL = new THREE.Mesh(triGeoL, wallMat);
-    scene.add(triMeshL);
+    scene.add(new THREE.Mesh(triGeoL, wallMat));
 
     // Cote droit
     const triGeoR = new THREE.BufferGeometry();
@@ -443,36 +465,69 @@ function buildScene3D(scene, params, opts) {
     ]);
     triGeoR.setAttribute("position", new THREE.BufferAttribute(triVertR, 3));
     triGeoR.computeVertexNormals();
-    const triMeshR = new THREE.Mesh(triGeoR, wallMat);
-    scene.add(triMeshR);
+    scene.add(new THREE.Mesh(triGeoR, wallMat));
 
-    // SABLIERES
-    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2);   // sabliere avant (basse)
-    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2);   // sabliere arriere (haute, contre mur)
+    // ===== SABLIERES (basse avant + haute arriere contre mur) =====
+    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
 
-    // CHEVRONS en pente (du mur arriere vers l'avant)
-    const nbChevrons = Math.max(3, Math.ceil(L / 1.0));
-    const ang = Math.atan(denivele / lg);
-    const longueurChevron = lg / Math.cos(ang);
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      const yCentre = Hbas + denivele/2;
-      addBox(0.10, 0.10, longueurChevron + 0.2, x, yCentre, 0, woodMat, [-ang, 0, 0]);
-    }
-
-    // 2 PANNES intermediaires
-    const nbPannes = 2;
+    // ===== PANNES INTERMEDIAIRES (3, bien reparties) =====
+    const nbPannes = 3;
+    const pannePositions = [];
     for (let i = 0; i < nbPannes; i++) {
       const t = (i + 1) / (nbPannes + 1);
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.12, 0.12, 0, y, z);
+      addBox(L + 0.3, 0.14, 0.14, 0, y, z, woodMat);
+      pannePositions.push({ y, z, t });
     }
 
-    // TOITURE 1 pan
+    // ===== CHEVRONS RAPPROCHES (~tous les 0.5m) =====
+    const espChevron = 0.5;
+    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
+    for (let i = 0; i <= nbChevrons; i++) {
+      const x = -L/2 + (i / nbChevrons) * L;
+      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
+    }
+
+    // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
+    const espLiteau = 0.35;
+    const nbLiteaux = Math.max(4, Math.floor(longueurChevron / espLiteau));
+    for (let i = 0; i <= nbLiteaux; i++) {
+      const t = i / nbLiteaux;
+      const z = -lg/2 + t * lg;
+      const y = Hbas + t * denivele + 0.15;  // au-dessus des chevrons
+      addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
+    }
+
+    // ===== AISSELIERS (jambes de force obliques aux pignons) =====
+    const aisselierAngles = [pannePositions[0], pannePositions[1]];
+    [-1, 1].forEach((cote) => {
+      const xMur = cote * (L/2 - 0.08);
+      aisselierAngles.forEach((p) => {
+        // Point bas : sur le mur lateral au niveau Hbas/2
+        const xb = xMur;
+        const yb = Hbas * 0.5;
+        const zb = -lg/2 + (p.t * lg) * 0.4;
+        // Point haut : sous la panne
+        const xh = xMur;
+        const yh = p.y - 0.08;
+        const zh = p.z;
+        const dy = yh - yb;
+        const dz = zh - zb;
+        const longueur = Math.sqrt(dy*dy + dz*dz);
+        const rotX = Math.atan2(dy, dz) - Math.PI/2;
+        const xc = (xb + xh) / 2;
+        const yc = (yb + yh) / 2;
+        const zc = (zb + zh) / 2;
+        addBox(0.10, 0.10, longueur, xc, yc, zc, woodMat, [rotX, 0, 0]);
+      });
+    });
+
+    // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
     const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
-    const roof = new THREE.Mesh(rg, roofMat);
-    roof.position.set(0, Hbas + denivele/2 + 0.1, 0);
+    const roof = new THREE.Mesh(rg, appentisRoofMat);
+    roof.position.set(0, yCentre + 0.20, 0);  // plus haut a cause des liteaux
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
