@@ -190,12 +190,16 @@ function buildScene3D(scene, params, opts) {
   // MONOPENTE (1 pan + murs, mur arriere haut, mur avant bas)
   // ============================================================
   const drawMonopente = () => {
+    // ============================================================
+    // MONOPENTE REALISTE - charpente complete
+    // ============================================================
     // Calcul deniveles
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
     const Hbas = Ht;             // hauteur mur avant
     const Hhaut = Ht + denivele; // hauteur mur arriere
     const ang = Math.atan(denivele / lg);
     const longueurChevron = lg / Math.cos(ang);
+    const yCentre = Hbas + denivele/2;
 
     // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
     const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
@@ -245,28 +249,67 @@ function buildScene3D(scene, params, opts) {
     addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
     addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
 
-    // ===== PANNES INTERMEDIAIRES (suivent la pente) =====
-    const nbPannes = 3;
+    // ===== PANNES INTERMEDIAIRES (4, bien reparties entre sablieres) =====
+    const nbPannes = 4;
+    const pannePositions = [];
     for (let i = 0; i < nbPannes; i++) {
-      const t = i / (nbPannes - 1);
+      const t = (i + 1) / (nbPannes + 1);  // evite superposition aux sablieres
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.12, 0.12, 0, y, z, woodMat);
+      addBox(L + 0.3, 0.14, 0.14, 0, y, z, woodMat);
+      pannePositions.push({ y, z, t });
     }
 
-    // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
-    const espChevron = 0.6;
+    // ===== CHEVRONS RAPPROCHES (~tous les 0.5m) =====
+    const espChevron = 0.5;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    const yCentre = Hbas + denivele/2;
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
+      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
     }
 
-    // ===== COUVERTURE (1 pan, opaque, couleur selon type) =====
+    // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
+    // Petites planchettes paralleles aux sablieres, sur toute la longueur
+    const espLiteau = 0.35;
+    const nbLiteaux = Math.max(4, Math.floor(longueurChevron / espLiteau));
+    for (let i = 0; i <= nbLiteaux; i++) {
+      const t = i / nbLiteaux;
+      const z = -lg/2 + t * lg;
+      const y = Hbas + t * denivele + 0.15;  // au-dessus des chevrons
+      addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
+    }
+
+    // ===== AISSELIERS (jambes de force obliques aux pignons) =====
+    // Sur chaque mur lateral, 2 jambes obliques qui soutiennent les pannes
+    // Partent du mur en haut (Hbas + 0.3) vers une panne intermediaire
+    const aisselierAngles = [pannePositions[1], pannePositions[2]];  // 2eme et 3eme panne
+    [-1, 1].forEach((cote) => {
+      const xMur = cote * (L/2 - 0.08);
+      aisselierAngles.forEach((p) => {
+        // Point bas : sur le mur lateral, a 80% de Hbas, decale vers z=0
+        const xb = xMur;
+        const yb = Hbas * 0.5;
+        const zb = -lg/2 + (p.t * lg) * 0.4;  // decale vers la sabliere basse
+        // Point haut : sous la panne, a la position de la panne
+        const xh = xMur;
+        const yh = p.y - 0.08;
+        const zh = p.z;
+        // Calculs de la jambe oblique (centre + longueur + rotation autour de X)
+        const dy = yh - yb;
+        const dz = zh - zb;
+        const longueur = Math.sqrt(dy*dy + dz*dz);
+        const rotX = Math.atan2(dy, dz) - Math.PI/2;  // rotation autour de X
+        const xc = (xb + xh) / 2;
+        const yc = (yb + yh) / 2;
+        const zc = (zb + zh) / 2;
+        addBox(0.10, 0.10, longueur, xc, yc, zc, woodMat, [rotX, 0, 0]);
+      });
+    });
+
+    // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
     const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
     const roof = new THREE.Mesh(rg, monopenteRoofMat);
-    roof.position.set(0, yCentre + 0.16, 0);
+    roof.position.set(0, yCentre + 0.20, 0);  // plus haut a cause des liteaux
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
