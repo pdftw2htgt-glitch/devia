@@ -397,138 +397,127 @@ function buildScene3D(scene, params, opts) {
   // ============================================================
   const drawAppentis = () => {
     // ============================================================
-    // APPENTIS REALISTE - charpente complete adossee
+    // APPENTIS PARAMETRIQUE - charpente complete adaptative
+    // S'adapte aux dimensions et a la couverture demandees.
+    // (sections indicatives - calcul structurel = phase 2.B)
     // ============================================================
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
     const Hbas = Ht;             // hauteur cote avant (libre)
     const Hhaut = Ht + denivele; // hauteur mur arriere (mur maison)
     const ang = Math.atan(denivele / lg);
-    const longueurChevron = lg / Math.cos(ang);
+    const longueurRampant = lg / Math.cos(ang);  // longueur du pan incline
     const yCentre = Hbas + denivele/2;
 
-    // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
+    // ===== REGLES METIER ADAPTATIVES =====
+    // 1) Couverture -> couleur + espacement chevrons + espacement liteaux
     const typeCouv = (opts && opts.couverture) ? opts.couverture : "tuile_terre";
-    let couvColor;
+    let couvColor, espChevron, espLiteau;
     if (typeCouv === "bac_acier") {
-      couvColor = 0x3a3a3f;  // anthracite
+      couvColor = 0x3a3a3f;  espChevron = 0.70;  espLiteau = 0.50;  // porte loin
     } else if (typeCouv === "tuile_beton") {
-      couvColor = 0x8b6355;  // brun-gris
+      couvColor = 0x8b6355;  espChevron = 0.45;  espLiteau = 0.32;  // lourde
     } else {
-      couvColor = 0xc87650;  // tuile terre cuite (defaut)
+      couvColor = 0xc87650;  espChevron = 0.50;  espLiteau = 0.35;  // tuile terre
     }
     const appentisRoofMat = new THREE.MeshLambertMaterial({
       color: couvColor, transparent: true, opacity: 0.4, side: THREE.DoubleSide
     });
 
-    // ===== MUR ARRIERE D'ADOSSEMENT (simule mur existant maison) =====
+    // 2) Nb de pannes : un chevron ne franchit pas plus de ~2.2 m sans appui
+    const porteeMaxChevron = 2.2;
+    const nbPannes = Math.max(1, Math.ceil(longueurRampant / porteeMaxChevron) - 1);
+
+    // 3) Section chevrons : grossit avec la longueur du rampant
+    const secChevron = longueurRampant > 4.5 ? 0.10 : (longueurRampant > 3 ? 0.09 : 0.08);
+
+    // 4) Poteaux avant : 1 tous les ~3.5 m
+    const nbPoteauxLong = Math.max(1, Math.ceil(L / 3.5));
+
+    // 5) Section pannes : grossit avec la portee entre poteaux
+    const porteePanne = L / nbPoteauxLong;
+    const secPanne = porteePanne > 3.5 ? 0.18 : (porteePanne > 2 ? 0.15 : 0.13);
+
+    // 6) Section sablieres : un peu plus fortes que les pannes
+    const secSabliere = Math.min(0.20, secPanne + 0.02);
+
+    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison) =====
     const murArriereMat = new THREE.MeshLambertMaterial({
-      color: 0xd4ccb6,
-      transparent: true,
-      opacity: 0.85,
-      side: THREE.DoubleSide
+      color: 0xd4ccb6, transparent: true, opacity: 0.85, side: THREE.DoubleSide
     });
     addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
 
-    // ===== POTEAUX AVANT (specificite appentis : cote ouvert) =====
-    // Poteaux intermediaires si appentis long
-    const sectionPotau = 0.18;
-    const nbPoteauxLong = Math.max(1, Math.ceil(L / 4));
+    // ===== POTEAUX AVANT (cote ouvert, nb adaptatif) =====
+    const secPoteau = 0.18;
     for (let i = 0; i <= nbPoteauxLong; i++) {
       const x = -L/2 + (i / nbPoteauxLong) * L;
-      addBox(sectionPotau, Hbas, sectionPotau, x, Hbas/2, -lg/2, woodMat);
+      addBox(secPoteau, Hbas, secPoteau, x, Hbas/2, -lg/2, woodMat);
     }
 
-    // ===== PETITS MURS LATERAUX TRAPEZOIDAUX =====
-    // Cote gauche
+    // ===== MURS LATERAUX TRAPEZOIDAUX (translucides) =====
     const triGeoL = new THREE.BufferGeometry();
     const triVertL = new Float32Array([
-      -L/2, 0, -lg/2,
-      -L/2, Hbas, -lg/2,
-      -L/2, Hhaut, lg/2,
-      -L/2, 0, -lg/2,
-      -L/2, Hhaut, lg/2,
-      -L/2, 0, lg/2,
+      -L/2, 0, -lg/2,  -L/2, Hbas, -lg/2,  -L/2, Hhaut, lg/2,
+      -L/2, 0, -lg/2,  -L/2, Hhaut, lg/2,  -L/2, 0, lg/2,
     ]);
     triGeoL.setAttribute("position", new THREE.BufferAttribute(triVertL, 3));
     triGeoL.computeVertexNormals();
     scene.add(new THREE.Mesh(triGeoL, wallMat));
 
-    // Cote droit
     const triGeoR = new THREE.BufferGeometry();
     const triVertR = new Float32Array([
-      L/2, 0, -lg/2,
-      L/2, Hbas, -lg/2,
-      L/2, Hhaut, lg/2,
-      L/2, 0, -lg/2,
-      L/2, Hhaut, lg/2,
-      L/2, 0, lg/2,
+      L/2, 0, -lg/2,  L/2, Hbas, -lg/2,  L/2, Hhaut, lg/2,
+      L/2, 0, -lg/2,  L/2, Hhaut, lg/2,  L/2, 0, lg/2,
     ]);
     triGeoR.setAttribute("position", new THREE.BufferAttribute(triVertR, 3));
     triGeoR.computeVertexNormals();
     scene.add(new THREE.Mesh(triGeoR, wallMat));
 
     // ===== SABLIERES (basse avant + haute arriere contre mur) =====
-    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
-    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
+    addBox(L + 0.3, secSabliere, secSabliere, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, secSabliere, secSabliere, 0, Hhaut, lg/2, woodMat);
 
-    // ===== PANNES INTERMEDIAIRES (3, bien reparties) =====
-    const nbPannes = 3;
+    // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
     const pannePositions = [];
     for (let i = 0; i < nbPannes; i++) {
       const t = (i + 1) / (nbPannes + 1);
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.14, 0.14, 0, y, z, woodMat);
-      pannePositions.push({ y, z, t });
+      addBox(L + 0.3, secPanne, secPanne, 0, y, z, woodMat);
+      pannePositions.push({ y, z });
     }
 
-    // ===== CHEVRONS RAPPROCHES (~tous les 0.5m) =====
-    const espChevron = 0.5;
+    // ===== CHEVRONS (espacement + section adaptatifs) =====
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
+    const chevronXs = [];
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
+      chevronXs.push(x);
+      addBox(secChevron, secChevron, longueurRampant + 0.2, x, yCentre + secChevron*0.8, 0, woodMat, [-ang, 0, 0]);
     }
 
-    // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
-    const espLiteau = 0.35;
-    const nbLiteaux = Math.max(4, Math.floor(longueurChevron / espLiteau));
+    // ===== LITEAUX (perpendiculaires aux chevrons, espacement adaptatif) =====
+    const nbLiteaux = Math.max(4, Math.floor(longueurRampant / espLiteau));
     for (let i = 0; i <= nbLiteaux; i++) {
       const t = i / nbLiteaux;
       const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele + 0.15;  // au-dessus des chevrons
+      const y = Hbas + t * denivele + secChevron + 0.07;
       addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
     }
 
-    // ===== AISSELIERS (jambes de force obliques aux pignons) =====
-    // Effet "fan" : tous partent du meme point bas et rayonnent vers les pannes
-    const aisselierAngles = [];  // aisseliers desactives (rendu plus propre)
-    [-1, 1].forEach((cote) => {
-      const xMur = cote * (L/2 - 0.08);
-      aisselierAngles.forEach((p) => {
-        // Point bas : haut du mur lateral, pres du coin avant
-        const xb = xMur;
-        const yb = Hbas * 0.7;
-        const zb = -lg/2 + 0.3;
-        // Point haut : juste sous la panne
-        const xh = xMur;
-        const yh = p.y - 0.08;
-        const zh = p.z;
-        const dy = yh - yb;
-        const dz = zh - zb;
-        const longueur = Math.sqrt(dy*dy + dz*dz);
-        const rotX = -Math.atan2(dy, dz);  // FIX : rotation correcte autour de X
-        const xc = (xb + xh) / 2;
-        const yc = (yb + yh) / 2;
-        const zc = (zb + zh) / 2;
-        addBox(0.10, 0.10, longueur, xc, yc, zc, woodMat, [rotX, 0, 0]);
+    // ===== ECHANTIGNOLES (cale a chaque croisement chevron x panne) =====
+    // Petits taquets qui calent le chevron sur chaque panne (cote aval)
+    chevronXs.forEach((x) => {
+      pannePositions.forEach((p) => {
+        const yEch = p.y + secPanne/2 + 0.03;
+        const zEch = p.z - 0.07;
+        addBox(secChevron * 0.9, 0.06, 0.10, x, yEch, zEch, woodMat);
       });
     });
 
     // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
-    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
+    const rg = new THREE.PlaneGeometry(L + 0.4, longueurRampant + 0.3);
     const roof = new THREE.Mesh(rg, appentisRoofMat);
-    roof.position.set(0, yCentre + 0.20, 0);  // plus haut a cause des liteaux
+    roof.position.set(0, yCentre + secChevron + 0.12, 0);
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
