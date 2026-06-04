@@ -19,6 +19,27 @@ function buildScene3D(scene, params, opts) {
   const wallColor = opts && opts.wallColor ? opts.wallColor : 0xf0ece0;
   const wallOpacity = opts && opts.wallOpacity !== undefined ? opts.wallOpacity : 0.2;
 
+  // ===== METRE : capture des pieces dessinees =====
+  const DENSITES_BOIS = { sapin: 450, epicea: 450, douglas: 520, chene: 700, pin: 510 };
+  const essence = (params && params.essence) ? params.essence : "sapin";
+  const densiteBois = DENSITES_BOIS[essence] || 450;
+  const metre = [];
+  let currentPiece = "Divers";
+  const setPiece = (nom) => { currentPiece = nom; };
+  // longueur estimee = plus grande dimension de la piece
+  const logPiece = (a, b, c) => {
+    const dims = [a, b, c].sort((u, v) => v - u);
+    const longueur = dims[0];
+    const sx = dims[1], sy = dims[2];
+    const volume = a * b * c;
+    metre.push({
+      nom: currentPiece,
+      section: [Math.round(sx*1000), Math.round(sy*1000)], // mm
+      longueur: longueur,                                   // m
+      volume: volume,                                       // m3
+    });
+  };
+
   const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
   const roofMat = new THREE.MeshLambertMaterial({ color: roofColor, side: THREE.DoubleSide });
   const wallMat = new THREE.MeshLambertMaterial({ color: wallColor, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
@@ -29,6 +50,7 @@ function buildScene3D(scene, params, opts) {
     if (rot) m.rotation.set(...rot);
     m.castShadow = true;
     scene.add(m);
+    if (!mat || mat === woodMat) logPiece(sx, sy, sz); // bois uniquement
   };
 
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
@@ -43,6 +65,7 @@ function buildScene3D(scene, params, opts) {
     m.quaternion.copy(q);
     m.castShadow = true;
     scene.add(m);
+    if (!mat || mat === woodMat) logPiece(thick, thick, len);
   };
 
   // ============================================================
@@ -361,10 +384,12 @@ function buildScene3D(scene, params, opts) {
     triGeo2.computeVertexNormals();
     scene.add(new THREE.Mesh(triGeo2, wallMat));
 
+    setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere) =====
     addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
     addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
 
+    setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (4, bien reparties entre sablieres) =====
     const nbPannes = 4;
     const pannePositions = [];
@@ -376,6 +401,7 @@ function buildScene3D(scene, params, opts) {
       pannePositions.push({ y, z, t });
     }
 
+setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (espacement selon couverture) =====
     const espChevron = couv.espChevron;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
@@ -384,6 +410,7 @@ function buildScene3D(scene, params, opts) {
       addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
     }
 
+setPiece("Liteau");
     // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
     // Petites planchettes paralleles aux sablieres, sur toute la longueur
     const espLiteau = couv.espLiteau;
@@ -555,6 +582,7 @@ function buildScene3D(scene, params, opts) {
     });
     addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
 
+setPiece("Poteau");
     // ===== POTEAUX AVANT (cote ouvert, nb adaptatif) =====
     const secPoteau = 0.18;
     for (let i = 0; i <= nbPoteauxLong; i++) {
@@ -581,10 +609,12 @@ function buildScene3D(scene, params, opts) {
     triGeoR.computeVertexNormals();
     scene.add(new THREE.Mesh(triGeoR, wallMat));
 
+setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere contre mur) =====
     addBox(L + 0.3, secSabliere, secSabliere, 0, Hbas, -lg/2, woodMat);
     addBox(L + 0.3, secSabliere, secSabliere, 0, Hhaut, lg/2, woodMat);
 
+setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
     const pannePositions = [];
     for (let i = 0; i < nbPannes; i++) {
@@ -595,6 +625,7 @@ function buildScene3D(scene, params, opts) {
       pannePositions.push({ y, z });
     }
 
+setPiece("Chevron");
     // ===== CHEVRONS (espacement + section adaptatifs) =====
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     const chevronXs = [];
@@ -604,6 +635,7 @@ function buildScene3D(scene, params, opts) {
       addBox(secChevron, secChevron, longueurRampant + 0.2, x, yCentre + secChevron*0.8, 0, woodMat, [-ang, 0, 0]);
     }
 
+setPiece("Liteau");
     // ===== LITEAUX (perpendiculaires aux chevrons, espacement adaptatif) =====
     const nbLiteaux = Math.max(4, Math.floor(longueurRampant / espLiteau));
     for (let i = 0; i <= nbLiteaux; i++) {
@@ -613,6 +645,7 @@ function buildScene3D(scene, params, opts) {
       addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
     }
 
+setPiece("Echantignole");
     // ===== ECHANTIGNOLES (cale a chaque croisement chevron x panne) =====
     // Petits taquets qui calent le chevron sur chaque panne (cote aval)
     chevronXs.forEach((x) => {
@@ -674,15 +707,18 @@ function buildScene3D(scene, params, opts) {
       [0.15, Ht, lg, L/2, Ht/2, 0]
     ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
 
+setPiece("Sabliere");
     // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
     addBox(L + 0.2, 0.16, 0.16, 0, Ht, lg/2, woodMat);
     addBox(L + 0.2, 0.16, 0.16, 0, Ht, -lg/2, woodMat);
     addBox(0.16, 0.16, lg, -L/2, Ht, 0, woodMat);
     addBox(0.16, 0.16, lg, L/2, Ht, 0, woodMat);
 
+setPiece("Faitage");
     // ===== FAITAGE (central) =====
     addBox(Lfait, 0.15, 0.15, 0, yFait, 0, woodMat);
 
+setPiece("Aretier");
     // ===== ARETIERS (faitage -> 4 coins) =====
     const coins = [
       [xFaitGauche, [-L/2, Ht, lg/2]],
@@ -694,6 +730,7 @@ function buildScene3D(scene, params, opts) {
       addBeam(cxp, cyp, czp, xf, yFait, 0, 0.12, woodMat);
     });
 
+setPiece("Panne");
     // ===== PANNES sur les 2 grands pans (nb adaptatif) =====
     // Longueur de la panne diminue en montant (les pans se rapprochent du faitage)
     for (let i = 1; i <= nbPannes; i++) {
@@ -705,6 +742,7 @@ function buildScene3D(scene, params, opts) {
       addBox(lenPanne, 0.12, 0.12, 0, yPanne, -zPanne, woodMat);  // pan arriere
     }
 
+setPiece("Chevron");
     // ===== CHEVRONS sur les 2 grands pans (entre les aretiers) =====
     // Uniquement dans la zone du faitage (au-dela, ce sont les empannons)
     const nbChevGrandPan = Math.max(2, Math.floor(Lfait / espChevron));
@@ -716,6 +754,7 @@ function buildScene3D(scene, params, opts) {
       addBeam(x, Ht, -lg/2, x, yFait, 0, secChevron, woodMat);
     }
 
+setPiece("Empannon");
     // ===== EMPANNONS (chevrons courts s'appuyant sur les aretiers) =====
     // Signature de la croupe : sur chaque pan, des chevrons de longueur
     // decroissante qui butent sur l'aretier au lieu d'atteindre le faitage.
@@ -741,6 +780,7 @@ function buildScene3D(scene, params, opts) {
     drawEmpannonsGrandPan(1);   // grand pan avant
     drawEmpannonsGrandPan(-1);  // grand pan arriere
 
+setPiece("Empannon de croupe");
     // ===== EMPANNONS DE CROUPE (sur les 2 triangles de bout) =====
     const drawEmpannonsCroupe = (signX) => {
       const xCoinAv = signX * (L/2);
@@ -828,7 +868,7 @@ function buildScene3D(scene, params, opts) {
     yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   }
 
-  return { yCentre };
+  return { yCentre, metre, densiteBois, essence };
 }
 import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
@@ -1390,7 +1430,137 @@ const ag = { "0": 0, "1": 0.07, "2": 0.10, "3": 0.15, "4": 0.20 }[zone.sismique]
 return { ...zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100, ag };
 }
 
-function Viewer3D({ params }) {
+// ============================================================
+// AGREGATION DU METRE (regroupe par type de piece + totaux)
+// ============================================================
+function agregerMetre(metre, densiteBois) {
+  if (!metre || metre.length === 0) return { groupes: [], totalVolume: 0, totalPoids: 0, nbPieces: 0 };
+  const map = {};
+  metre.forEach((p) => {
+    // cle = nom + section (pour distinguer p.ex. chevrons de sections differentes)
+    const secKey = p.section[0] + "x" + p.section[1];
+    const key = p.nom + "|" + secKey;
+    if (!map[key]) {
+      map[key] = {
+        nom: p.nom,
+        section: p.section,        // [mm, mm]
+        nombre: 0,
+        longueurTotale: 0,         // m
+        longueurUnitMax: 0,        // m (plus longue piece du groupe)
+        volume: 0,                 // m3
+      };
+    }
+    map[key].nombre += 1;
+    map[key].longueurTotale += p.longueur;
+    map[key].longueurUnitMax = Math.max(map[key].longueurUnitMax, p.longueur);
+    map[key].volume += p.volume;
+  });
+  const groupes = Object.values(map).map((g) => ({
+    ...g,
+    longueurMoy: g.longueurTotale / g.nombre,
+    poids: g.volume * densiteBois,   // kg
+  })).sort((a, b) => b.volume - a.volume);
+  const totalVolume = groupes.reduce((s, g) => s + g.volume, 0);
+  const totalPoids = groupes.reduce((s, g) => s + g.poids, 0);
+  const nbPieces = groupes.reduce((s, g) => s + g.nombre, 0);
+  return { groupes, totalVolume, totalPoids, nbPieces };
+}
+
+// ============================================================
+// PANNEAU TECHNIQUE (metre + entraxes + assemblages) sous la 3D
+// ============================================================
+// Assemblages recommandes par type de piece (regles TYPES, a valider)
+const ASSEMBLAGES = {
+  "Panne": "Posee sur arbaletriers/poteaux. Assemblage par entaille (about) + echantignole de calage. Fixation tire-fond ou equerre.",
+  "Chevron": "Cloue/visse sur pannes et sabliere. Entaille a mi-bois sur sabliere possible. Echantignole sur panne intermediaire.",
+  "Sabliere": "Scellee/chevillee sur arase du mur. Assemblage d'angle a mi-bois ou tenon-mortaise. Ancrage par scellement chimique.",
+  "Poteau": "Pied : sabot metallique sur platine chevillee. Tete : tenon-mortaise ou ferrure sur sabliere/panne.",
+  "Faitage": "Assemblage des arbaletriers en tete : tenon-mortaise ou moise. Liaison par boulons traversants.",
+  "Aretier": "Piece maitresse de croupe. Assemblage en tete sur faitage/poincon. Empannons rapportes par entaille sur l'aretier.",
+  "Empannon": "Chevron court entaille sur l'aretier (coupe biaise) cote bas + sur sabliere. Cloue/visse.",
+  "Empannon de croupe": "Identique empannon, sur le pan de croupe. Coupe d'onglet contre l'aretier.",
+  "Liteau": "Cloue/agrafe perpendiculairement sur les chevrons. Entraxe selon pureau de la couverture.",
+  "Echantignole": "Petit taquet cloue sur la panne, cale le chevron a la bonne pente.",
+  "Divers": "Assemblage selon piece (voir plan d'execution).",
+};
+
+function PanneauTechnique({ data, params }) {
+  if (!data || !data.groupes || data.groupes.length === 0) {
+    return null;
+  }
+  const card = { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, marginTop: 12 };
+  const stat = { flex: 1, minWidth: 120, background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.18)", borderRadius: 10, padding: "12px 14px" };
+  const statVal = { fontSize: 22, fontWeight: 700, color: "#f0c040", fontVariantNumeric: "tabular-nums" };
+  const statLbl = { fontSize: 11, color: "#7a7d92", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" };
+  const th = { textAlign: "left", padding: "8px 10px", fontSize: 11, color: "#7a7d92", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(255,255,255,0.08)" };
+  const td = { padding: "9px 10px", fontSize: 13, color: "#d0d2dc", borderBottom: "1px solid rgba(255,255,255,0.04)", fontVariantNumeric: "tabular-nums" };
+
+  const fmt = (n, d) => Number(n).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  return (
+    <div>
+      {/* Etiquettes / stats */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+        <div style={stat}><div style={statVal}>{fmt(data.totalVolume, 3)} m3</div><div style={statLbl}>Volume bois</div></div>
+        <div style={stat}><div style={statVal}>{fmt(data.totalPoids, 0)} kg</div><div style={statLbl}>Poids estime</div></div>
+        <div style={stat}><div style={statVal}>{data.nbPieces}</div><div style={statLbl}>Pieces</div></div>
+        <div style={stat}><div style={statVal}>{data.groupes.length}</div><div style={statLbl}>Types differents</div></div>
+      </div>
+
+      {/* Tableau de metre */}
+      <div style={card}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#e8eaf2", marginBottom: 10 }}>Metre detaille</div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Piece</th>
+                <th style={th}>Section (mm)</th>
+                <th style={{ ...th, textAlign: "right" }}>Nb</th>
+                <th style={{ ...th, textAlign: "right" }}>Long. unit. (m)</th>
+                <th style={{ ...th, textAlign: "right" }}>Long. tot. (m)</th>
+                <th style={{ ...th, textAlign: "right" }}>Volume (m3)</th>
+                <th style={{ ...th, textAlign: "right" }}>Poids (kg)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.groupes.map((g, i) => (
+                <tr key={i}>
+                  <td style={{ ...td, color: "#e8eaf2", fontWeight: 500 }}>{g.nom}</td>
+                  <td style={td}>{g.section[0]} x {g.section[1]}</td>
+                  <td style={{ ...td, textAlign: "right" }}>{g.nombre}</td>
+                  <td style={{ ...td, textAlign: "right" }}>{fmt(g.longueurUnitMax, 2)}</td>
+                  <td style={{ ...td, textAlign: "right" }}>{fmt(g.longueurTotale, 2)}</td>
+                  <td style={{ ...td, textAlign: "right" }}>{fmt(g.volume, 3)}</td>
+                  <td style={{ ...td, textAlign: "right", color: "#f0c040" }}>{fmt(g.poids, 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ fontSize: 11, color: "#545870", marginTop: 8, fontStyle: "italic" }}>
+          Essence : {data.essence || params.essence || "sapin"} - sections indicatives, a valider (DTU / Eurocode 5).
+        </div>
+      </div>
+
+      {/* Assemblages recommandes */}
+      <div style={card}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#e8eaf2", marginBottom: 10 }}>Assemblages recommandes (types)</div>
+        {data.groupes.map((g, i) => (
+          <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: i < data.groupes.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+            <div style={{ minWidth: 130, fontSize: 13, fontWeight: 600, color: "#f0c040" }}>{g.nom}</div>
+            <div style={{ fontSize: 12.5, color: "#a8abbd", lineHeight: 1.5 }}>{ASSEMBLAGES[g.nom] || ASSEMBLAGES["Divers"]}</div>
+          </div>
+        ))}
+        <div style={{ fontSize: 11, color: "#545870", marginTop: 10, fontStyle: "italic" }}>
+          Recommandations types a adapter au projet. A faire valider par un professionnel.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Viewer3D({ params, onMetre }) {
   const mountRef = useRef(null);
 
   useEffect(() => {
@@ -1415,6 +1585,9 @@ function Viewer3D({ params }) {
 
     // Construction de la scene via fonction commune
     const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
+    if (onMetre && buildResultViewer.metre) {
+      onMetre(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450));
+    }
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
     const pente = params.pente || 35;
@@ -1920,6 +2093,7 @@ const [error, setError] = useState(null);
 const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, hauteur: 3, pente: 35 });
 const [activeResultTab, setActiveResultTab] = useState("devis");
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
+  const [metreData, setMetreData] = useState(null);
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
@@ -3685,8 +3859,9 @@ return (
                   ))}
                 </div>
                 <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
-                  <Viewer3D params={{ ...view3DParams, mode3D }} />
+                  <Viewer3D params={{ ...view3DParams, mode3D }} onMetre={setMetreData} />
                 </div>
+                <PanneauTechnique data={metreData} params={view3DParams} />
               </div>
             )}
 
