@@ -1562,6 +1562,8 @@ function PanneauTechnique({ data, params }) {
 
 function Viewer3D({ params, onMetre }) {
   const mountRef = useRef(null);
+  const onMetreRef = useRef(onMetre);
+  onMetreRef.current = onMetre;
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -1585,8 +1587,8 @@ function Viewer3D({ params, onMetre }) {
 
     // Construction de la scene via fonction commune
     const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
-    if (onMetre && buildResultViewer.metre) {
-      onMetre(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450));
+    if (onMetreRef.current && buildResultViewer.metre) {
+      onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450));
     }
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
@@ -1660,7 +1662,7 @@ function Viewer3D({ params, onMetre }) {
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
         mountRef.current.removeChild(renderer.domElement);
     };
-  }, [params]);
+  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D]);
 
   return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
