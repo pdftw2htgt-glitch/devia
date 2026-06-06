@@ -210,6 +210,7 @@ function buildScene3D(scene, params, opts) {
       [0.15, Ht, lg, L/2, Ht/2, 0]
     ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
 
+setPiece("Ferme");
     // ===== FERMES (tous les ~3.5m) =====
     // Chaque ferme = entrait + 2 arbaletriers + poincon + 2 contrefiches
     const nbFermes = Math.max(2, Math.ceil(L / 3.5));
@@ -238,13 +239,16 @@ function buildScene3D(scene, params, opts) {
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, 0.10, woodMat);  // vers pan Z-
     }
 
+setPiece("Sabliere");
     // ===== SABLIERES (poutres basses sur les murs longs) =====
     addBox(L + 0.3, 0.14, 0.14, 0, Ht, lg/2, woodMat);
     addBox(L + 0.3, 0.14, 0.14, 0, Ht, -lg/2, woodMat);
 
+setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
     addBox(L + 0.4, 0.14, 0.14, 0, yFait, 0, woodMat);
 
+setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (le long du toit, sur les 2 pans) =====
     const nbPannesParPan = 2;
     for (let p = 1; p <= nbPannesParPan; p++) {
@@ -255,6 +259,7 @@ function buildScene3D(scene, params, opts) {
       addBox(L + 0.3, 0.12, 0.12, 0, yPanne, -zPanne, woodMat);  // pan Z-
     }
 
+setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (tous les ~0.5m, sur les pannes) =====
     const espChevron = 0.5;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
@@ -292,6 +297,7 @@ function buildScene3D(scene, params, opts) {
     const ang = Math.atan(denivele / lg);
     const longueurChevron = lg / Math.cos(ang);
 
+setPiece("Poteau");
     // ===== POTEAUX (specificite carport) =====
     // Poteaux intermediaires aussi si carport long
     const nbPoteauxLong = Math.max(1, Math.ceil(L / 4));
@@ -305,6 +311,7 @@ function buildScene3D(scene, params, opts) {
     addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
     addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
 
+setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (suivent la pente) =====
     const nbPannes = 3;
     for (let i = 0; i < nbPannes; i++) {
@@ -314,6 +321,7 @@ function buildScene3D(scene, params, opts) {
       addBox(L + 0.3, 0.12, 0.12, 0, y, z, woodMat);
     }
 
+setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
     const espChevron = 0.6;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
@@ -467,6 +475,7 @@ setPiece("Liteau");
     const yFait = Ht + hf;
     const sectionPotau = 0.22; // poteaux plus gros pour hangar
 
+setPiece("Poteau");
     // ===== POTEAUX (specificite hangar : 4 coins + intermediaires) =====
     const nbPoteauxLong = Math.max(2, Math.ceil(L / 4));
     for (let i = 0; i <= nbPoteauxLong; i++) {
@@ -475,10 +484,12 @@ setPiece("Liteau");
       addBox(sectionPotau, Ht, sectionPotau, x, Ht/2, -lg/2);  // cote Z-
     }
 
+setPiece("Sabliere");
     // ===== SABLIERES (longues poutres sur les poteaux) =====
     addBox(L + 0.4, 0.20, 0.20, 0, Ht, lg/2, woodMat);
     addBox(L + 0.4, 0.20, 0.20, 0, Ht, -lg/2, woodMat);
 
+setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
     const nbFermes = Math.max(2, Math.ceil(L / 3));
     for (let i = 0; i <= nbFermes; i++) {
@@ -500,6 +511,7 @@ setPiece("Liteau");
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, 0.10, woodMat);
     }
 
+setPiece("Panne");
     // ===== PANNE FAITIERE + INTERMEDIAIRES =====
     addBox(L + 0.5, 0.16, 0.16, 0, yFait, 0, woodMat);
     const nbPannesParPan = 2;
@@ -511,6 +523,7 @@ setPiece("Liteau");
       addBox(L + 0.4, 0.12, 0.12, 0, yPanne, -zPanne, woodMat);
     }
 
+    setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
     const espChevron = 0.6;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
