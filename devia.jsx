@@ -27,7 +27,7 @@ function buildScene3D(scene, params, opts) {
   let currentPiece = "Divers";
   const setPiece = (nom) => { currentPiece = nom; };
   // longueur estimee = plus grande dimension de la piece
-  const logPiece = (a, b, c) => {
+  const logPiece = (a, b, c, place) => {
     const dims = [a, b, c].sort((u, v) => v - u);
     const longueur = dims[0];
     const sx = dims[1], sy = dims[2];
@@ -37,6 +37,11 @@ function buildScene3D(scene, params, opts) {
       section: [Math.round(sx*1000), Math.round(sy*1000)], // mm
       longueur: longueur,                                   // m
       volume: volume,                                       // m3
+      // placement 3D pour export IFC (optionnel)
+      dimsBrutes: [a, b, c],          // sx, sy, sz d'origine (m)
+      pos: place ? place.pos : null,  // [x, y, z] centre (m)
+      rot: place ? place.rot : null,  // [rx, ry, rz] euler (rad) ou null
+      quat: place ? place.quat : null,// [x, y, z, w] quaternion ou null
     });
   };
 
@@ -50,7 +55,7 @@ function buildScene3D(scene, params, opts) {
     if (rot) m.rotation.set(...rot);
     m.castShadow = true;
     scene.add(m);
-    if (!mat || mat === woodMat) logPiece(sx, sy, sz); // bois uniquement
+    if (!mat || mat === woodMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }); // bois uniquement
   };
 
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
@@ -65,7 +70,7 @@ function buildScene3D(scene, params, opts) {
     m.quaternion.copy(q);
     m.castShadow = true;
     scene.add(m);
-    if (!mat || mat === woodMat) logPiece(thick, thick, len);
+    if (!mat || mat === woodMat) logPiece(thick, thick, len, { pos: [(x1+x2)/2, (y1+y2)/2, (z1+z2)/2], rot: null, quat: [q.x, q.y, q.z, q.w] });
   };
 
   // ============================================================
@@ -1444,6 +1449,115 @@ return { ...zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100
 }
 
 // ============================================================
+// ============================================================
+// GENERATEUR IFC (ISO-10303-21 / IFC4) depuis le metre 3D
+// ============================================================
+// Note conventions axes : Three.js Y=haut -> IFC Z=haut. Conversion (x,y,z)->(x,z,y).
+function genererIFC(metre, params) {
+  const piecesBois = (metre || []).filter((p) => p.pos); // seulement pieces avec position
+  let id = 0;
+  const nextId = () => ++id;
+  const lines = [];
+  const E = (n, s) => { lines.push("#" + n + "=" + s); }; // ecrit une entite
+
+  // --- En-tete STEP ---
+  const now = new Date();
+  const stamp = now.toISOString().slice(0, 19);
+  const header =
+"ISO-10303-21;\n" +
+"HEADER;\n" +
+"FILE_DESCRIPTION(('DEVIA charpente export'),'2;1');\n" +
+"FILE_NAME('devia.ifc','" + stamp + "',(''),(''),'DEVIA','DEVIA','');\n" +
+"FILE_SCHEMA(('IFC4'));\n" +
+"ENDSEC;\n" +
+"DATA;\n";
+
+  // --- Contexte de base ---
+  const dimExp = nextId(); E(dimExp, "IFCDIMENSIONALEXPONENTS(0,0,0,0,0,0,0);");
+  const origin = nextId(); E(origin, "IFCCARTESIANPOINT((0.,0.,0.));");
+  const dirZ = nextId(); E(dirZ, "IFCDIRECTION((0.,0.,1.));");
+  const dirX = nextId(); E(dirX, "IFCDIRECTION((1.,0.,0.));");
+  const axisPlacement = nextId(); E(axisPlacement, "IFCAXIS2PLACEMENT3D(#" + origin + ",#" + dirZ + ",#" + dirX + ");");
+  const worldCoord = nextId(); E(worldCoord, "IFCAXIS2PLACEMENT3D(#" + origin + ",$,$);");
+
+  const lenUnit = nextId(); E(lenUnit, "IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);");
+  const areaUnit = nextId(); E(areaUnit, "IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.);");
+  const volUnit = nextId(); E(volUnit, "IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.);");
+  const angUnit = nextId(); E(angUnit, "IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.);");
+  const unitAssign = nextId(); E(unitAssign, "IFCUNITASSIGNMENT((#" + lenUnit + ",#" + areaUnit + ",#" + volUnit + ",#" + angUnit + "));");
+
+  const geomCtx = nextId(); E(geomCtx, "IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#" + axisPlacement + ",$);");
+
+  const guid = () => {
+    const c = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_$";
+    let s = ""; for (let i = 0; i < 22; i++) s += c[Math.floor(Math.random() * 64)];
+    return s;
+  };
+
+  const ownerHist = nextId(); E(ownerHist, "$"); // simplifie (pas d'historique)
+
+  // --- Hierarchie spatiale ---
+  const project = nextId();
+  const site = nextId();
+  const building = nextId();
+  const storey = nextId();
+  E(project, "IFCPROJECT('" + guid() + "',$,'DEVIA Charpente',$,$,$,$,(#" + geomCtx + "),#" + unitAssign + ");");
+  const sitePlc = nextId(); E(sitePlc, "IFCLOCALPLACEMENT($,#" + axisPlacement + ");");
+  E(site, "IFCSITE('" + guid() + "',$,'Terrain',$,$,#" + sitePlc + ",$,$,.ELEMENT.,$,$,$,$,$);");
+  const bldgPlc = nextId(); E(bldgPlc, "IFCLOCALPLACEMENT(#" + sitePlc + ",#" + axisPlacement + ");");
+  E(building, "IFCBUILDING('" + guid() + "',$,'Batiment',$,$,#" + bldgPlc + ",$,$,.ELEMENT.,$,$,$);");
+  const storeyPlc = nextId(); E(storeyPlc, "IFCLOCALPLACEMENT(#" + bldgPlc + ",#" + axisPlacement + ");");
+  E(storey, "IFCBUILDINGSTOREY('" + guid() + "',$,'Niveau 0',$,$,#" + storeyPlc + ",$,$,.ELEMENT.,0.);");
+
+  // Relations d'agregation
+  const relAggProj = nextId(); E(relAggProj, "IFCRELAGGREGATES('" + guid() + "',$,$,$,#" + project + ",(#" + site + "));");
+  const relAggSite = nextId(); E(relAggSite, "IFCRELAGGREGATES('" + guid() + "',$,$,$,#" + site + ",(#" + building + "));");
+  const relAggBldg = nextId(); E(relAggBldg, "IFCRELAGGREGATES('" + guid() + "',$,$,$,#" + building + ",(#" + storey + "));");
+
+  // --- Une piece -> un IfcMember ---
+  const memberIds = [];
+  piecesBois.forEach((p) => {
+    // conversion axes Three(x,y,z) -> IFC(x,z,y)
+    const px = p.pos[0], py = p.pos[2], pz = p.pos[1];
+    // dims brutes (m) : on prend section = 2 plus petites, longueur = plus grande
+    const d = [...p.dimsBrutes].map(Math.abs).sort((a, b) => b - a);
+    const L = d[0], w = d[1], h = d[2];
+
+    // profil rectangulaire centre
+    const profCtrPt = nextId(); E(profCtrPt, "IFCCARTESIANPOINT((0.,0.));");
+    const profDir = nextId(); E(profDir, "IFCDIRECTION((1.,0.));");
+    const profPos = nextId(); E(profPos, "IFCAXIS2PLACEMENT2D(#" + profCtrPt + ",#" + profDir + ");");
+    const prof = nextId(); E(prof, "IFCRECTANGLEPROFILEDEF(.AREA.,$,#" + profPos + "," + w.toFixed(4) + "," + h.toFixed(4) + ");");
+
+    // position de la piece dans le storey
+    const ptPiece = nextId(); E(ptPiece, "IFCCARTESIANPOINT((" + px.toFixed(4) + "," + py.toFixed(4) + "," + pz.toFixed(4) + "));");
+    const axPiece = nextId(); E(axPiece, "IFCAXIS2PLACEMENT3D(#" + ptPiece + ",$,$);");
+    const plcPiece = nextId(); E(plcPiece, "IFCLOCALPLACEMENT(#" + storeyPlc + ",#" + axPiece + ");");
+
+    // extrusion : repere local, extrude selon Z local sur longueur L, centre en -L/2
+    const extrPt = nextId(); E(extrPt, "IFCCARTESIANPOINT((0.,0.," + (-L/2).toFixed(4) + "));");
+    const extrAx = nextId(); E(extrAx, "IFCAXIS2PLACEMENT3D(#" + extrPt + ",$,$);");
+    const extrDir = nextId(); E(extrDir, "IFCDIRECTION((0.,0.,1.));");
+    const solid = nextId(); E(solid, "IFCEXTRUDEDAREASOLID(#" + prof + ",#" + extrAx + ",#" + extrDir + "," + L.toFixed(4) + ");");
+
+    const shapeRep = nextId(); E(shapeRep, "IFCSHAPEREPRESENTATION(#" + geomCtx + ",'Body','SweptSolid',(#" + solid + "));");
+    const prodDef = nextId(); E(prodDef, "IFCPRODUCTDEFINITIONSHAPE($,$,(#" + shapeRep + "));");
+
+    const member = nextId();
+    E(member, "IFCMEMBER('" + guid() + "',$,'" + (p.nom || "Piece") + "',$,$,#" + plcPiece + ",#" + prodDef + ",$,$);");
+    memberIds.push(member);
+  });
+
+  // Rattacher tous les membres au storey
+  if (memberIds.length) {
+    const relContain = nextId();
+    E(relContain, "IFCRELCONTAINEDINSPATIALSTRUCTURE('" + guid() + "',$,$,$,(#" + memberIds.join(",#") + "),#" + storey + ");");
+  }
+
+  const footer = "ENDSEC;\nEND-ISO-10303-21;\n";
+  return header + lines.join("\n") + "\n" + footer;
+}
+
 // AGREGATION DU METRE (regroupe par type de piece + totaux)
 // ============================================================
 function agregerMetre(metre, densiteBois) {
@@ -1601,7 +1715,7 @@ function Viewer3D({ params, onMetre }) {
     // Construction de la scene via fonction commune
     const buildResultViewer = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
     if (onMetreRef.current && buildResultViewer.metre) {
-      onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450));
+      onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450), buildResultViewer.metre);
     }
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
@@ -2109,6 +2223,7 @@ const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, haut
 const [activeResultTab, setActiveResultTab] = useState("devis");
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
   const [metreData, setMetreData] = useState(null);
+  const [metreBrut, setMetreBrut] = useState(null);
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
@@ -3872,9 +3987,30 @@ return (
                       {m.label}
                     </button>
                   ))}
+                  <button
+                    onClick={() => {
+                      if (!metreBrut || metreBrut.length === 0) { alert("Genere d'abord un devis avec une charpente."); return; }
+                      const ifc = genererIFC(metreBrut, view3DParams);
+                      const blob = new Blob([ifc], { type: "application/x-step" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "devia_charpente.ifc";
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{
+                      marginLeft: "auto", padding: "7px 16px", borderRadius: 8, cursor: "pointer",
+                      fontSize: 13, fontWeight: 600,
+                      border: "1px solid rgba(240,192,64,0.5)",
+                      background: "rgba(240,192,64,0.12)", color: "#f0c040",
+                      transition: "all 0.12s"
+                    }}>
+                    Exporter IFC
+                  </button>
                 </div>
                 <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
-                  <Viewer3D params={{ ...view3DParams, mode3D }} onMetre={setMetreData} />
+                  <Viewer3D params={{ ...view3DParams, mode3D }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} />
               </div>
