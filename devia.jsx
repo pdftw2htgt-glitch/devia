@@ -1494,8 +1494,6 @@ function genererIFC(metre, params) {
     return s;
   };
 
-  const ownerHist = nextId(); E(ownerHist, "$"); // simplifie (pas d'historique)
-
   // --- Hierarchie spatiale ---
   const project = nextId();
   const site = nextId();
