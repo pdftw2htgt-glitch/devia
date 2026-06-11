@@ -1712,6 +1712,44 @@ function dimensionnerPiece(typePiece, charge) {
   return { mini, conseillee };
 }
 
+// ============================================================
+// CALCUL CENTRAL DES SECTIONS PAR TYPE DE PIECE (reutilisable 3D + tableau)
+// Retourne { "Panne": {mini:{b,h,classe,tauxMax}, conseillee:{...}}, ... }
+// !!! Hypotheses portee/entraxe/charge A VALIDER PROF !!!
+// ============================================================
+function calculerSectionsCharpente(metreAgrege, params, sk) {
+  if (!metreAgrege || !metreAgrege.groupes) return {};
+  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45);
+  const ENTRAXE_FERMES = 3.5;
+  const PORTEE_MAX = 8;
+  const result = {};
+
+  metreAgrege.groupes.forEach((g) => {
+    if (result[g.nom]) return; // un seul calcul par type (le 1er groupe du type)
+    // portee realiste selon type
+    let porteeCalc;
+    if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
+      porteeCalc = ENTRAXE_FERMES;
+    } else {
+      porteeCalc = g.longueurUnitMax;
+    }
+    porteeCalc = Math.min(porteeCalc, PORTEE_MAX);
+    const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
+                  : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
+                  : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
+                  : 1.0;
+    const charge = {
+      portee: porteeCalc, entraxe,
+      G: ch.G, Q: ch.Q, S: ch.S,
+      classeService: 2, typeBatiment: "courant", dureeVariable: "court",
+    };
+    const dim = dimensionnerPiece(g.nom, charge);
+    if (dim) result[g.nom] = dim;
+  });
+  return result;
+}
+
+
 // AGREGATION DU METRE (regroupe par type de piece + totaux)
 // ============================================================
 function agregerMetre(metre, densiteBois) {
@@ -1765,7 +1803,7 @@ const ASSEMBLAGES = {
   "Divers": "Assemblage selon piece (voir plan d'execution).",
 };
 
-function PanneauTechnique({ data, params, zoneInfo }) {
+function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }) {
   if (!data || !data.groupes || data.groupes.length === 0) {
     return null;
   }
@@ -1841,11 +1879,12 @@ function PanneauTechnique({ data, params, zoneInfo }) {
                     };
                     const dim = dimensionnerPiece(g.nom, charge);
                     if (!dim) return <span style={{ color: "#545870" }}>-</span>;
+                    const miniSel = sectionMode === "mini";
                     return (
                       <span>
-                        <span style={{ color: "#e8eaf2" }}>{dim.mini.b}x{dim.mini.h} {dim.mini.classe}</span>
+                        <span style={{ color: miniSel ? "#60a5fa" : "#7a7d92", fontWeight: miniSel ? 700 : 400 }}>{dim.mini.b}x{dim.mini.h} {dim.mini.classe}</span>
                         <span style={{ color: "#545870" }}> / </span>
-                        <span style={{ color: "#f0c040" }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
+                        <span style={{ color: !miniSel ? "#60a5fa" : "#7a7d92", fontWeight: !miniSel ? 700 : 400 }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
                       </span>
                     );
                   })()}</td>
@@ -2414,6 +2453,7 @@ const [activeResultTab, setActiveResultTab] = useState("devis");
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
   const [metreData, setMetreData] = useState(null);
   const [metreBrut, setMetreBrut] = useState(null);
+  const [sectionMode, setSectionMode] = useState("conseillee"); // "mini" | "conseillee"
 const [showQuestions, setShowQuestions] = useState(false);
 const [detectedParams, setDetectedParams] = useState({});
 const [projects, setProjects] = useState([]);
@@ -4198,11 +4238,24 @@ return (
                     }}>
                     Exporter IFC
                   </button>
+                  {[{ id: "mini", label: "Section mini" }, { id: "conseillee", label: "Section conseillee" }].map(m => (
+                    <button key={m.id} onClick={() => setSectionMode(m.id)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 8, cursor: "pointer",
+                        fontSize: 12.5, fontWeight: sectionMode === m.id ? 600 : 500,
+                        border: "1px solid " + (sectionMode === m.id ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.08)"),
+                        background: sectionMode === m.id ? "rgba(96,165,250,0.12)" : "transparent",
+                        color: sectionMode === m.id ? "#60a5fa" : "#7a7d92",
+                        transition: "all 0.12s"
+                      }}>
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
                 <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
                   <Viewer3D params={{ ...view3DParams, mode3D }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
-                <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} />
+                <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
             )}
 
