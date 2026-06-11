@@ -754,14 +754,16 @@ setPiece("Echantignole");
 
 setPiece("Sabliere");
     // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
-    addBox(L + 0.2, 0.16, 0.16, 0, Ht, lg/2, woodMat);
-    addBox(L + 0.2, 0.16, 0.16, 0, Ht, -lg/2, woodMat);
-    addBox(0.16, 0.16, lg, -L/2, Ht, 0, woodMat);
-    addBox(0.16, 0.16, lg, L/2, Ht, 0, woodMat);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    addBox(L + 0.2, sbH, sbB, 0, Ht, lg/2, woodMat);
+    addBox(L + 0.2, sbH, sbB, 0, Ht, -lg/2, woodMat);
+    addBox(sbB, sbH, lg, -L/2, Ht, 0, woodMat);
+    addBox(sbB, sbH, lg, L/2, Ht, 0, woodMat);
 
 setPiece("Faitage");
     // ===== FAITAGE (central) =====
-    addBox(Lfait, 0.15, 0.15, 0, yFait, 0, woodMat);
+    const [ftB, ftH] = sec("Faitage", 0.15, 0.15);
+    addBox(Lfait, ftH, ftB, 0, yFait, 0, woodMat);
 
 setPiece("Aretier");
     // ===== ARETIERS (faitage -> 4 coins) =====
@@ -772,7 +774,7 @@ setPiece("Aretier");
       [xFaitDroit,  [L/2, Ht, -lg/2]],
     ];
     coins.forEach(([xf, [cxp, cyp, czp]]) => {
-      addBeam(cxp, cyp, czp, xf, yFait, 0, 0.12, woodMat);
+      addBeam(cxp, cyp, czp, xf, yFait, 0, sec("Aretier", 0.12, 0.12)[1], woodMat);
     });
 
 setPiece("Panne");
@@ -783,8 +785,9 @@ setPiece("Panne");
       const yPanne = Ht + hf * t;
       const zPanne = (lg / 2) * (1 - t);
       const lenPanne = Lfait + (L - Lfait) * (1 - t);
-      addBox(lenPanne, 0.12, 0.12, 0, yPanne, zPanne, woodMat);   // pan avant
-      addBox(lenPanne, 0.12, 0.12, 0, yPanne, -zPanne, woodMat);  // pan arriere
+      const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+      addBox(lenPanne, pnH, pnB, 0, yPanne, zPanne, woodMat);
+      addBox(lenPanne, pnH, pnB, 0, yPanne, -zPanne, woodMat);
     }
 
 setPiece("Chevron");
@@ -794,9 +797,9 @@ setPiece("Chevron");
     for (let i = 0; i <= nbChevGrandPan; i++) {
       const x = xFaitGauche + (i / nbChevGrandPan) * Lfait;
       // pan avant (Z+)
-      addBeam(x, Ht, lg/2, x, yFait, 0, secChevron, woodMat);
+      addBeam(x, Ht, lg/2, x, yFait, 0, sec("Chevron", secChevron, secChevron)[1], woodMat);
       // pan arriere (Z-)
-      addBeam(x, Ht, -lg/2, x, yFait, 0, secChevron, woodMat);
+      addBeam(x, Ht, -lg/2, x, yFait, 0, sec("Chevron", secChevron, secChevron)[1], woodMat);
     }
 
 setPiece("Empannon");
@@ -818,7 +821,7 @@ setPiece("Empannon");
           const xh = xCoin + (xf - xCoin) * f;
           const yh = Ht + hf * f;
           const zh = signZ * (lg/2) * (1 - f);
-          addBeam(xb, Ht, zb, xh, yh, zh, secChevron * 0.9, woodMat);
+          addBeam(xb, Ht, zb, xh, yh, zh, sec("Empannon", secChevron, secChevron)[1] * 0.9, woodMat);
         }
       });
     };
@@ -843,7 +846,7 @@ setPiece("Empannon de croupe");
         const xh = xCoinAv + (xf - xCoinAv) * fAr;
         const yh = Ht + hf * fAr;
         const zh = signZ * (lg/2) * (1 - fAr);
-        addBeam(xb, Ht, zb, xh, yh, zh, secChevron * 0.85, woodMat);
+        addBeam(xb, Ht, zb, xh, yh, zh, sec("Empannon de croupe", secChevron, secChevron)[1] * 0.85, woodMat);
       }
     };
     drawEmpannonsCroupe(-1);  // croupe gauche
