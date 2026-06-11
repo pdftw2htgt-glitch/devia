@@ -1818,8 +1818,20 @@ function PanneauTechnique({ data, params, zoneInfo }) {
                   <td style={{ ...td, textAlign: "right", fontSize: 12 }}>{(() => {
                     const sk = zoneInfo ? zoneInfo.sk : 0.45;
                     const ch = ec5DescenteCharge(params.couverture || "tuile_terre", sk);
+                    // --- Portee de calcul realiste selon le type de piece (plafond 8m) ---
+                    // Pannes/sablieres : reposent sur les fermes -> portee = entre-axe fermes (~3.5m)
+                    // Chevrons/fermes/arbaletriers : longueur reelle
+                    const ENTRAXE_FERMES = 3.5; // m (cours : fermes tous les ~3.5m)
+                    const PORTEE_MAX = 8;        // plafond securite
+                    let porteeCalc;
+                    if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
+                      porteeCalc = ENTRAXE_FERMES; // appuis sur chaque ferme
+                    } else {
+                      porteeCalc = g.longueurUnitMax; // chevrons, fermes, arbaletriers : longueur reelle
+                    }
+                    porteeCalc = Math.min(porteeCalc, PORTEE_MAX);
                     const charge = {
-                      portee: g.longueurUnitMax,
+                      portee: porteeCalc,
                       entraxe: (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                              : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
                              : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
