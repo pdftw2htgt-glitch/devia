@@ -653,8 +653,9 @@ setPiece("Poteau");
 
 setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere contre mur) =====
-    addBox(L + 0.3, secSabliere, secSabliere, 0, Hbas, -lg/2, woodMat);
-    addBox(L + 0.3, secSabliere, secSabliere, 0, Hhaut, lg/2, woodMat);
+    const [sbB, sbH] = sec("Sabliere", secSabliere, secSabliere);
+    addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, sbH, sbB, 0, Hhaut, lg/2, woodMat);
 
 setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
@@ -663,7 +664,8 @@ setPiece("Panne");
       const t = (i + 1) / (nbPannes + 1);
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, secPanne, secPanne, 0, y, z, woodMat);
+      const [pnB, pnH] = sec("Panne", secPanne, secPanne);
+      addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
       pannePositions.push({ y, z });
     }
 
@@ -674,7 +676,8 @@ setPiece("Chevron");
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       chevronXs.push(x);
-      addBox(secChevron, secChevron, longueurRampant + 0.2, x, yCentre + secChevron*0.8, 0, woodMat, [-ang, 0, 0]);
+      const [chB, chH] = sec("Chevron", secChevron, secChevron);
+      addBox(chB, chH, longueurRampant + 0.2, x, yCentre + secChevron*0.8, 0, woodMat, [-ang, 0, 0]);
     }
 
 setPiece("Liteau");
