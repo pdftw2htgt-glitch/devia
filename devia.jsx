@@ -234,11 +234,13 @@ setPiece("Ferme");
       fermeXs.push(x);
 
       // ENTRAIT (poutre horizontale basse, sur toute la largeur)
-      addBox(0.16, 0.16, lg, x, Ht, 0, woodMat);
+      const [enB, enH] = sec("Ferme", 0.16, 0.16);
+      addBox(enB, enH, lg, x, Ht, 0, woodMat);
 
       // ARBALETRIERS (les 2 pans inclines, section forte)
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
+      const [arB, arH] = sec("Ferme", 0.16, 0.16);
+      addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
+      addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
 
       // POINCON (poteau vertical central, du faitage a l'entrait)
       addBox(0.14, hf, 0.14, x, Ht + hf/2, 0, woodMat);
@@ -255,12 +257,14 @@ setPiece("Ferme");
 
 setPiece("Sabliere");
     // ===== SABLIERES (poutres basses sur les murs longs) =====
-    addBox(L + 0.3, 0.14, 0.14, 0, Ht, lg/2, woodMat);
-    addBox(L + 0.3, 0.14, 0.14, 0, Ht, -lg/2, woodMat);
+    const [sbB, sbH] = sec("Sabliere", 0.14, 0.14);
+    addBox(L + 0.3, sbH, sbB, 0, Ht, lg/2, woodMat);
+    addBox(L + 0.3, sbH, sbB, 0, Ht, -lg/2, woodMat);
 
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
-    addBox(L + 0.4, 0.14, 0.14, 0, yFait, 0, woodMat);
+    const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
+    addBox(L + 0.4, pfH, pfB, 0, yFait, 0, woodMat);
 
 setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (le long du toit, sur les 2 pans) =====
@@ -269,8 +273,9 @@ setPiece("Panne");
       const t = p / (nbPannesParPan + 1); // position le long de l'arbaletrier
       const yPanne = Ht + hf * t;
       const zPanne = (lg/2) * (1 - t);
-      addBox(L + 0.3, 0.12, 0.12, 0, yPanne, zPanne, woodMat);   // pan Z+
-      addBox(L + 0.3, 0.12, 0.12, 0, yPanne, -zPanne, woodMat);  // pan Z-
+      const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+      addBox(L + 0.3, pnH, pnB, 0, yPanne, zPanne, woodMat);
+      addBox(L + 0.3, pnH, pnB, 0, yPanne, -zPanne, woodMat);
     }
 
 setPiece("Chevron");
@@ -280,9 +285,10 @@ setPiece("Chevron");
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       // Chevron pan Z+ (section fine)
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
+      const [chB, chH] = sec("Chevron", 0.07, 0.07);
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
       // Chevron pan Z-
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
     // ===== COUVERTURE (2 pans, semi-transparente pour voir l'ossature) =====
