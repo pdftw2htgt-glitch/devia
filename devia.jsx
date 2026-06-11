@@ -500,8 +500,9 @@ setPiece("Poteau");
 
 setPiece("Sabliere");
     // ===== SABLIERES (longues poutres sur les poteaux) =====
-    addBox(L + 0.4, 0.20, 0.20, 0, Ht, lg/2, woodMat);
-    addBox(L + 0.4, 0.20, 0.20, 0, Ht, -lg/2, woodMat);
+    const [sbB, sbH] = sec("Sabliere", 0.20, 0.20);
+    addBox(L + 0.4, sbH, sbB, 0, Ht, lg/2, woodMat);
+    addBox(L + 0.4, sbH, sbB, 0, Ht, -lg/2, woodMat);
 
 setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
@@ -510,10 +511,12 @@ setPiece("Ferme");
       const x = -L/2 + (i / nbFermes) * L;
 
       // Entrait (poutre horizontale basse)
-      addBox(0.16, 0.16, lg, x, Ht, 0, woodMat);
+      const [enB, enH] = sec("Ferme", 0.16, 0.16);
+      addBox(enB, enH, lg, x, Ht, 0, woodMat);
       // Arbaletriers (pans inclines, section forte)
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
-      addBox(0.16, 0.16, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
+      const [arB, arH] = sec("Ferme", 0.16, 0.16);
+      addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
+      addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
       // Poincon (vertical central)
       addBox(0.14, hf, 0.14, x, Ht + hf/2, 0, woodMat);
       // Contrefiches (jambes de force, point-a-point)
@@ -545,8 +548,9 @@ setPiece("Panne");
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
-      addBox(0.07, 0.07, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
+      const [chB, chH] = sec("Chevron", 0.07, 0.07);
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
     // ===== COUVERTURE (2 pans, semi-transparente) =====
