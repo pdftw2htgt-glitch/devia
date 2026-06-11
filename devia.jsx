@@ -414,8 +414,9 @@ setPiece("Chevron");
 
     setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere) =====
-    addBox(L + 0.3, 0.16, 0.16, 0, Hbas, -lg/2, woodMat);
-    addBox(L + 0.3, 0.16, 0.16, 0, Hhaut, lg/2, woodMat);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, sbH, sbB, 0, Hhaut, lg/2, woodMat);
 
     setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (4, bien reparties entre sablieres) =====
@@ -425,7 +426,8 @@ setPiece("Chevron");
       const t = (i + 1) / (nbPannes + 1);  // evite superposition aux sablieres
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      addBox(L + 0.3, 0.14, 0.14, 0, y, z, woodMat);
+      const [pnB, pnH] = sec("Panne", 0.14, 0.14);
+      addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
       pannePositions.push({ y, z, t });
     }
 
@@ -435,7 +437,8 @@ setPiece("Chevron");
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      addBox(0.08, 0.08, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
+      const [chB, chH] = sec("Chevron", 0.08, 0.08);
+      addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
     }
 
 setPiece("Liteau");
