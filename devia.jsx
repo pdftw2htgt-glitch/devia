@@ -861,11 +861,11 @@ setPiece("Echantignole");
     const couvColor = couv.couleur;
     const espChevron = couv.espChevron;
     const espLiteau = couv.espLiteau;
+    const angLong = Math.atan(hf / (lg / 2));
+    const plLong = (lg / 2) / Math.cos(angLong);   // longueur rampant grand pan
     const roof4Mat = makeRoofMaterial(couv, L, plLong);
 
     // Geometrie des grands pans
-    const angLong = Math.atan(hf / (lg / 2));
-    const plLong = (lg / 2) / Math.cos(angLong);   // longueur rampant grand pan
     const secChevron = plLong > 4.5 ? 0.10 : (plLong > 3 ? 0.09 : 0.08);
 
     // Nb de pannes par pan (un chevron ne franchit pas > ~2.2 m)
