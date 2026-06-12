@@ -754,11 +754,10 @@ setPiece("Echantignole");
 
 setPiece("Sabliere");
     // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
-    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    addBox(L + 0.2, sbH, sbB, 0, Ht, lg/2, woodMat);
-    addBox(L + 0.2, sbH, sbB, 0, Ht, -lg/2, woodMat);
-    addBox(sbB, sbH, lg, -L/2, Ht, 0, woodMat);
-    addBox(sbB, sbH, lg, L/2, Ht, 0, woodMat);
+    addBox(L + 0.2, 0.16, 0.16, 0, Ht, lg/2, woodMat);
+    addBox(L + 0.2, 0.16, 0.16, 0, Ht, -lg/2, woodMat);
+    addBox(0.16, 0.16, lg, -L/2, Ht, 0, woodMat);
+    addBox(0.16, 0.16, lg, L/2, Ht, 0, woodMat);
 
 setPiece("Faitage");
     // ===== FAITAGE (central) =====
