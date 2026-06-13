@@ -20,3 +20,5 @@ npm-debug.log*
 .vscode/
 .idea/
 devia.jsx.backup_*
+scripts/
+*.backup_*
