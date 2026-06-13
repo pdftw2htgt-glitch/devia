@@ -43,10 +43,22 @@ const EC5_MU_NEIGE = 0.8;         // coef forme toiture (A VALIDER, depend pente
 const EC5_Q_TOITURE = 0.0;        // kN/m2 exploitation toiture (A VALIDER)
 const EC5_G_TO_KN = 0.0098;       // kg/m2 -> kN/m2
 
-function ec5DescenteCharge(couverture, sk) {
+// Coefficient de forme mu1 selon la pente (formulaire RDM TCB p8)
+function ec5Mu1(pente) {
+  const a = pente || 35;
+  if (a <= 30) return 0.8;
+  if (a < 60) return 0.8 * (60 - a) / 30;
+  return 0; // neige glisse
+}
+
+// Descente de charge G/Q/S (kN/m2). Neige conforme cours : s = mu1*(sk+dS)*cos(pente)
+function ec5DescenteCharge(couverture, sk, pente, dS) {
   const poidsCouv = (EC5_COUV_POIDS[couverture] || 45) * EC5_G_TO_KN;
   const G = poidsCouv + EC5_POIDS_CHARPENTE;
-  const S = (sk || 0.45) * EC5_MU_NEIGE;
+  const mu1 = ec5Mu1(pente);
+  const skTot = (sk || 0.45) + (dS || 0); // sk brut + correction altitude (cours)
+  const sHoriz = mu1 * skTot;             // Ce = Ct = 1
+  const S = sHoriz * Math.cos((pente || 35) * Math.PI / 180); // selon rampant
   const Q = EC5_Q_TOITURE;
   return { G, Q, S };
 }
@@ -98,7 +110,7 @@ function dimensionnerPiece(typePiece, charge) {
 // ============================================================
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
-  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45);
+  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0);
   const ENTRAXE_FERMES = 3.5;
   const PORTEE_MAX = 8;
   const result = {};
@@ -1600,12 +1612,25 @@ const nL = nl ? nl[1] : "A";
 const nC = nl ? parseInt(nl[2] || "1") : 1;
 const altNum = parseInt(altitude) || 200;
 const neigeBase = { A: { 1: 0.45, 2: 0.45, 3: 0.55 }, B: { 1: 0.65, 2: 0.90 }, C: { 1: 1.40, 2: 1.70 }, D: { 0: 2.30 } };
-let sk = (neigeBase[nL] || {})[nC] || 0.65;
-if (altNum > 200) sk = sk * (1 + ((altNum - 200) / 800) * 1.5);
+const skBrut = (neigeBase[nL] || {})[nC] || 0.65; // sk region a 200m (valeur cours)
+// Correction d'altitude conforme au cours TCB (formulaire RDM p8) : dS = max(dS1, dS2)
+let dS1 = 0, dS2 = 0;
+if (altNum > 200 && altNum <= 500) { dS1 = altNum/1000 - 0.2; dS2 = 1.5*altNum/1000 - 0.3; }
+else if (altNum <= 1000) { dS1 = 1.5*altNum/1000 - 0.45; dS2 = 3.5*altNum/1000 - 1.30; }
+else if (altNum > 1000) { dS1 = 3.5*altNum/1000 - 2.45; dS2 = 7*altNum/1000 - 4.8; }
+const dS = Math.max(0, dS1, dS2);
+const skAltitude = skBrut + dS; // sk + dS (avant coef de forme mu)
 const vb0 = { "1": 22, "2": 25, "3": 28, "4": 32 }[zone.vent] || 25;
 const qb = (1.25 * vb0 * vb0) / 2000;
 const ag = { "0": 0, "1": 0.07, "2": 0.10, "3": 0.15, "4": 0.20 }[zone.sismique] || 0.07;
-return { ...zone, sk: Math.round(sk * 100) / 100, qb: Math.round(qb * 100) / 100, ag };
+return {
+  ...zone,
+  sk: Math.round(skBrut * 100) / 100,            // sk brut 200m (pour calcul EC5 + mu)
+  skAltitude: Math.round(skAltitude * 100) / 100, // sk + dS (pour affichages)
+  altitude: altNum,
+  dS: Math.round(dS * 100) / 100,
+  qb: Math.round(qb * 100) / 100, ag
+};
 }
 
 // ============================================================
@@ -1890,7 +1915,7 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
                   <td style={{ ...td, textAlign: "right", color: "#f0c040" }}>{fmt(g.poids, 0)}</td>
                   <td style={{ ...td, textAlign: "right", fontSize: 12 }}>{(() => {
                     const sk = zoneInfo ? zoneInfo.sk : 0.45;
-                    const ch = ec5DescenteCharge(params.couverture || "tuile_terre", sk);
+                    const ch = ec5DescenteCharge(params.couverture || "tuile_terre", sk, params.pente || 35, (zoneInfo && zoneInfo.dS) || 0);
                     // --- Portee de calcul realiste selon le type de piece (plafond 8m) ---
                     // Pannes/sablieres : reposent sur les fermes -> portee = entre-axe fermes (~3.5m)
                     // Chevrons/fermes/arbaletriers : longueur reelle
@@ -4304,7 +4329,7 @@ return (
                   ))}
                 </div>
                 <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
-                  <Viewer3D params={{ ...view3DParams, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
+                  <Viewer3D params={{ ...view3DParams, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
