@@ -2209,7 +2209,7 @@ Générer le devis
 
 function FeuilleCalcTable({ devisData, zoneData }) {
 const largeur = devisData.largeur || 6;
-const sk = zoneData ? zoneData.sk : 0.65;
+const sk = zoneData ? (zoneData.skAltitude != null ? zoneData.skAltitude : zoneData.sk) : 0.65;
 const qb = zoneData ? zoneData.qb : 0.39;
 const ag = zoneData ? zoneData.ag : 0.07;
 const q_neige = sk * 0.8;
@@ -3349,7 +3349,7 @@ const zoneInfo = getZone(commune, altitude);
   "4) Adapte les quantites au projet decrit. "
 ) +
 "Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
-"Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + zoneInfo.sk + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
+"Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
 (finalParams.pente ? "Pente=" + finalParams.pente + "deg. " : "") +
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
@@ -3912,7 +3912,7 @@ return (
               </div>
               {zoneInfo && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                  <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.sk} kN/m2</Badge>
+                  <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk} kN/m2</Badge>
                   <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
                   <Badge color="#f97316">Sismique {zoneInfo.sismique} - {zoneInfo.ag}g</Badge>
                 </div>
