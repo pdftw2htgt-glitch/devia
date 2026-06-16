@@ -115,8 +115,32 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   const PORTEE_MAX = 8;
   const result = {};
 
+  // dimensions batiment (pour la descente de charge poteaux)
+  const Lbat = (params && params.longueur) || 8;
+  const lgBat = (params && params.largeur) || 6;
+  const Hbat = (params && params.hauteur) || 3;
+
   metreAgrege.groupes.forEach((g) => {
     if (result[g.nom]) return; // un seul calcul par type (le 1er groupe du type)
+
+    // --- CAS SPECIAL POTEAU : compression + flambement (pas flexion) ---
+    if (g.nom === "Poteau") {
+      const nbPot = g.nb || 4;
+      const N = ec5ChargePoteau(Lbat, lgBat, ch.G, ch.S, nbPot);
+      // on teste C18 puis C24 puis C30 (la 1ere classe qui passe)
+      let dimPot = null;
+      for (const cl of ["C18","C24","C30"]) {
+        dimPot = dimensionnerPoteau(N, Hbat, cl);
+        if (dimPot) break;
+      }
+      if (dimPot) {
+        // format compatible affichage : mini = conseillee = section carree trouvee
+        const sec = { b: dimPot.cote, h: dimPot.cote, classe: dimPot.classe, tauxMax: dimPot.taux };
+        result[g.nom] = { mini: sec, conseillee: sec, flambement: { lambda: dimPot.lambda, kc: dimPot.kc, N: Math.round(N) } };
+      }
+      return;
+    }
+
     // portee realiste selon type
     let porteeCalc;
     if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
