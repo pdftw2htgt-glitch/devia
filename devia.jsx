@@ -2003,6 +2003,18 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
                   <td style={{ ...td, textAlign: "right", fontSize: 12 }}>{(() => {
                     const sk = zoneInfo ? zoneInfo.sk : 0.45;
                     const ch = ec5DescenteCharge(params.couverture || "tuile_terre", sk, params.pente || 35, (zoneInfo && zoneInfo.dS) || 0);
+                    // --- CAS POTEAU : compression + flambement (pas flexion) ---
+                    if (g.nom === "Poteau") {
+                      const Lbat = (params && params.longueur) || 8;
+                      const lgBat = (params && params.largeur) || 6;
+                      const Hbat = (params && params.hauteur) || 3;
+                      const nbPot = g.nb || 4;
+                      const Npot = ec5ChargePoteau(Lbat, lgBat, ch.G, ch.S, nbPot);
+                      let dimP = null;
+                      for (const cl of ["C18","C24","C30"]) { dimP = dimensionnerPoteau(Npot, Hbat, cl); if (dimP) break; }
+                      if (!dimP) return <span style={{ color: "#545870" }}>-</span>;
+                      return <span style={{ color: "#60a5fa", fontWeight: 700 }}>{dimP.cote}x{dimP.cote} {dimP.classe}</span>;
+                    }
                     // --- Portee de calcul realiste selon le type de piece (plafond 8m) ---
                     // Pannes/sablieres : reposent sur les fermes -> portee = entre-axe fermes (~3.5m)
                     // Chevrons/fermes/arbaletriers : longueur reelle
