@@ -280,7 +280,47 @@ function buildScene3D(scene, params, opts) {
     });
   };
 
+  // ============================================================
+  // TEXTURES BOIS par essence (extensible : ajoute des fichiers public/textures/bois_XXX.png)
+  // ============================================================
+  const TEXTURES_BOIS = {
+    epicea: "bois_epicea",
+    sapin: "bois_sapin",
+    douglas: "bois_douglas",
+    chene: "bois_chene",
+    meleze: "bois_meleze",
+  };
+  // detecte l'essence depuis les params (fallback epicea)
+  const essenceRaw = ((opts && opts.essence) || (params && params.essence) || "epicea").toString().toLowerCase();
+  let essenceKey = "epicea";
+  for (const k of Object.keys(TEXTURES_BOIS)) {
+    if (essenceRaw.includes(k)) { essenceKey = k; break; }
+  }
+  // Materiau bois : couleur unie par defaut, puis on tente la texture (async)
   const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
+  (function loadWoodTexture() {
+    const mode = (opts && opts.mode) ? opts.mode : "technique";
+    if (mode !== "realiste") return; // texture bois seulement en vue realiste
+    const code = TEXTURES_BOIS[essenceKey];
+    if (!code) return;
+    const loader = new THREE.TextureLoader();
+    const tryLoad = (ext, onFail) => {
+      loader.load(
+        "/textures/" + code + "." + ext,
+        (img) => {
+          img.wrapS = THREE.RepeatWrapping;
+          img.wrapT = THREE.RepeatWrapping;
+          img.repeat.set(1, 4); // fil du bois repete dans la longueur
+          woodMat.map = img;
+          woodMat.color.set(0xffffff); // laisse la texture parler
+          woodMat.needsUpdate = true;
+        },
+        undefined,
+        () => { if (onFail) onFail(); }
+      );
+    };
+    tryLoad("png", () => tryLoad("jpg", null));
+  })();
   const roofMat = new THREE.MeshLambertMaterial({ color: roofColor, side: THREE.DoubleSide });
   const wallMat = new THREE.MeshLambertMaterial({ color: wallColor, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
 
