@@ -140,6 +140,69 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   return result;
 }
 
+// ============================================================
+// MOTEUR FLAMBEMENT POTEAUX (methode bois - ressource validee prof)
+// lambda = Lf/i ; si <=30 pas de reduction ; si >30 lire kc
+// sigma_c0 = N/S <= kc * fc0d
+// Hypotheses A VALIDER : kmod 0.6 (permanent), poteau bi-articule (Lf=L),
+// section mini esthetique 100, marge charge 1.2
+// ============================================================
+const EC5_FC0K = { C18:18, C22:20, C24:21, C27:22, C30:23 };
+const EC5_KMOD_PERM = 0.6; // permanent, classe service 2 (formulaire Gojon)
+const EC5_POTEAU_MINI = 100; // section mini esthetique (mm)
+const EC5_POTEAU_MARGE = 1.2; // marge charge (poteaux centraux charges +)
+
+// Tableau kc : [elancement][classe] -> coef reduction (transcrit ressource prof)
+const EC5_LAMBDA_ROWS = [30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250];
+const EC5_KC_TABLE = {
+  C18: [0.994,0.933,0.832,0.691,0.552,0.441,0.350,0.295,0.247,0.209,0.180,0.156,0.136,0.120,0.107,0.096,0.086,0.078,0.071,0.065,0.059,0.055,0.050],
+  C22: [0.904,0.933,0.833,0.693,0.554,0.443,0.359,0.298,0.249,0.210,0.180,0.157,0.137,0.121,0.108,0.097,0.087,0.078,0.071,0.065,0.060,0.055,0.051],
+  C24: [0.998,0.941,0.849,0.715,0.577,0.463,0.376,0.310,0.260,0.221,0.189,0.164,0.144,0.127,0.113,0.101,0.091,0.082,0.075,0.068,0.063,0.058,0.053],
+  C27: [1.000,0.945,0.857,0.720,0.591,0.476,0.387,0.319,0.268,0.227,0.195,0.169,0.148,0.131,0.117,0.104,0.094,0.085,0.077,0.071,0.065,0.060,0.055],
+  C30: [0.997,0.939,0.845,0.700,0.571,0.458,0.372,0.307,0.257,0.218,0.187,0.162,0.142,0.126,0.112,0.100,0.090,0.081,0.074,0.068,0.062,0.057,0.053],
+};
+
+function ec5GetKc(classe, lambda) {
+  const col = EC5_KC_TABLE[classe] || EC5_KC_TABLE.C18;
+  if (lambda <= 30) return 1.0;
+  if (lambda >= 250) return col[col.length-1];
+  for (let i=0;i<EC5_LAMBDA_ROWS.length-1;i++){
+    const l1=EC5_LAMBDA_ROWS[i],l2=EC5_LAMBDA_ROWS[i+1];
+    if(lambda>=l1&&lambda<=l2){const k1=col[i],k2=col[i+1];return k1+(k2-k1)*(lambda-l1)/(l2-l1);}
+  }
+  return col[0];
+}
+
+// Charge verticale N (en N) sur un poteau
+function ec5ChargePoteau(L, largeur, G, S, nbPoteaux) {
+  const surfaceToit = L * largeur;
+  const chargeELU = 1.35 * (G||0) + 1.5 * (S||0);
+  const chargeTotale = surfaceToit * chargeELU; // kN
+  const N = (chargeTotale / Math.max(1, nbPoteaux)) * EC5_POTEAU_MARGE;
+  return N * 1000; // -> Newtons
+}
+
+// Dimensionne un poteau carre : retourne {cote, lambda, kc, taux, classe} ou null
+function dimensionnerPoteau(N, hauteur, classe) {
+  const cl = classe || "C18";
+  const sections = [100,120,140,150,160,180,200,225,250];
+  for (const cote of sections) {
+    if (cote < EC5_POTEAU_MINI) continue;
+    const S = cote*cote;
+    const Imin = cote*Math.pow(cote,3)/12;
+    const iGyr = Math.sqrt(Imin/S);
+    const lambda = (hauteur*1000) / iGyr;
+    const kc = ec5GetKc(cl, lambda);
+    const fc0d = EC5_FC0K[cl]*EC5_KMOD_PERM/EC5_GAMMA_M;
+    const sigmaAdm = kc*fc0d;
+    const sigma = N/S;
+    const taux = sigma/sigmaAdm*100;
+    if (taux <= 100) return { cote, lambda, kc, taux, classe: cl };
+  }
+  return null;
+}
+
+
 
 // ================================================================
 // BUILD SCENE 3D - Construit la geometrie selon type de projet
