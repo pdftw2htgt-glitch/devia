@@ -539,7 +539,7 @@ setPiece("Chevron");
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
     const Hbas = Ht;
     const Hhaut = Ht + denivele;
-    const sectionPotau = 0.18;
+    const [potCB] = sec("Poteau", 0.18, 0.18); const sectionPotau = potCB;
     const ang = Math.atan(denivele / lg);
     const longueurChevron = lg / Math.cos(ang);
 
@@ -725,7 +725,7 @@ setPiece("Liteau");
     const ang = Math.atan(hf / (lg/2));
     const pl = (lg/2) / Math.cos(ang);
     const yFait = Ht + hf;
-    const sectionPotau = 0.22; // poteaux plus gros pour hangar
+    const [potHB] = sec("Poteau", 0.22, 0.22); const sectionPotau = potHB; // section calculee (flambement) ou fallback
 
 setPiece("Poteau");
     // ===== POTEAUX (specificite hangar : 4 coins + intermediaires) =====
