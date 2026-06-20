@@ -314,10 +314,11 @@ function buildScene3D(scene, params, opts) {
           console.log("[DEVIA TEXTURE] >>> CHARGEE ! /textures/" + code + "." + ext);
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
-          img.repeat.set(4, 20);
+          img.repeat.set(2, 2);
           woodMat.map = img;
-          woodMat.color.set(0xffffff);
+          woodMat.color.set(0xff0000); // DEBUG : rouge pour voir si le materiau reagit
           woodMat.needsUpdate = true;
+          console.log("[DEVIA TEXTURE] woodMat mis a jour, map =", woodMat.map ? "OUI" : "NON");
         },
         undefined,
         () => { console.log("[DEVIA TEXTURE] !!! ECHEC /textures/" + code + "." + ext); if (onFail) onFail(); }
