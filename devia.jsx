@@ -300,25 +300,20 @@ function buildScene3D(scene, params, opts) {
   const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
   (function loadWoodTexture() {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
-    console.log("[DEVIA TEXTURE] mode =", mode, "| essenceKey =", essenceKey);
-    if (mode !== "realiste") { console.log("[DEVIA TEXTURE] mode pas realiste -> stop"); return; }
+    if (mode !== "realiste") return;
     const code = TEXTURES_BOIS[essenceKey];
-    console.log("[DEVIA TEXTURE] code =", code);
-    if (!code) { console.log("[DEVIA TEXTURE] pas de code -> stop"); return; }
+    if (!code) return;
     const loader = new THREE.TextureLoader();
     const tryLoad = (ext, onFail) => {
-      console.log("[DEVIA TEXTURE] tentative chargement /textures/" + code + "." + ext);
       loader.load(
         "/textures/" + code + "." + ext,
         (img) => {
-          console.log("[DEVIA TEXTURE] >>> CHARGEE ! /textures/" + code + "." + ext);
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
-          img.repeat.set(2, 2);
+          img.repeat.set(3, 8); // grain visible sans etirement
           woodMat.map = img;
-          woodMat.color.set(0xff0000); // DEBUG : rouge pour voir si le materiau reagit
+          woodMat.color.set(0xffffff); // texture pleine intensite
           woodMat.needsUpdate = true;
-          console.log("[DEVIA TEXTURE] woodMat mis a jour, map =", woodMat.map ? "OUI" : "NON");
         },
         undefined,
         () => { console.log("[DEVIA TEXTURE] !!! ECHEC /textures/" + code + "." + ext); if (onFail) onFail(); }
