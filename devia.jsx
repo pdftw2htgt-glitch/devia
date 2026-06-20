@@ -620,12 +620,11 @@ setPiece("Chevron");
       addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
     }
 
-    // ===== COUVERTURE (1 pan, semi-transparente) =====
-    const roofTransMat = new THREE.MeshLambertMaterial({
-      color: roofColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide
-    });
+    // ===== COUVERTURE (1 pan) - texture tuile en realiste, transparent en technique =====
+    const couv = getCouverture(opts && opts.couverture);
+    const carportRoofMat = makeRoofMaterial(couv, L, longueurChevron);
     const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
-    const roof = new THREE.Mesh(rg, roofTransMat);
+    const roof = new THREE.Mesh(rg, carportRoofMat);
     roof.position.set(0, yCentre + 0.16, 0);
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
