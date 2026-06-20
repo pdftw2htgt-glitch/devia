@@ -557,16 +557,15 @@ setPiece("Chevron");
       addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
-    // ===== COUVERTURE (2 pans, semi-transparente pour voir l'ossature) =====
-    const roofTransMat = new THREE.MeshLambertMaterial({
-      color: roofColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide
-    });
+    // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
+    const couv = getCouverture(opts && opts.couverture);
+    const tradRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.2);
-    const r1 = new THREE.Mesh(rg, roofTransMat);
+    const r1 = new THREE.Mesh(rg, tradRoofMat);
     r1.position.set(0, Ht + hf/2 + 0.12, lg/4);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
-    const r2 = new THREE.Mesh(rg, roofTransMat);
+    const r2 = new THREE.Mesh(rg, tradRoofMat);
     r2.position.set(0, Ht + hf/2 + 0.12, -lg/4);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
@@ -830,16 +829,15 @@ setPiece("Panne");
       addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
-    // ===== COUVERTURE (2 pans, semi-transparente) =====
-    const roofTransMat = new THREE.MeshLambertMaterial({
-      color: roofColor, transparent: true, opacity: 0.45, side: THREE.DoubleSide
-    });
+    // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
+    const couv = getCouverture(opts && opts.couverture);
+    const hangarRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.3);
-    const r1 = new THREE.Mesh(rg, roofTransMat);
+    const r1 = new THREE.Mesh(rg, hangarRoofMat);
     r1.position.set(0, Ht + hf/2 + 0.12, lg/4);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
-    const r2 = new THREE.Mesh(rg, roofTransMat);
+    const r2 = new THREE.Mesh(rg, hangarRoofMat);
     r2.position.set(0, Ht + hf/2 + 0.12, -lg/4);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
