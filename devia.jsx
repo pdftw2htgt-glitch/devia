@@ -316,7 +316,7 @@ function buildScene3D(scene, params, opts) {
           woodMat.needsUpdate = true;
         },
         undefined,
-        () => { console.log("[DEVIA TEXTURE] !!! ECHEC /textures/" + code + "." + ext); if (onFail) onFail(); }
+        () => { if (onFail) onFail(); }
       );
     };
     tryLoad("png", () => tryLoad("jpg", null));
