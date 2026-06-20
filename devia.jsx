@@ -310,7 +310,7 @@ function buildScene3D(scene, params, opts) {
         (img) => {
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
-          img.repeat.set(1, 4); // fil du bois repete dans la longueur
+          img.repeat.set(4, 20); // fil du bois repete dans la longueur (test grain visible)
           woodMat.map = img;
           woodMat.color.set(0xffffff); // laisse la texture parler
           woodMat.needsUpdate = true;
