@@ -300,23 +300,27 @@ function buildScene3D(scene, params, opts) {
   const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
   (function loadWoodTexture() {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
-    if (mode !== "realiste") return; // texture bois seulement en vue realiste
+    console.log("[DEVIA TEXTURE] mode =", mode, "| essenceKey =", essenceKey);
+    if (mode !== "realiste") { console.log("[DEVIA TEXTURE] mode pas realiste -> stop"); return; }
     const code = TEXTURES_BOIS[essenceKey];
-    if (!code) return;
+    console.log("[DEVIA TEXTURE] code =", code);
+    if (!code) { console.log("[DEVIA TEXTURE] pas de code -> stop"); return; }
     const loader = new THREE.TextureLoader();
     const tryLoad = (ext, onFail) => {
+      console.log("[DEVIA TEXTURE] tentative chargement /textures/" + code + "." + ext);
       loader.load(
         "/textures/" + code + "." + ext,
         (img) => {
+          console.log("[DEVIA TEXTURE] >>> CHARGEE ! /textures/" + code + "." + ext);
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
-          img.repeat.set(4, 20); // fil du bois repete dans la longueur (test grain visible)
+          img.repeat.set(4, 20);
           woodMat.map = img;
-          woodMat.color.set(0xffffff); // laisse la texture parler
+          woodMat.color.set(0xffffff);
           woodMat.needsUpdate = true;
         },
         undefined,
-        () => { if (onFail) onFail(); }
+        () => { console.log("[DEVIA TEXTURE] !!! ECHEC /textures/" + code + "." + ext); if (onFail) onFail(); }
       );
     };
     tryLoad("png", () => tryLoad("jpg", null));
