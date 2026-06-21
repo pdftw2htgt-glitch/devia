@@ -569,15 +569,16 @@ setPiece("Chevron");
     const tradRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.6, pl);
     // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
-    const dPerp = 0.06;
+    // couverture posee au-dessus des chevrons : meme base +0.08 que les chevrons + decalage perpendiculaire
+    const dPerp = 0.10; // au-dessus de l'epaisseur du chevron (7cm) + marge
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
+    r1.position.set(0, Ht + hf/2 + 0.08 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
+    r2.position.set(0, Ht + hf/2 + 0.08 + dY, -lg/4 - dZ);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
