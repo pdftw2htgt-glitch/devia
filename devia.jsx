@@ -560,17 +560,17 @@ setPiece("Chevron");
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
     const tradRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.05);
-    // decalage perpendiculaire au plan du toit (suit la pente, ne croise pas au faitage)
-    const dPerp = 0.08; // 12cm au-dessus du plan des chevrons
+    const rg = new THREE.PlaneGeometry(L + 0.6, pl);
+    // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
+    const dPerp = 0.06;
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(0, Ht + hf/2 + 0.08 + dY, lg/4 + dZ);
+    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(0, Ht + hf/2 + 0.08 + dY, -lg/4 - dZ);
+    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
@@ -836,17 +836,17 @@ setPiece("Panne");
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
     const hangarRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.05);
-    // decalage perpendiculaire au plan du toit (suit la pente, ne croise pas au faitage)
-    const dPerp = 0.08;
+    const rg = new THREE.PlaneGeometry(L + 0.8, pl);
+    // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
+    const dPerp = 0.06;
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
-    r1.position.set(0, Ht + hf/2 + 0.08 + dY, lg/4 + dZ);
+    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, hangarRoofMat);
-    r2.position.set(0, Ht + hf/2 + 0.08 + dY, -lg/4 - dZ);
+    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
