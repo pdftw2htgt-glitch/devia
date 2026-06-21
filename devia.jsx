@@ -336,10 +336,10 @@ function buildScene3D(scene, params, opts) {
   // Chevron avec coupe d'onglet a l'about haut (cote +Z local = faitage)
   // largeur (X) = b, hauteur (Y) = h, longueur (Z) = len, coupe inclinee de "ang" sur la face +Z
   // Apres rotation [ang,0,0], la face coupee devient verticale (bute contre panne faitiere)
-  const addChevronOnglet = (b, h, len, px, py, pz, mat, rotX) => {
+  const addChevronOnglet = (b, h, len, px, py, pz, mat, rotX, angleCoupe) => {
     const bx = b/2, hy = h/2, lz = len/2;
-    // Le biais : en haut du chevron (face +Y), l'about recule de h*tan(ang) par rapport au bas (face -Y)
-    const recul = h * Math.tan(ang);
+    // Le biais : en haut du chevron (face +Y), l'about recule de h*tan(angleCoupe) par rapport au bas (face -Y)
+    const recul = h * Math.tan(Math.abs(angleCoupe || 0));
     // 8 sommets : face bas (-Z) carree, face haut (+Z) coupee en biais
     // bas du chevron (y = -hy) : about a +lz ; haut du chevron (y = +hy) : about a +lz - recul
     const v = new Float32Array([
@@ -594,9 +594,9 @@ setPiece("Chevron");
       const x = -L/2 + (i / nbChevrons) * L;
       const [chB, chH] = sec("Chevron", 0.07, 0.07);
       // Chevron pan Z+ : about haut coupe en onglet (bute contre panne faitiere)
-      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, ang);
-      // Chevron pan Z- : symetrique (rotation -ang, about coupe de l'autre cote via signe)
-      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, -ang);
+      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, ang, ang);
+      // Chevron pan Z- : symetrique
+      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, -ang, ang);
     }
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
