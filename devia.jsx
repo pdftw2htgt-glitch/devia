@@ -333,6 +333,41 @@ function buildScene3D(scene, params, opts) {
     if (!mat || mat === woodMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }); // bois uniquement
   };
 
+  // Chevron avec coupe d'onglet a l'about haut (cote +Z local = faitage)
+  // largeur (X) = b, hauteur (Y) = h, longueur (Z) = len, coupe inclinee de "ang" sur la face +Z
+  // Apres rotation [ang,0,0], la face coupee devient verticale (bute contre panne faitiere)
+  const addChevronOnglet = (b, h, len, px, py, pz, mat, rotX) => {
+    const bx = b/2, hy = h/2, lz = len/2;
+    // Le biais : en haut du chevron (face +Y), l'about recule de h*tan(ang) par rapport au bas (face -Y)
+    const recul = h * Math.tan(ang);
+    // 8 sommets : face bas (-Z) carree, face haut (+Z) coupee en biais
+    // bas du chevron (y = -hy) : about a +lz ; haut du chevron (y = +hy) : about a +lz - recul
+    const v = new Float32Array([
+      // face arriere (-Z, about bas/depart) - rectangle plein
+      -bx, -hy, -lz,   bx, -hy, -lz,   bx,  hy, -lz,  -bx,  hy, -lz,
+      // face avant (+Z, about haut/faitage) - coupee : le haut recule de "recul"
+      -bx, -hy,  lz,   bx, -hy,  lz,   bx,  hy,  lz - recul,  -bx,  hy,  lz - recul,
+    ]);
+    const idx = [
+      0,1,2, 0,2,3,        // arriere
+      4,6,5, 4,7,6,        // avant (coupe)
+      0,4,5, 0,5,1,        // dessous
+      3,2,6, 3,6,7,        // dessus
+      0,3,7, 0,7,4,        // gauche
+      1,5,6, 1,6,2,        // droite
+    ];
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(v, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat || woodMat);
+    m.position.set(px, py, pz);
+    if (rotX) m.rotation.x = rotX;
+    m.castShadow = true;
+    scene.add(m);
+    logPiece(b, h, len, { pos: [px, py, pz], rot: [rotX || 0, 0, 0], quat: null });
+  };
+
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
   const addBeam = (x1, y1, z1, x2, y2, z2, thick, mat) => {
     const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
@@ -558,10 +593,10 @@ setPiece("Chevron");
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       const [chB, chH] = sec("Chevron", 0.07, 0.07);
-      // Chevron pan Z+ : centre decale vers le bas-exterieur
-      addBox(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, [ang, 0, 0]);
-      // Chevron pan Z-
-      addBox(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, [-ang, 0, 0]);
+      // Chevron pan Z+ : about haut coupe en onglet (bute contre panne faitiere)
+      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, ang);
+      // Chevron pan Z- : symetrique (rotation -ang, about coupe de l'autre cote via signe)
+      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, -ang);
     }
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
