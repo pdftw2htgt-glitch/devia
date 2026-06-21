@@ -837,12 +837,16 @@ setPiece("Panne");
     const couv = getCouverture(opts && opts.couverture);
     const hangarRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.3);
+    // decalage perpendiculaire au plan du toit (suit la pente, ne croise pas au faitage)
+    const dPerp = 0.12;
+    const dY = dPerp * Math.cos(ang);
+    const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
-    r1.position.set(0, Ht + hf/2 + 0.20, lg/4);
+    r1.position.set(0, Ht + hf/2 + 0.08 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, hangarRoofMat);
-    r2.position.set(0, Ht + hf/2 + 0.20, -lg/4);
+    r2.position.set(0, Ht + hf/2 + 0.08 + dY, -lg/4 - dZ);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
