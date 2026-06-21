@@ -560,9 +560,9 @@ setPiece("Chevron");
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
     const tradRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.2);
+    const rg = new THREE.PlaneGeometry(L + 0.6, pl + 0.05);
     // decalage perpendiculaire au plan du toit (suit la pente, ne croise pas au faitage)
-    const dPerp = 0.12; // 12cm au-dessus du plan des chevrons
+    const dPerp = 0.08; // 12cm au-dessus du plan des chevrons
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, tradRoofMat);
@@ -836,9 +836,9 @@ setPiece("Panne");
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
     const hangarRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.3);
+    const rg = new THREE.PlaneGeometry(L + 0.8, pl + 0.05);
     // decalage perpendiculaire au plan du toit (suit la pente, ne croise pas au faitage)
-    const dPerp = 0.12;
+    const dPerp = 0.08;
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
