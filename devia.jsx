@@ -548,13 +548,20 @@ setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (tous les ~0.5m, sur les pannes) =====
     const espChevron = 0.5;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
+    // chevrons raccourcis en haut pour buter sur la panne faitiere (pas de telescopage au sommet)
+    const retraitFaitage = 0.10; // recul du chevron par rapport au faitage (m, le long du rampant)
+    const plChev = pl - retraitFaitage;
+    // decalage du centre vers le bas du rampant (la moitie du retrait)
+    const decalRampant = retraitFaitage / 2;
+    const dCY = decalRampant * Math.sin(ang);   // composante verticale
+    const dCZ = decalRampant * Math.cos(ang);   // composante horizontale (vers l'exterieur)
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      // Chevron pan Z+ (section fine)
       const [chB, chH] = sec("Chevron", 0.07, 0.07);
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
+      // Chevron pan Z+ : centre decale vers le bas-exterieur
+      addBox(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, [ang, 0, 0]);
       // Chevron pan Z-
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
+      addBox(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, [-ang, 0, 0]);
     }
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
