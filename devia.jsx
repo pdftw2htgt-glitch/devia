@@ -3522,9 +3522,6 @@ const zoneInfo = getZone(commune, altitude);
 "IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
 try {
 const userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
-console.log("[DEVIA GEN] finalParams =", JSON.stringify(finalParams));
-console.log("[DEVIA GEN] userContent envoye =", userContent);
-console.log("[DEVIA GEN] systemPrompt longueur =", systemPrompt.length);
 const response = await fetch("/api/chat", {
 method: "POST",
 headers: { "Content-Type": "application/json" },
@@ -3535,7 +3532,6 @@ system: systemPrompt,
 messages: [{ role: "user", content: userContent }],
 }),
 });
-console.log("[DEVIA GEN] response.status =", response.status);
 
   if (!response.ok) {
     const errText = await response.text();
@@ -3545,7 +3541,17 @@ console.log("[DEVIA GEN] response.status =", response.status);
   const data = await response.json();
 
   // Extraction robuste du texte
-  console.log("[DEVIA GEN] data brute =", JSON.stringify(data).substring(0, 500));
+  // Detection d'une erreur API renvoyee avec status 200 (corps d'erreur Anthropic)
+  if (data && data.type === "error" && data.error) {
+    const et = data.error.type || "";
+    if (et === "overloaded_error") {
+      throw new Error("Les serveurs sont temporairement surcharges. Reessaie dans quelques instants.");
+    }
+    if (et === "rate_limit_error") {
+      throw new Error("Trop de demandes en peu de temps. Patiente un instant avant de reessayer.");
+    }
+    throw new Error("Erreur du service IA : " + (data.error.message || et || "inconnue") + ". Reessaie dans un moment.");
+  }
   const text = (data.content && data.content[0] && data.content[0].text)
     ? data.content[0].text
     : "";
