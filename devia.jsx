@@ -2574,6 +2574,7 @@ const [formLargeur, setFormLargeur] = useState("");
 const [formHauteur, setFormHauteur] = useState("");
 const [formPente, setFormPente] = useState("");
 const [formGroupe, setFormGroupe] = useState(""); // id du groupe choisi pour ce devis ("" = aucun)
+const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
@@ -4136,16 +4137,52 @@ return (
               {/* Pente */}
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <input value={formPente} onChange={e => setFormPente(e.target.value)} type="number" placeholder="35" style={{ ...inputStyle, maxWidth: 110 }} />
-                  <span style={{ color: "#545870", fontSize: 13 }}>degres</span>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[20, 30, 35, 40, 45].map(p => (
-                      <button key={p} type="button" onClick={() => setFormPente(String(p))}
-                        style={{ background: formPente === String(p) ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)", border: formPente === String(p) ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "6px 11px", cursor: "pointer", color: formPente === String(p) ? "#f0c040" : "#7a7d92", fontSize: 12, fontWeight: 600 }}>{p}°</button>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
+                  const degToPct = (d) => Math.round(Math.tan(d * Math.PI / 180) * 100);
+                  const pctToDeg = (p) => Math.round(Math.atan(p / 100) * 180 / Math.PI);
+                  const isPct = formPenteUnite === "pourcent";
+                  // valeur affichee dans le champ selon l'unite
+                  const valAffichee = formPente === "" ? "" : (isPct ? String(degToPct(parseFloat(formPente))) : formPente);
+                  // quand l'utilisateur tape, on reconvertit en degres pour le stockage
+                  const onInput = (v) => {
+                    if (v === "") { setFormPente(""); return; }
+                    const num = parseFloat(v);
+                    if (isNaN(num)) return;
+                    setFormPente(isPct ? String(pctToDeg(num)) : String(num));
+                  };
+                  const raccourcis = isPct ? [20, 40, 60, 80, 100] : [20, 30, 35, 40, 45];
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <input value={valAffichee} onChange={e => onInput(e.target.value)} type="number" placeholder={isPct ? "70" : "35"} style={{ ...inputStyle, maxWidth: 100 }} />
+                      {/* Toggle deg / pourcent */}
+                      <div style={{ display: "flex", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
+                        <button type="button" onClick={() => setFormPenteUnite("deg")}
+                          style={{ padding: "7px 12px", cursor: "pointer", border: "none", fontSize: 13, fontWeight: 600,
+                            background: !isPct ? "rgba(240,192,64,0.15)" : "transparent", color: !isPct ? "#f0c040" : "#7a7d92" }}>°</button>
+                        <button type="button" onClick={() => setFormPenteUnite("pourcent")}
+                          style={{ padding: "7px 12px", cursor: "pointer", border: "none", fontSize: 13, fontWeight: 600,
+                            background: isPct ? "rgba(240,192,64,0.15)" : "transparent", color: isPct ? "#f0c040" : "#7a7d92" }}>%</button>
+                      </div>
+                      {/* Equivalence affichee */}
+                      {formPente !== "" && (
+                        <span style={{ color: "#545870", fontSize: 12 }}>
+                          = {isPct ? formPente + "°" : degToPct(parseFloat(formPente)) + "%"}
+                        </span>
+                      )}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {raccourcis.map(p => {
+                          const degVal = isPct ? pctToDeg(p) : p;
+                          const actif = formPente === String(degVal);
+                          return (
+                            <button key={p} type="button" onClick={() => setFormPente(String(degVal))}
+                              style={{ background: actif ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)", border: actif ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "6px 11px", cursor: "pointer", color: actif ? "#f0c040" : "#7a7d92", fontSize: 12, fontWeight: 600 }}>{p}{isPct ? "%" : "°"}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               {/* Couverture */}
               <div style={{ marginBottom: 18 }}>
