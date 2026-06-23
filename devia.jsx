@@ -2565,6 +2565,14 @@ function DeviaMain() {
 
 const [activeTab, setActiveTab] = useState("devis");
 const [prompt, setPrompt] = useState("");
+const [formType, setFormType] = useState("");
+const [formCouverture, setFormCouverture] = useState("");
+const [formEssence, setFormEssence] = useState("");
+const [formCombles, setFormCombles] = useState("");
+const [formLongueur, setFormLongueur] = useState("");
+const [formLargeur, setFormLargeur] = useState("");
+const [formHauteur, setFormHauteur] = useState("");
+const [formPente, setFormPente] = useState("");
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
@@ -3857,13 +3865,38 @@ const loadProjectDetails = (project) => {
     }
   };
 
+  // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
+  const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
+  const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
+
   const handleSubmit = () => {
-if (!prompt.trim()) return;
-const detected = detectParams(prompt);
-const missingKeys = Object.keys(QUESTIONS).filter(k => !detected[k]);
-if (missingKeys.length > 0) { setDetectedParams(detected); setShowQuestions(true); }
-else handleGenerate(detected);
-};
+    // Construit les params directement depuis le formulaire structure
+    const params = {
+      type: formType || undefined,
+      couverture: formCouverture || undefined,
+      essence: formEssence || undefined,
+      combles: formCombles || undefined,
+      longueur: formLongueur ? parseFloat(formLongueur) : undefined,
+      largeur: formLargeur ? parseFloat(formLargeur) : undefined,
+      hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
+      pente: formPente ? parseFloat(formPente) : undefined,
+    };
+    // Construit aussi une description textuelle propre (pour l'IA de generation)
+    const parts = [];
+    if (formType) parts.push(LABELS_TYPE[formType] || formType);
+    if (formLongueur && formLargeur) parts.push(formLongueur + "x" + formLargeur + "m");
+    if (formHauteur) parts.push("hauteur " + formHauteur + "m");
+    if (formPente) parts.push("pente " + formPente + " degres");
+    if (formCouverture) parts.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
+    if (formEssence) parts.push("essence " + (LABELS_ESS[formEssence] || formEssence));
+    if (formCombles) parts.push(LABELS_COMB[formCombles] || formCombles);
+    let desc = parts.join(", ");
+    if (prompt.trim()) desc += ". " + prompt.trim();
+    params.description = desc;
+    handleGenerate(params);
+  };
 
 const zoneInfo = commune ? getZone(commune, altitude) : null;
 // === DEVIA Design System v2 - Liquid Glass ===
@@ -4038,11 +4071,96 @@ return (
                   style={inputStyle}
                 />
               </div>
+              {/* Type de charpente */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de charpente</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {QUESTIONS.type.options.map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormType(opt.val)}
+                      style={{ background: formType === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formType === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formType === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formType === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Dimensions */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div>
+                    <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Longueur (m)</div>
+                  </div>
+                  <div>
+                    <input value={formLargeur} onChange={e => setFormLargeur(e.target.value)} type="number" placeholder="Largeur" style={inputStyle} />
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Largeur (m)</div>
+                  </div>
+                  <div>
+                    <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Hauteur mur (m)</div>
+                  </div>
+                </div>
+              </div>
+              {/* Pente */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <input value={formPente} onChange={e => setFormPente(e.target.value)} type="number" placeholder="35" style={{ ...inputStyle, maxWidth: 110 }} />
+                  <span style={{ color: "#545870", fontSize: 13 }}>degres</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[20, 30, 35, 40, 45].map(p => (
+                      <button key={p} type="button" onClick={() => setFormPente(String(p))}
+                        style={{ background: formPente === String(p) ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)", border: formPente === String(p) ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "6px 11px", cursor: "pointer", color: formPente === String(p) ? "#f0c040" : "#7a7d92", fontSize: 12, fontWeight: 600 }}>{p}°</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Couverture */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {QUESTIONS.couverture.options.map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormCouverture(opt.val)}
+                      style={{ background: formCouverture === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formCouverture === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formCouverture === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formCouverture === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Essence */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Essence du bois</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {QUESTIONS.essence.options.map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormEssence(opt.val)}
+                      style={{ background: formEssence === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formEssence === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formEssence === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formEssence === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Combles */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {QUESTIONS.combles.options.map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormCombles(opt.val)}
+                      style={{ background: formCombles === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formCombles === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Precisions libres */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Description du projet</label>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Precisions <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span></label>
                 <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-                  placeholder="Ex: Charpente traditionnelle en sapin pour maison de 10x8m, tuile terre cuite, pente 35°, combles aménageables..."
-                  rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
+                  placeholder="Details supplementaires : debord de toit, contraintes particulieres, finitions..."
+                  rows={2} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
@@ -4189,7 +4307,7 @@ return (
                 )}
               </div>
 
-              <button onClick={handleSubmit} disabled={loading || !prompt.trim() || !commune.trim()}
+              <button onClick={handleSubmit} disabled={loading || !formType || !formLongueur || !formLargeur || !commune.trim()}
                 style={{
                   ...btnPrimary,
                   width: "100%",
@@ -4198,16 +4316,16 @@ return (
                   fontWeight: 700,
                   letterSpacing: "0.01em",
                   marginTop: 8,
-                  opacity: loading || !prompt.trim() || !commune.trim() ? 0.45 : 1,
-                  cursor: loading || !prompt.trim() || !commune.trim() ? "not-allowed" : "pointer",
-                  boxShadow: loading || !prompt.trim() || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
+                  opacity: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? 0.45 : 1,
+                  cursor: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "not-allowed" : "pointer",
+                  boxShadow: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 10
                 }}
-                onMouseEnter={(e) => { if (!loading && prompt.trim() && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || !prompt.trim() || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
+                onMouseEnter={(e) => { if (!loading && formType && formLongueur && formLargeur && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
                 {loading ? (
                   <>
                     <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
