@@ -333,41 +333,6 @@ function buildScene3D(scene, params, opts) {
     if (!mat || mat === woodMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }); // bois uniquement
   };
 
-  // Chevron avec coupe d'onglet a l'about haut (cote +Z local = faitage)
-  // largeur (X) = b, hauteur (Y) = h, longueur (Z) = len, coupe inclinee de "ang" sur la face +Z
-  // Apres rotation [ang,0,0], la face coupee devient verticale (bute contre panne faitiere)
-  const addChevronOnglet = (b, h, len, px, py, pz, mat, rotX, angleCoupe) => {
-    const bx = b/2, hy = h/2, lz = len/2;
-    // Le biais : en haut du chevron (face +Y), l'about recule de h*tan(angleCoupe) par rapport au bas (face -Y)
-    const recul = h * Math.tan(Math.abs(angleCoupe || 0));
-    // 8 sommets : face bas (-Z) carree, face haut (+Z) coupee en biais
-    // bas du chevron (y = -hy) : about a +lz ; haut du chevron (y = +hy) : about a +lz - recul
-    const v = new Float32Array([
-      // face arriere (-Z, about bas/depart) - rectangle plein
-      -bx, -hy, -lz,   bx, -hy, -lz,   bx,  hy, -lz,  -bx,  hy, -lz,
-      // face avant (+Z, about haut/faitage) - coupee : le haut recule de "recul"
-      -bx, -hy,  lz,   bx, -hy,  lz,   bx,  hy,  lz - recul,  -bx,  hy,  lz - recul,
-    ]);
-    const idx = [
-      0,1,2, 0,2,3,        // arriere
-      4,6,5, 4,7,6,        // avant (coupe)
-      0,4,5, 0,5,1,        // dessous
-      3,2,6, 3,6,7,        // dessus
-      0,3,7, 0,7,4,        // gauche
-      1,5,6, 1,6,2,        // droite
-    ];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(v, 3));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat || woodMat);
-    m.position.set(px, py, pz);
-    if (rotX) m.rotation.x = rotX;
-    m.castShadow = true;
-    scene.add(m);
-    logPiece(b, h, len, { pos: [px, py, pz], rot: [rotX || 0, 0, 0], quat: null });
-  };
-
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
   const addBeam = (x1, y1, z1, x2, y2, z2, thick, mat) => {
     const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
@@ -583,20 +548,13 @@ setPiece("Chevron");
     // ===== CHEVRONS RAPPROCHES (tous les ~0.5m, sur les pannes) =====
     const espChevron = 0.5;
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    // chevrons raccourcis en haut pour buter sur la panne faitiere (pas de telescopage au sommet)
-    const retraitFaitage = 0.10; // recul du chevron par rapport au faitage (m, le long du rampant)
-    const plChev = pl - retraitFaitage;
-    // decalage du centre vers le bas du rampant (la moitie du retrait)
-    const decalRampant = retraitFaitage / 2;
-    const dCY = decalRampant * Math.sin(ang);   // composante verticale
-    const dCZ = decalRampant * Math.cos(ang);   // composante horizontale (vers l'exterieur)
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
+      // Chevron pan Z+ (section fine)
       const [chB, chH] = sec("Chevron", 0.07, 0.07);
-      // Chevron pan Z+ : about haut coupe en onglet (bute contre panne faitiere)
-      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, lg/4 + dCZ, woodMat, ang, ang);
-      // Chevron pan Z- : symetrique
-      addChevronOnglet(chB, chH, plChev, x, Ht + hf/2 + 0.08 - dCY, -lg/4 - dCZ, woodMat, -ang, ang);
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
+      // Chevron pan Z-
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
     }
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
@@ -604,16 +562,15 @@ setPiece("Chevron");
     const tradRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.6, pl);
     // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
-    // couverture posee au-dessus des chevrons : meme base +0.08 que les chevrons + decalage perpendiculaire
-    const dPerp = 0.10; // au-dessus de l'epaisseur du chevron (7cm) + marge
+    const dPerp = 0.06;
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(0, Ht + hf/2 + 0.08 + dY, lg/4 + dZ);
+    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(0, Ht + hf/2 + 0.08 + dY, -lg/4 - dZ);
+    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
