@@ -24,11 +24,11 @@ export function useLicense() {
 
     // Changements d'auth ulterieurs : refresh SILENCIEUX (ne demonte pas l'app)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      // Sur un vrai login/logout, refresh complet ; sinon refresh silencieux
+      console.log("[DEVIA LICENSE] event =", event);
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
         refresh();
       } else {
-        refresh(true); // TOKEN_REFRESHED, USER_UPDATED, etc. -> silencieux
+        refresh(true);
       }
     });
 

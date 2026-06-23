@@ -18,6 +18,7 @@ export function useAuth() {
     // Ecoute les changements d'authentification (login, logout, refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        console.log("[DEVIA AUTH] event =", _event, "| session =", session ? "OUI" : "NULL");
         setUser(session ? session.user : null);
         setLoading(false);
       }
