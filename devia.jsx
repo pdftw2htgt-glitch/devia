@@ -3545,6 +3545,7 @@ console.log("[DEVIA GEN] response.status =", response.status);
   const data = await response.json();
 
   // Extraction robuste du texte
+  console.log("[DEVIA GEN] data brute =", JSON.stringify(data).substring(0, 500));
   const text = (data.content && data.content[0] && data.content[0].text)
     ? data.content[0].text
     : "";
