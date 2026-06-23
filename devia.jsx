@@ -3528,7 +3528,7 @@ body: JSON.stringify({
 model: "claude-sonnet-4-6",
 max_tokens: 4000,
 system: systemPrompt,
-messages: [{ role: "user", content: prompt }],
+messages: [{ role: "user", content: finalParams.description || prompt || "Genere un devis pour ce projet de charpente." }],
 }),
 });
 
