@@ -4264,7 +4264,20 @@ return (
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button style={btnSecondary} onClick={() => { setResult(null); setPrompt(""); setNomProjet(""); }}>Nouveau</button>
+                  <button style={btnSecondary} onClick={() => {
+                    // Reset complet pour accueillir un nouveau devis
+                    setResult(null);
+                    setPrompt("");
+                    setNomProjet("");
+                    setCommune("");
+                    setAltitude("200");
+                    setAnswers({});
+                    setFiles([]);
+                    setMetreData(null);
+                    setMetreBrut(null);
+                    setDetectedParams({});
+                    setActiveResultTab("devis");
+                  }}>Nouveau</button>
                   <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
