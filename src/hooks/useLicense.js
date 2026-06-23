@@ -9,19 +9,27 @@ export function useLicense() {
   const [license, setLicense] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  // refresh avec option silencieuse : silent=true ne touche pas a "loading"
+  // (evite de demonter l'app a chaque refresh de token / passage plein ecran)
+  const refresh = useCallback(async (silent) => {
+    if (!silent) setLoading(true);
     const result = await checkMyLicense();
     setLicense(result);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => {
+    // chargement initial : avec loading
     refresh();
 
-    // Recharge la licence quand l'auth change (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      refresh();
+    // Changements d'auth ulterieurs : refresh SILENCIEUX (ne demonte pas l'app)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Sur un vrai login/logout, refresh complet ; sinon refresh silencieux
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        refresh();
+      } else {
+        refresh(true); // TOKEN_REFRESHED, USER_UPDATED, etc. -> silencieux
+      }
     });
 
     return () => subscription.unsubscribe();
