@@ -2573,6 +2573,7 @@ const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
 const [formHauteur, setFormHauteur] = useState("");
 const [formPente, setFormPente] = useState("");
+const [formGroupe, setFormGroupe] = useState(""); // id du groupe choisi pour ce devis ("" = aucun)
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
@@ -4070,6 +4071,24 @@ return (
                   maxLength={120}
                   style={inputStyle}
                 />
+              </div>
+              {/* Groupe (categorie) */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Groupe <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span>
+                </label>
+                <select value={formGroupe} onChange={e => setFormGroupe(e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+                    backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
+                  <option value="">Aucun groupe</option>
+                  {groupes.map(g => (
+                    <option key={g.id} value={g.id}>{g.nom}</option>
+                  ))}
+                </select>
+                {groupes.length === 0 && (
+                  <div style={{ color: "#545870", fontSize: 11, marginTop: 6 }}>Cree des groupes dans l'onglet Projets pour ranger tes devis.</div>
+                )}
               </div>
               {/* Type de charpente */}
               <div style={{ marginBottom: 18 }}>
