@@ -3521,6 +3521,10 @@ const zoneInfo = getZone(commune, altitude);
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
 "IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
 try {
+const userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
+console.log("[DEVIA GEN] finalParams =", JSON.stringify(finalParams));
+console.log("[DEVIA GEN] userContent envoye =", userContent);
+console.log("[DEVIA GEN] systemPrompt longueur =", systemPrompt.length);
 const response = await fetch("/api/chat", {
 method: "POST",
 headers: { "Content-Type": "application/json" },
@@ -3528,9 +3532,10 @@ body: JSON.stringify({
 model: "claude-sonnet-4-6",
 max_tokens: 4000,
 system: systemPrompt,
-messages: [{ role: "user", content: finalParams.description || prompt || "Genere un devis pour ce projet de charpente." }],
+messages: [{ role: "user", content: userContent }],
 }),
 });
+console.log("[DEVIA GEN] response.status =", response.status);
 
   if (!response.ok) {
     const errText = await response.text();
