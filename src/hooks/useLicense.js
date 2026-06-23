@@ -23,11 +23,14 @@ export function useLicense() {
     refresh();
 
     // Changements d'auth ulterieurs : refresh SILENCIEUX (ne demonte pas l'app)
+    // Apres le chargement initial, TOUS les refreshs sont silencieux (ne demontent jamais l'app)
+    // Safari redeclenche SIGNED_IN a chaque passage plein ecran -> on ne doit pas remettre loading a true
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log("[DEVIA LICENSE] event =", event);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        refresh();
+      if (event === "SIGNED_OUT") {
+        // vraie deconnexion : on vide la licence
+        setLicense(null);
       } else {
+        // tout le reste (SIGNED_IN, TOKEN_REFRESHED, INITIAL_SESSION...) : refresh SILENCIEUX
         refresh(true);
       }
     });
