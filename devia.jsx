@@ -2575,7 +2575,6 @@ const [formHauteur, setFormHauteur] = useState("");
 const [formPente, setFormPente] = useState("");
 const [formGroupe, setFormGroupe] = useState(""); // id du groupe choisi pour ce devis ("" = aucun)
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
-const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
