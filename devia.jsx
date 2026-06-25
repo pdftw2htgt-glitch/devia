@@ -3907,6 +3907,7 @@ const loadProjectDetails = (project) => {
       type: formType || undefined,
       couverture: formCouverture || undefined,
       essence: formEssence || undefined,
+      finition: formFinition || undefined,
       combles: formCombles || undefined,
       longueur: formLongueur ? parseFloat(formLongueur) : undefined,
       largeur: formLargeur ? parseFloat(formLargeur) : undefined,
@@ -3920,7 +3921,12 @@ const loadProjectDetails = (project) => {
     if (formHauteur) parts.push("hauteur " + formHauteur + "m");
     if (formPente) parts.push("pente " + formPente + " degres");
     if (formCouverture) parts.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
-    if (formEssence) parts.push("essence " + (LABELS_ESS[formEssence] || formEssence));
+    if (formEssence) {
+      const LABELS_FIN = { rabote: "rabote", brut: "brut de sciage", traite: "traite autoclave" };
+      let essTxt = "essence " + (LABELS_ESS[formEssence] || formEssence);
+      if (formFinition) essTxt += " " + (LABELS_FIN[formFinition] || formFinition);
+      parts.push(essTxt);
+    }
     if (formCombles) parts.push(LABELS_COMB[formCombles] || formCombles);
     let desc = parts.join(", ");
     if (prompt.trim()) desc += ". " + prompt.trim();
