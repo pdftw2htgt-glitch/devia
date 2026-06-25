@@ -2245,12 +2245,10 @@ function Viewer3D({ params, onMetre }) {
 
 const QUESTIONS = {
 type: {
-label: "Type de charpente",
+label: "Type de structure",
 options: [
 { val: "fermette", label: "Fermette industrielle", icon: "factory" },
 { val: "traditionnelle", label: "Charpente traditionnelle", icon: "tree-log" },
-{ val: "lamelle", label: "Lamellé-collé", icon: "sparkles" },
-{ val: "metalique", label: "Charpente metallique", icon: "gear" },
 { val: "monopente", label: "Monopente", icon: "ruler" },
 { val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
 { val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
@@ -4128,7 +4126,7 @@ return (
               </div>
               {/* Type de charpente */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de charpente</label>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de structure</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.type.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormType(opt.val)}
