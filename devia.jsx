@@ -2568,6 +2568,7 @@ const [prompt, setPrompt] = useState("");
 const [formType, setFormType] = useState("");
 const [formCouverture, setFormCouverture] = useState("");
 const [formEssence, setFormEssence] = useState("");
+const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
 const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
@@ -4224,6 +4225,20 @@ return (
                     </button>
                   ))}
                 </div>
+                {/* Sous-menu finition : apparait quand une essence est choisie */}
+                {formEssence && (
+                  <div style={{ marginTop: 10 }}>
+                    <select value={formFinition} onChange={e => setFormFinition(e.target.value)}
+                      style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+                        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+                        backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
+                      <option value="">Finition (optionnel)</option>
+                      <option value="rabote">Rabote</option>
+                      <option value="brut">Brut de sciage</option>
+                      <option value="traite">Traite autoclave</option>
+                    </select>
+                  </div>
+                )}
               </div>
               {/* Combles */}
               <div style={{ marginBottom: 18 }}>
