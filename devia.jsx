@@ -3023,6 +3023,21 @@ return out;
     return () => clearTimeout(timer);
   }, [prompt]);
 
+  // Auto-recherche des coordonnees quand l'utilisateur SAISIT la localisation directement (debounce 1s)
+  // -> met a jour addressData -> ce qui declenche l'auto-altitude ci-dessous
+  useEffect(() => {
+    if (!commune || commune.trim().length < 3) return;
+    // Si addressData correspond deja a cette commune, pas besoin de rechercher a nouveau
+    if (addressData && addressData.label === commune) return;
+    const timer = setTimeout(async () => {
+      const found = await extractAddressFromPrompt(commune);
+      if (found && found.lat && found.lng) {
+        setAddressData(found);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [commune]);
+
   // Auto-remplissage de l'altitude quand addressData est mis a jour
   useEffect(() => {
     if (!addressData || !addressData.lat || !addressData.lng) return;
