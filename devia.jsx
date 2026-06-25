@@ -3616,6 +3616,7 @@ messages: [{ role: "user", content: userContent }],
             pente: p.pente || null,
             surface: p.surface || null,
             type_charpente: p.type || null,
+            groupe_id: formGroupe || null,
             total_ttc: totalTTC,
             total_ht: totalHT,
             devis_data: parsed,
@@ -4499,6 +4500,16 @@ return (
                     setMetreBrut(null);
                     setDetectedParams({});
                     setActiveResultTab("devis");
+                    setFormType("");
+                    setFormCouverture("");
+                    setFormEssence("");
+                    setFormFinition("");
+                    setFormCombles("");
+                    setFormLongueur("");
+                    setFormLargeur("");
+                    setFormHauteur("");
+                    setFormPente("");
+                    setFormGroupe("");
                   }}>Nouveau</button>
                   <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
