@@ -3138,10 +3138,28 @@ return out;
     // Pour chaque candidat, on interroge l'API jusqu'a trouver un match
     for (const query of queries) {
       try {
-        const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&limit=1";
-        const resp = await fetch(url);
-        if (!resp.ok) continue;
-        const data = await resp.json();
+        // 1ere tentative : on PRIORISE les communes (type=municipality) pour eviter
+        //    qu'un lieu-dit homonyme soit choisi (ex: "Chambery" -> lieu-dit du 49 au lieu de la ville 73)
+        const isLikelyAddress = /\d{1,4}\s+(rue|avenue|av|boulevard|bd|place|impasse|chemin|route|allee|quai)/i.test(query);
+        let data = null;
+        if (!isLikelyAddress) {
+          // requete commune d'abord
+          const urlMuni = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&type=municipality&limit=1";
+          const respMuni = await fetch(urlMuni);
+          if (respMuni.ok) {
+            const dataMuni = await respMuni.json();
+            if (dataMuni.features && dataMuni.features.length > 0) {
+              data = dataMuni;
+            }
+          }
+        }
+        // 2eme tentative (fallback) : recherche generale si pas de commune trouvee ou si c'est une adresse complete
+        if (!data) {
+          const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&limit=1";
+          const resp = await fetch(url);
+          if (!resp.ok) continue;
+          data = await resp.json();
+        }
         if (!data.features || data.features.length === 0) {
           console.log("[DEVIA] Pas de feature pour:", query);
           continue;
