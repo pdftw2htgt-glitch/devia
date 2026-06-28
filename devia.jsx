@@ -2671,6 +2671,8 @@ const [commune, setCommune] = useState("");
     transition: "background 0.15s, border-color 0.15s"
   };
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
+  const [communeSuggestions, setCommuneSuggestions] = useState([]); // liste de communes homonymes a proposer
+  const [communeChoisie, setCommuneChoisie] = useState(false); // true quand l'user a clique une suggestion (evite re-recherche)
 const [altitude, setAltitude] = useState("200");
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
@@ -3023,18 +3025,58 @@ return out;
     return () => clearTimeout(timer);
   }, [prompt]);
 
-  // Auto-recherche des coordonnees quand l'utilisateur SAISIT la localisation directement (debounce 1s)
-  // -> met a jour addressData -> ce qui declenche l'auto-altitude ci-dessous
+  // Auto-recherche des communes quand l'utilisateur SAISIT la localisation (debounce 600ms)
+  // -> propose une liste de suggestions (gestion des homonymes) au lieu de choisir直接
   useEffect(() => {
-    if (!commune || commune.trim().length < 3) return;
-    // Si addressData correspond deja a cette commune, pas besoin de rechercher a nouveau
+    if (!commune || commune.trim().length < 3) { setCommuneSuggestions([]); return; }
+    // Si l'utilisateur vient de cliquer une suggestion, on ne relance pas la recherche
+    if (communeChoisie) { setCommuneChoisie(false); return; }
+    // Si addressData correspond deja exactement, pas de recherche
     if (addressData && addressData.label === commune) return;
     const timer = setTimeout(async () => {
-      const found = await extractAddressFromPrompt(commune);
-      if (found && found.lat && found.lng) {
-        setAddressData(found);
+      const isLikelyAddress = /\d{1,4}\s+(rue|avenue|av|boulevard|bd|place|impasse|chemin|route|allee|quai)/i.test(commune);
+      try {
+        // Pour une adresse complete -> recherche normale (1 resultat). Pour une ville -> communes (plusieurs)
+        const typeParam = isLikelyAddress ? "" : "&type=municipality";
+        const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(commune) + typeParam + "&limit=6";
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.features || data.features.length === 0) { setCommuneSuggestions([]); return; }
+        // Construire la liste de suggestions (dedupliquees par citycode)
+        const seen = new Set();
+        const suggestions = [];
+        for (const feat of data.features) {
+          const p = feat.properties;
+          if (p.score && p.score < 0.4) continue; // ignorer les resultats trop faibles
+          const key = p.citycode || p.label;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          suggestions.push({
+            label: p.label,
+            ville: p.city || p.name,
+            codePostal: p.postcode || "",
+            citycode: p.citycode || "",
+            type: p.type || "",
+            context: p.context || "", // ex: "74, Haute-Savoie, Auvergne-Rhone-Alpes"
+            lat: feat.geometry.coordinates[1],
+            lng: feat.geometry.coordinates[0],
+            score: p.score
+          });
+        }
+        // Si 1 seule suggestion tres pertinente -> on la prend directement
+        if (suggestions.length === 1) {
+          setAddressData(suggestions[0]);
+          setCommuneSuggestions([]);
+        } else if (suggestions.length > 1) {
+          setCommuneSuggestions(suggestions);
+        } else {
+          setCommuneSuggestions([]);
+        }
+      } catch (e) {
+        console.warn("[DEVIA] Erreur recherche communes:", e);
       }
-    }, 1000);
+    }, 600);
     return () => clearTimeout(timer);
   }, [commune]);
 
@@ -4307,6 +4349,29 @@ return (
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Localisation</label>
                   <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ville, code postal ou adresse complète" style={inputStyle} />
+                  {/* Liste de suggestions de communes (gestion homonymes) */}
+                  {communeSuggestions.length > 0 && (
+                    <div style={{ marginTop: 6, background: "#0e1118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
+                      {communeSuggestions.map((s, i) => (
+                        <button key={i} type="button"
+                          onClick={() => {
+                            setCommuneChoisie(true);
+                            // On affiche la ville + code postal dans le champ pour etre clair
+                            setCommune(s.ville + (s.codePostal ? " " + s.codePostal : ""));
+                            setAddressData(s);
+                            setCommuneSuggestions([]);
+                          }}
+                          style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", cursor: "pointer",
+                            background: "transparent", border: "none", borderBottom: i < communeSuggestions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                            color: "#d0d2dc", fontSize: 13 }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(240,192,64,0.08)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.ville || s.label}</span>
+                          {s.context && <span style={{ color: "#7a7d92", fontSize: 12 }}> — {s.context}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
@@ -4529,6 +4594,7 @@ return (
                     setPrompt("");
                     setNomProjet("");
                     setCommune("");
+                    setCommuneSuggestions([]);
                     setAltitude("200");
                     setFiles([]);
                     setMetreData(null);
