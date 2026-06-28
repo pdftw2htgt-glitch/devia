@@ -2250,6 +2250,7 @@ options: [
 { val: "fermette", label: "Fermette industrielle", icon: "factory" },
 { val: "traditionnelle", label: "Charpente traditionnelle", icon: "tree-log" },
 { val: "monopente", label: "Monopente", icon: "ruler" },
+{ val: "carport", label: "Carport (abri voiture)", icon: "ruler" },
 { val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
 { val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
 { val: "4_pans", label: "Toit 4 pans (croupe)", icon: "home" },
@@ -3895,7 +3896,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
