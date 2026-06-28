@@ -4493,7 +4493,6 @@ return (
                     setNomProjet("");
                     setCommune("");
                     setAltitude("200");
-                    setAnswers({});
                     setFiles([]);
                     setMetreData(null);
                     setMetreBrut(null);
