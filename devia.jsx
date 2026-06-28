@@ -3049,8 +3049,25 @@ return out;
 
     const fetchAltitude = async () => {
       try {
-        console.log("[DEVIA] Recuperation altitude pour:", addressData.lat, addressData.lng);
-        const url = "https://api.open-meteo.com/v1/elevation?latitude=" + addressData.lat + "&longitude=" + addressData.lng;
+        let latAlt = addressData.lat, lngAlt = addressData.lng;
+        // Si l'adresse est precise (numero/rue), on prend plutot le centre de la COMMUNE
+        // (l'altitude communale est ce qui compte pour la neige, et evite les rues mal geocodees)
+        if ((addressData.type === "housenumber" || addressData.type === "street") && addressData.citycode) {
+          try {
+            const urlC = "https://geo.api.gouv.fr/communes/" + addressData.citycode + "?fields=centre";
+            const respC = await fetch(urlC);
+            if (respC.ok) {
+              const dataC = await respC.json();
+              if (dataC && dataC.centre && dataC.centre.coordinates) {
+                lngAlt = dataC.centre.coordinates[0];
+                latAlt = dataC.centre.coordinates[1];
+                console.log("[DEVIA] Altitude basee sur le centre commune", addressData.citycode);
+              }
+            }
+          } catch (e) { console.warn("[DEVIA] Erreur centre commune:", e); }
+        }
+        console.log("[DEVIA] Recuperation altitude pour:", latAlt, lngAlt);
+        const url = "https://api.open-meteo.com/v1/elevation?latitude=" + latAlt + "&longitude=" + lngAlt;
         const resp = await fetch(url);
         if (!resp.ok) {
           console.warn("[DEVIA] API altitude HTTP", resp.status);
@@ -3179,6 +3196,8 @@ return out;
           label: feat.properties.label,
           ville: feat.properties.city || feat.properties.name,
           codePostal: feat.properties.postcode || "",
+          citycode: feat.properties.citycode || "",
+          type: feat.properties.type || "",
           lat: feat.geometry.coordinates[1],
           lng: feat.geometry.coordinates[0],
           score: feat.properties.score
