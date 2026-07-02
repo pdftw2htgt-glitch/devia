@@ -297,7 +297,7 @@ function buildScene3D(scene, params, opts) {
     if (essenceRaw.includes(k)) { essenceKey = k; break; }
   }
   // Materiau bois : couleur unie par defaut, puis on tente la texture (async)
-  const woodMat = new THREE.MeshLambertMaterial({ color: woodColor });
+  const woodMat = new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0 });
   (function loadWoodTexture() {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
     if (mode !== "realiste") return;
@@ -321,8 +321,8 @@ function buildScene3D(scene, params, opts) {
     };
     tryLoad("png", () => tryLoad("jpg", null));
   })();
-  const roofMat = new THREE.MeshLambertMaterial({ color: roofColor, side: THREE.DoubleSide });
-  const wallMat = new THREE.MeshLambertMaterial({ color: wallColor, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
+  const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+  const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
 
   const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
@@ -435,8 +435,8 @@ function buildScene3D(scene, params, opts) {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
     if (mode !== "realiste") {
       // Vue technique : couleur transparente
-      return new THREE.MeshLambertMaterial({
-        color: couv.couleur, transparent: true, opacity: 0.4, side: THREE.DoubleSide
+      return new THREE.MeshStandardMaterial({
+        color: couv.couleur, roughness: 0.8, metalness: 0.0, transparent: true, opacity: 0.4, side: THREE.DoubleSide
       });
     }
     // Vue realiste : on tente l'image, fallback procedural
@@ -447,7 +447,7 @@ function buildScene3D(scene, params, opts) {
     // Materiau procedural par defaut (s'affiche immediatement)
     const ptex = makeCouvTexture(couv);
     ptex.repeat.set(rx, ry);
-    const mat = new THREE.MeshLambertMaterial({ map: ptex, side: THREE.DoubleSide });
+    const mat = new THREE.MeshStandardMaterial({ map: ptex, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
 
     // Tentative de chargement de l'image reelle (async, remplace si trouvee)
     if (code) {
@@ -893,7 +893,7 @@ setPiece("Panne");
     const secSabliere = Math.min(0.20, secPanne + 0.02);
 
     // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison) =====
-    const murArriereMat = new THREE.MeshLambertMaterial({
+    const murArriereMat = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.0,
       color: 0xd4ccb6, transparent: true, opacity: 0.85, side: THREE.DoubleSide
     });
     addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
@@ -1230,7 +1230,7 @@ function capture3DViews(view3DParams) {
   const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
 
   // Lumieres
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
   const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
   sun.position.set(10, 20, 10);
   scene.add(sun);
@@ -2133,13 +2133,16 @@ function Viewer3D({ params, onMetre }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(w, h);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     mountRef.current.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
     camera.position.set(12, 8, 12);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
     const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
@@ -2174,7 +2177,7 @@ function Viewer3D({ params, onMetre }) {
         // SOL (commun à tous les types)
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(30, 30),
-      new THREE.MeshLambertMaterial({ color: 0x1a1f2e })
+      new THREE.MeshStandardMaterial({ color: 0x1a1f2e, roughness: 0.95, metalness: 0.0 })
     );
     ground.rotation.x = -Math.PI/2;
     scene.add(ground);
