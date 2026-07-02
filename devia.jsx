@@ -2146,6 +2146,16 @@ function Viewer3D({ params, onMetre }) {
     const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
+    // Qualite et etendue des ombres (adaptees a une charpente jusqu'a ~20m)
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.left = -18;
+    sun.shadow.camera.right = 18;
+    sun.shadow.camera.top = 18;
+    sun.shadow.camera.bottom = -18;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 60;
+    sun.shadow.bias = -0.0005;
     scene.add(sun);
 
     // Construction de la scene via fonction commune
@@ -2180,6 +2190,7 @@ function Viewer3D({ params, onMetre }) {
       new THREE.MeshStandardMaterial({ color: 0x1a1f2e, roughness: 0.95, metalness: 0.0 })
     );
     ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
     // ============================================================
