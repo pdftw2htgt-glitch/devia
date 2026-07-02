@@ -313,7 +313,7 @@ function buildScene3D(scene, params, opts) {
           img.wrapT = THREE.RepeatWrapping;
           img.repeat.set(3, 8); // grain visible sans etirement
           woodMat.map = img;
-          woodMat.color.set(0xffffff); // texture pleine intensite
+          woodMat.color.set(0xb8b0a4); // teinte l'image : assombrit et rechauffe legerement le bois
           woodMat.needsUpdate = true;
         },
         undefined,
