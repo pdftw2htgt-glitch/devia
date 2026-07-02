@@ -244,7 +244,13 @@ function buildScene3D(scene, params, opts) {
   const secMode = (opts && opts.sectionMode) || "conseillee";
   const sec = (nom, wDef, hDef) => {
     const dim = opts && opts.sections && opts.sections[nom];
-    if (dim && dim[secMode]) return [dim[secMode].b / 1000, dim[secMode].h / 1000];
+    if (dim && dim[secMode]) {
+      // max(section EC5, defaut visuel) : l'EC5 reste exact dans les calculs,
+      // mais la 3D n'affiche jamais plus fin que les sections metier par defaut
+      const bEC5 = dim[secMode].b / 1000;
+      const hEC5 = dim[secMode].h / 1000;
+      return [Math.max(bEC5, wDef), Math.max(hEC5, hDef)];
+    }
     return [wDef, hDef];
   };
 
