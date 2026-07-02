@@ -518,7 +518,8 @@ setPiece("Ferme");
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
 
       // POINCON (poteau vertical central, du faitage a l'entrait)
-      addBox(0.14, hf, 0.14, x, Ht + hf/2, 0, woodMat);
+      const [poB, poH] = sec("Poincon", 0.15, 0.15);
+      addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
 
       // CONTREFICHES (jambes de force du bas du poincon vers les arbaletriers)
       // Dessinees point-a-point : touchent forcement les 2 extremites
@@ -526,8 +527,9 @@ setPiece("Ferme");
       const cfT = 0.55;                          // arrivee : 55% le long de l'arbaletrier
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
-      addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, 0.10, woodMat);   // vers pan Z+
-      addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, 0.10, woodMat);  // vers pan Z-
+      const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
+      addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);   // vers pan Z+
+      addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);  // vers pan Z-
     }
 
 setPiece("Sabliere");
@@ -807,14 +809,16 @@ setPiece("Ferme");
       addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
       // Poincon (vertical central)
-      addBox(0.14, hf, 0.14, x, Ht + hf/2, 0, woodMat);
+      const [poB, poH] = sec("Poincon", 0.15, 0.15);
+      addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
       // Contrefiches (jambes de force, point-a-point)
       const cfBaseY = Ht + hf * 0.15;
       const cfT = 0.55;
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
-      addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, 0.10, woodMat);
-      addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, 0.10, woodMat);
+      const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
+      addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);
+      addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);
     }
 
 setPiece("Panne");
