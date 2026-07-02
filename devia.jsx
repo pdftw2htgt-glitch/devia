@@ -311,9 +311,9 @@ function buildScene3D(scene, params, opts) {
           img.colorSpace = THREE.SRGBColorSpace;
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
-          img.repeat.set(3, 8); // grain visible sans etirement
+          img.repeat.set(1, 2.5); // motif plus gros : veines visibles a distance de vue normale
           woodMat.map = img;
-          woodMat.color.set(0xb8b0a4); // teinte l'image : assombrit et rechauffe legerement le bois
+          woodMat.color.set(0xffffff); // texture pleine intensite
           woodMat.needsUpdate = true;
         },
         undefined,
