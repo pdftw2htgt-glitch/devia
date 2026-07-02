@@ -308,6 +308,7 @@ function buildScene3D(scene, params, opts) {
       loader.load(
         "/textures/" + code + "." + ext,
         (img) => {
+          img.colorSpace = THREE.SRGBColorSpace;
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
           img.repeat.set(3, 8); // grain visible sans etirement
@@ -446,6 +447,7 @@ function buildScene3D(scene, params, opts) {
 
     // Materiau procedural par defaut (s'affiche immediatement)
     const ptex = makeCouvTexture(couv);
+    ptex.colorSpace = THREE.SRGBColorSpace;
     ptex.repeat.set(rx, ry);
     const mat = new THREE.MeshStandardMaterial({ map: ptex, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
 
@@ -456,6 +458,7 @@ function buildScene3D(scene, params, opts) {
         loader.load(
           "/textures/" + code + "." + ext,
           (img) => {
+            img.colorSpace = THREE.SRGBColorSpace;
             img.wrapS = THREE.RepeatWrapping;
             img.wrapT = THREE.RepeatWrapping;
             img.repeat.set(rx, ry);
@@ -1230,7 +1233,7 @@ function capture3DViews(view3DParams) {
   const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
 
   // Lumieres
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
   const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
   sun.position.set(10, 20, 10);
   scene.add(sun);
@@ -2135,14 +2138,14 @@ function Viewer3D({ params, onMetre }) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.0;
     mountRef.current.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
     camera.position.set(12, 8, 12);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
     const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
