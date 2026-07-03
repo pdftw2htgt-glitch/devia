@@ -518,6 +518,7 @@ setPiece("Ferme");
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
 
       // POINCON (poteau vertical central, du faitage a l'entrait)
+      setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.15, 0.15);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
 
@@ -527,9 +528,11 @@ setPiece("Ferme");
       const cfT = 0.55;                          // arrivee : 55% le long de l'arbaletrier
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
+      setPiece("Contrefiche");
       const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);   // vers pan Z+
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);  // vers pan Z-
+      setPiece("Ferme");
     }
 
 setPiece("Sabliere");
@@ -809,6 +812,7 @@ setPiece("Ferme");
       addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
       // Poincon (vertical central)
+      setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.15, 0.15);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
       // Contrefiches (jambes de force, point-a-point)
@@ -816,9 +820,11 @@ setPiece("Ferme");
       const cfT = 0.55;
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
+      setPiece("Contrefiche");
       const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);
+      setPiece("Ferme");
     }
 
 setPiece("Panne");
