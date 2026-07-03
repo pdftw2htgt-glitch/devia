@@ -5217,39 +5217,6 @@ return (
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {/* TOOLTIP RESUME au survol d'un devis */}
-            {hoverProject && (() => {
-              const hp = hoverProject.projet;
-              const dv = hp.devis_data || {};
-              const pj = dv.projet || {};
-              const tot = dv.totaux || {};
-              const LT = { fermette: "Fermette", traditionnelle: "Charpente trad.", carport: "Carport", monopente: "Monopente", hangar: "Hangar", appentis: "Appentis", "4_pans": "Toit 4 pans", charpente_trad: "Charpente trad." };
-              const typeLabel = LT[pj.type_projet] || LT[pj.type] || pj.type || "Projet";
-              // Position : a droite de la carte, mais si trop bas on remonte
-              const topPos = Math.min(hoverProject.top, window.innerHeight - 320);
-              return (
-                <div style={{ position: "fixed", top: topPos, left: Math.min(hoverProject.left + 8, window.innerWidth - 340),
-                  width: 320, zIndex: 200, background: "#12151f", border: "1px solid rgba(240,192,64,0.25)",
-                  borderRadius: 12, padding: 16, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", pointerEvents: "none" }}>
-                  <div style={{ color: "#f0c040", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>{typeLabel}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 12px", fontSize: 12 }}>
-                    <span style={{ color: "#7a7d92" }}>Dimensions</span>
-                    <span style={{ color: "#d0d2dc" }}>{(pj.longueur || "?") + " x " + (pj.largeur || "?") + " m" + (pj.hauteur ? " - h " + pj.hauteur + " m" : "")}</span>
-                    {pj.pente ? (<><span style={{ color: "#7a7d92" }}>Pente</span><span style={{ color: "#d0d2dc" }}>{pj.pente}°</span></>) : null}
-                    {pj.couverture ? (<><span style={{ color: "#7a7d92" }}>Couverture</span><span style={{ color: "#d0d2dc" }}>{String(pj.couverture).replace(/_/g, " ")}</span></>) : null}
-                    {pj.essence ? (<><span style={{ color: "#7a7d92" }}>Essence</span><span style={{ color: "#d0d2dc" }}>{pj.essence}</span></>) : null}
-                    <span style={{ color: "#7a7d92" }}>Commune</span>
-                    <span style={{ color: "#d0d2dc" }}>{hp.commune || pj.commune || "-"}</span>
-                    {(dv.postes && dv.postes.length) ? (<><span style={{ color: "#7a7d92" }}>Postes</span><span style={{ color: "#d0d2dc" }}>{dv.postes.length}</span></>) : null}
-                    {(dv.temps_fabrication_h || dv.temps_pose_h) ? (<><span style={{ color: "#7a7d92" }}>Temps estime</span><span style={{ color: "#d0d2dc" }}>{(dv.temps_fabrication_h || 0) + "h fab. + " + (dv.temps_pose_h || 0) + "h pose"}</span></>) : null}
-                  </div>
-                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                    <span style={{ color: "#7a7d92", fontSize: 11 }}>{hp.date || ""}</span>
-                    <span style={{ color: "#f0c040", fontSize: 16, fontWeight: 700 }}>{(tot.totalTTC || hp.ttc || 0).toLocaleString("fr-FR")} EUR TTC</span>
-                  </div>
-                </div>
-              );
-            })()}
             {projects.filter(p => {
               // Filtre par groupe
               if (selectedGroupe !== "all" && p.groupe_id !== selectedGroupe) return false;
@@ -5298,6 +5265,7 @@ return (
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                flexWrap: "wrap",
                 cursor: "pointer",
                 marginBottom: 0,
                 padding: 18,
@@ -5311,11 +5279,10 @@ return (
                   e.currentTarget.style.background = "rgba(240, 192, 64, 0.025)";
                   const deleteBtn = e.currentTarget.querySelector(".devia-delete-btn");
                   if (deleteBtn) deleteBtn.style.opacity = "1";
-                  // Tooltip resume : apparait apres 350ms de survol
-                  const rect = e.currentTarget.getBoundingClientRect();
+                  // Expansion resume : apparait apres 350ms de survol
                   if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
                   hoverTimerRef.current = setTimeout(() => {
-                    setHoverProject({ projet: p, top: rect.top, left: rect.right });
+                    setHoverProject(p.id);
                   }, 350);
                 }}
                 onMouseLeave={(e) => {
@@ -5591,6 +5558,42 @@ return (
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                     </svg>
                   </button>
+                </div>
+                {/* BLOC DETAILS depliable au survol */}
+                <div style={{
+                  width: "100%",
+                  display: "grid",
+                  gridTemplateRows: hoverProject === p.id ? "1fr" : "0fr",
+                  transition: "grid-template-rows 0.28s ease",
+                  overflow: "hidden"
+                }}>
+                  <div style={{ minHeight: 0, overflow: "hidden" }}>
+                    {(() => {
+                      const dv = p.devis_data || {};
+                      const pj = dv.projet || {};
+                      const tot = dv.totaux || {};
+                      const LT = { fermette: "Fermette", traditionnelle: "Charpente traditionnelle", carport: "Carport", monopente: "Monopente", hangar: "Hangar", appentis: "Appentis", "4_pans": "Toit 4 pans", charpente_trad: "Charpente traditionnelle" };
+                      const typeLabel = LT[pj.type_projet] || LT[pj.type] || pj.type || "-";
+                      const item = (lbl, val) => (
+                        <div style={{ minWidth: 110 }}>
+                          <div style={{ color: "#545870", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 2 }}>{lbl}</div>
+                          <div style={{ color: "#d0d2dc", fontSize: 12.5, fontWeight: 500 }}>{val}</div>
+                        </div>
+                      );
+                      return (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4, paddingTop: 12, display: "flex", flexWrap: "wrap", gap: "10px 26px" }}>
+                          {item("Type", typeLabel)}
+                          {item("Dimensions", (pj.longueur || "?") + " x " + (pj.largeur || "?") + " m" + (pj.hauteur ? " - h " + pj.hauteur + " m" : ""))}
+                          {pj.pente ? item("Pente", pj.pente + "\u00b0") : null}
+                          {pj.couverture ? item("Couverture", String(pj.couverture).replace(/_/g, " ")) : null}
+                          {pj.essence ? item("Essence", pj.essence) : null}
+                          {(dv.postes && dv.postes.length) ? item("Postes", dv.postes.length) : null}
+                          {(dv.temps_fabrication_h || dv.temps_pose_h) ? item("Temps estime", (dv.temps_fabrication_h || 0) + "h fab. + " + (dv.temps_pose_h || 0) + "h pose") : null}
+                          {tot.totalHT ? item("Total HT", tot.totalHT.toLocaleString("fr-FR") + " EUR") : null}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             ))}
