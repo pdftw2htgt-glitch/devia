@@ -3682,9 +3682,14 @@ messages: [{ role: "user", content: userContent }],
     }
     throw new Error("Erreur du service IA : " + (data.error.message || et || "inconnue") + ". Reessaie dans un moment.");
   }
+  console.log("[DEVIA S5] stop_reason =", data.stop_reason, "| usage =", JSON.stringify(data.usage || {}));
   const textBlock = (data.content && Array.isArray(data.content))
     ? data.content.find(b => b && b.type === "text" && b.text)
     : null;
+  if (textBlock && textBlock.text) {
+    console.log("[DEVIA S5] debut texte:", textBlock.text.substring(0, 150));
+    console.log("[DEVIA S5] FIN texte:", textBlock.text.substring(textBlock.text.length - 200));
+  }
   const text = (textBlock && textBlock.text)
     ? textBlock.text
     : "";
