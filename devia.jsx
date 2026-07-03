@@ -2618,6 +2618,8 @@ const [commune, setCommune] = useState("");
   const [deleteConfirmGroup, setDeleteConfirmGroup] = useState(null); // objet groupe ou null
   const [deletingGroup, setDeletingGroup] = useState(false);
   const [openProjectGroupDropdown, setOpenProjectGroupDropdown] = useState(null); // id du projet dont le dropdown est ouvert
+  const [hoverProject, setHoverProject] = useState(null); // { projet, y } pour le tooltip resume au survol
+  const hoverTimerRef = useRef(null); // delai d'apparition du tooltip
   const [pendingAssignProjectId, setPendingAssignProjectId] = useState(null); // si on créé un groupe depuis une card, on assigne apres
   const [openProjectMenuId, setOpenProjectMenuId] = useState(null);
   const [renameProjectModal, setRenameProjectModal] = useState(null);
@@ -5215,6 +5217,39 @@ return (
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
+            {/* TOOLTIP RESUME au survol d'un devis */}
+            {hoverProject && (() => {
+              const hp = hoverProject.projet;
+              const dv = hp.devis_data || {};
+              const pj = dv.projet || {};
+              const tot = dv.totaux || {};
+              const LT = { fermette: "Fermette", traditionnelle: "Charpente trad.", carport: "Carport", monopente: "Monopente", hangar: "Hangar", appentis: "Appentis", "4_pans": "Toit 4 pans", charpente_trad: "Charpente trad." };
+              const typeLabel = LT[pj.type_projet] || LT[pj.type] || pj.type || "Projet";
+              // Position : a droite de la carte, mais si trop bas on remonte
+              const topPos = Math.min(hoverProject.top, window.innerHeight - 320);
+              return (
+                <div style={{ position: "fixed", top: topPos, left: Math.min(hoverProject.left + 8, window.innerWidth - 340),
+                  width: 320, zIndex: 200, background: "#12151f", border: "1px solid rgba(240,192,64,0.25)",
+                  borderRadius: 12, padding: 16, boxShadow: "0 12px 40px rgba(0,0,0,0.5)", pointerEvents: "none" }}>
+                  <div style={{ color: "#f0c040", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>{typeLabel}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 12px", fontSize: 12 }}>
+                    <span style={{ color: "#7a7d92" }}>Dimensions</span>
+                    <span style={{ color: "#d0d2dc" }}>{(pj.longueur || "?") + " x " + (pj.largeur || "?") + " m" + (pj.hauteur ? " - h " + pj.hauteur + " m" : "")}</span>
+                    {pj.pente ? (<><span style={{ color: "#7a7d92" }}>Pente</span><span style={{ color: "#d0d2dc" }}>{pj.pente}°</span></>) : null}
+                    {pj.couverture ? (<><span style={{ color: "#7a7d92" }}>Couverture</span><span style={{ color: "#d0d2dc" }}>{String(pj.couverture).replace(/_/g, " ")}</span></>) : null}
+                    {pj.essence ? (<><span style={{ color: "#7a7d92" }}>Essence</span><span style={{ color: "#d0d2dc" }}>{pj.essence}</span></>) : null}
+                    <span style={{ color: "#7a7d92" }}>Commune</span>
+                    <span style={{ color: "#d0d2dc" }}>{hp.commune || pj.commune || "-"}</span>
+                    {(dv.postes && dv.postes.length) ? (<><span style={{ color: "#7a7d92" }}>Postes</span><span style={{ color: "#d0d2dc" }}>{dv.postes.length}</span></>) : null}
+                    {(dv.temps_fabrication_h || dv.temps_pose_h) ? (<><span style={{ color: "#7a7d92" }}>Temps estime</span><span style={{ color: "#d0d2dc" }}>{(dv.temps_fabrication_h || 0) + "h fab. + " + (dv.temps_pose_h || 0) + "h pose"}</span></>) : null}
+                  </div>
+                  <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ color: "#7a7d92", fontSize: 11 }}>{hp.date || ""}</span>
+                    <span style={{ color: "#f0c040", fontSize: 16, fontWeight: 700 }}>{(tot.totalTTC || hp.ttc || 0).toLocaleString("fr-FR")} EUR TTC</span>
+                  </div>
+                </div>
+              );
+            })()}
             {projects.filter(p => {
               // Filtre par groupe
               if (selectedGroupe !== "all" && p.groupe_id !== selectedGroupe) return false;
@@ -5276,8 +5311,16 @@ return (
                   e.currentTarget.style.background = "rgba(240, 192, 64, 0.025)";
                   const deleteBtn = e.currentTarget.querySelector(".devia-delete-btn");
                   if (deleteBtn) deleteBtn.style.opacity = "1";
+                  // Tooltip resume : apparait apres 350ms de survol
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                  hoverTimerRef.current = setTimeout(() => {
+                    setHoverProject({ projet: p, top: rect.top, left: rect.right });
+                  }, 350);
                 }}
                 onMouseLeave={(e) => {
+                  if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                  setHoverProject(null);
                   e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)";
                   e.currentTarget.style.background = "rgba(22, 25, 35, 0.55)";
                   const deleteBtn = e.currentTarget.querySelector(".devia-delete-btn");
