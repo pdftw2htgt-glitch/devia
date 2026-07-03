@@ -3676,8 +3676,11 @@ messages: [{ role: "user", content: userContent }],
     }
     throw new Error("Erreur du service IA : " + (data.error.message || et || "inconnue") + ". Reessaie dans un moment.");
   }
-  const text = (data.content && data.content[0] && data.content[0].text)
-    ? data.content[0].text
+  const textBlock = (data.content && Array.isArray(data.content))
+    ? data.content.find(b => b && b.type === "text" && b.text)
+    : null;
+  const text = (textBlock && textBlock.text)
+    ? textBlock.text
     : "";
 
   if (!text) {
