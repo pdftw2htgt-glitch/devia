@@ -3650,7 +3650,7 @@ const response = await fetch("/api/chat", {
 method: "POST",
 headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
-model: "claude-sonnet-4-6",
+model: "claude-sonnet-5",
 max_tokens: 4000,
 system: systemPrompt,
 messages: [{ role: "user", content: userContent }],
@@ -3751,7 +3751,7 @@ messages: [{ role: "user", content: userContent }],
                     user_id: user.id,
                     tokens_in: tokensIn,
                     tokens_out: tokensOut,
-                    model: "claude-sonnet-4-6",
+                    model: "claude-sonnet-5",
                     project_id: inserted.id,
                   })
                   .select()
