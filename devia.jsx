@@ -1233,10 +1233,10 @@ purple: "#a78bfa", orange: "#f97316",
 // CAPTURE 3D - Genere 3 vues PNG en base64 pour le PDF
 // ================================================================
 function capture3DViews(view3DParams) {
-  const W = 800;
-  const H = 600;
+  const W = 1600;
+  const H = 1200;
 
-  // Renderer offscreen avec fond transparent
+  // Renderer offscreen avec fond transparent + reglages PBR (comme la vue interactive)
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
@@ -1244,14 +1244,28 @@ function capture3DViews(view3DParams) {
   });
   renderer.setSize(W, H);
   renderer.setClearColor(0xffffff, 0); // transparent
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 200);
 
   // Lumieres
-  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
   const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
   sun.position.set(10, 20, 10);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 2048;
+  sun.shadow.mapSize.height = 2048;
+  sun.shadow.camera.left = -18;
+  sun.shadow.camera.right = 18;
+  sun.shadow.camera.top = 18;
+  sun.shadow.camera.bottom = -18;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 60;
+  sun.shadow.bias = -0.0005;
   scene.add(sun);
   const fill = new THREE.DirectionalLight(0xc4d4e8, 0.4);
   fill.position.set(-10, 10, -5);
@@ -1284,19 +1298,24 @@ function capture3DViews(view3DParams) {
   // ============ CAPTURE 3 VUES ============
   const views = {};
 
-  // 1. FACE (regard depuis Z positif vers Z negatif)
-  camera.position.set(0, yCentre, dist);
-  camera.lookAt(0, yCentre, 0);
-  renderer.render(scene, camera);
+  // Camera orthographique pour les elevations (face/cote) : pas de fuyantes, comme un plan technique
+  const aspect = W / H;
+  const orthoH = Math.max(Ht * 2.4, lg * 0.9, 6) * 0.62; // demi-hauteur du cadrage
+  const orthoCam = new THREE.OrthographicCamera(-orthoH * aspect, orthoH * aspect, orthoH, -orthoH, 0.1, 300);
+
+  // 1. FACE (elevation pignon, orthographique)
+  orthoCam.position.set(0, yCentre, dist * 2);
+  orthoCam.lookAt(0, yCentre, 0);
+  renderer.render(scene, orthoCam);
   views.face = renderer.domElement.toDataURL("image/png");
 
-  // 2. COTE (regard depuis X positif vers X negatif)
-  camera.position.set(dist, yCentre, 0);
-  camera.lookAt(0, yCentre, 0);
-  renderer.render(scene, camera);
+  // 2. COTE (elevation laterale, orthographique)
+  orthoCam.position.set(dist * 2, yCentre, 0);
+  orthoCam.lookAt(0, yCentre, 0);
+  renderer.render(scene, orthoCam);
   views.cote = renderer.domElement.toDataURL("image/png");
 
-  // 3. PERSPECTIVE (3/4 classique)
+  // 3. PERSPECTIVE (3/4 classique, en perspective)
   camera.position.set(dist * 0.7, yCentre + dist * 0.4, dist * 0.7);
   camera.lookAt(0, yCentre, 0);
   renderer.render(scene, camera);
