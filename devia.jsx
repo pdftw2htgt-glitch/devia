@@ -1332,17 +1332,17 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
 
   // ============ EN-TETE BANDEAU NOIR ============
   doc.setFillColor(...C_NOIR);
-  doc.rect(0, 0, pageW, 45, "F");
+  doc.rect(0, 0, pageW, 32, "F");
 
-  // Logo DEVIA (texte stylise)
+  // Logo DEVIA (texte stylise, compact)
   doc.setTextColor(...C_OR);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("DEVIA", margin, 18);
-  doc.setFontSize(8);
+  doc.setFontSize(16);
+  doc.text("DEVIA", margin, 14);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(180, 180, 190);
-  doc.text("Devis charpente IA", margin, 23);
+  doc.text("Devis charpente IA", margin, 19);
 
   // Bloc droit : numero devis + date
   const numDevis = "DEV-" + new Date().getFullYear() + "-" + String(Date.now()).slice(-4);
@@ -1352,19 +1352,19 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("DEVIS " + numDevis, pageW - margin, 14, { align: "right" });
+  doc.text("DEVIS " + numDevis, pageW - margin, 12, { align: "right" });
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 200, 210);
-  doc.text("Date : " + dateDevis, pageW - margin, 22, { align: "right" });
-  doc.text("Valide jusqu'au : " + dateValid, pageW - margin, 28, { align: "right" });
+  doc.text("Date : " + dateDevis, pageW - margin, 19, { align: "right" });
+  doc.text("Valide jusqu'au : " + dateValid, pageW - margin, 25, { align: "right" });
 
   // Ligne or sous bandeau
   doc.setDrawColor(...C_OR);
   doc.setLineWidth(0.8);
-  doc.line(0, 45, pageW, 45);
+  doc.line(0, 32, pageW, 32);
 
-  y = 55;
+  y = 42;
 
   // ============ INFOS ENTREPRISE (gauche) + CLIENT (droite) ============
   doc.setTextColor(...C_GRIS);
@@ -1379,56 +1379,60 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   doc.line(pageW / 2 + 5, y + 1.5, pageW / 2 + 5 + 30, y + 1.5);
 
   y += 8;
+  const yStart = y;
+
+  // --- Colonne gauche : ENTREPRISE (compteur independant) ---
+  let yG = yStart;
   doc.setTextColor(...C_TEXTE);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text(params.entreprise || "Non renseigne", margin, y);
+  doc.text(params.entreprise || "Non renseigne", margin, yG);
+  yG += 6;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...C_GRIS);
+  if (params.adresse) {
+    const adrLines = doc.splitTextToSize(params.adresse, 80);
+    doc.text(adrLines, margin, yG);
+    yG += adrLines.length * 4;
+  }
+  if (params.siret) {
+    doc.text("SIRET : " + params.siret, margin, yG);
+    yG += 4;
+  }
 
+  // --- Colonne droite : CLIENT / PROJET (compteur independant) ---
+  let yD = yStart;
+  doc.setTextColor(...C_TEXTE);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   const projetDesc = result.projet && result.projet.description ? result.projet.description : (nomProjet || "Devis charpente");
   const projetLines = doc.splitTextToSize(projetDesc, 80);
-  doc.text(projetLines, pageW / 2 + 5, y);
-
-  y += 6;
+  doc.text(projetLines, pageW / 2 + 5, yD);
+  yD += projetLines.length * 4 + 2;
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...C_GRIS);
-
-  if (params.adresse) {
-    const adrLines = doc.splitTextToSize(params.adresse, 80);
-    doc.text(adrLines, margin, y);
-    y += adrLines.length * 4;
-  }
-  if (params.siret) {
-    doc.text("SIRET : " + params.siret, margin, y);
-    y += 4;
-  }
-
-  // Bloc client : infos projet
-  let yClient = y - (params.siret ? 4 : 0) - (params.adresse ? 4 : 0);
-  doc.setFontSize(8);
-  doc.setTextColor(...C_GRIS);
   if (result.projet) {
     if (result.projet.commune) {
-      doc.text("Chantier : " + result.projet.commune, pageW / 2 + 5, yClient);
-      yClient += 4;
+      doc.text("Chantier : " + result.projet.commune, pageW / 2 + 5, yD);
+      yD += 4;
     }
     if (result.projet.longueur && result.projet.largeur) {
-      doc.text("Dimensions : " + result.projet.longueur + " x " + result.projet.largeur + " m", pageW / 2 + 5, yClient);
-      yClient += 4;
+      doc.text("Dimensions : " + result.projet.longueur + " x " + result.projet.largeur + " m", pageW / 2 + 5, yD);
+      yD += 4;
     }
     if (result.projet.surface) {
-      doc.text("Surface : " + result.projet.surface + " m²", pageW / 2 + 5, yClient);
-      yClient += 4;
+      doc.text("Surface : " + result.projet.surface + " m2", pageW / 2 + 5, yD);
+      yD += 4;
     }
     if (result.projet.pente) {
-      doc.text("Pente : " + result.projet.pente + "°", pageW / 2 + 5, yClient);
-      yClient += 4;
+      doc.text("Pente : " + result.projet.pente + " deg", pageW / 2 + 5, yD);
+      yD += 4;
     }
   }
 
-  y = Math.max(y, yClient) + 8;
+  y = Math.max(yG, yD) + 8;
 
   // ============ VUES 3D ============
   if (view3DParams) {
@@ -1487,10 +1491,10 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   const postes = result.postes || [];
   const tableBody = postes.map(p => [
     p.designation || "",
-    p.quantite ? String(p.quantite) : "—",
-    p.unite || "—",
-    p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "—",
-    p.totalHT ? Number(p.totalHT).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " EUR" : "—"
+    p.quantite ? String(p.quantite) : "-",
+    p.unite || "-",
+    p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "-",
+    p.totalHT ? Number(p.totalHT).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\u202f|\u00a0/g, " ") + " EUR" : "-"
   ]);
 
   autoTable(doc, {
@@ -1517,66 +1521,16 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       fillColor: [248, 248, 250]
     },
     columnStyles: {
-      0: { cellWidth: 80 },
-      1: { cellWidth: 18, halign: "right" },
-      2: { cellWidth: 18, halign: "center" },
-      3: { cellWidth: 30, halign: "right" },
-      4: { cellWidth: 34, halign: "right", fontStyle: "bold" }
+      0: { cellWidth: 72 },
+      1: { cellWidth: 16, halign: "right" },
+      2: { cellWidth: 16, halign: "center" },
+      3: { cellWidth: 36, halign: "right" },
+      4: { cellWidth: 40, halign: "right", fontStyle: "bold" }
     },
     margin: { left: margin, right: margin }
   });
 
   y = doc.lastAutoTable.finalY + 6;
-
-  // ============ ESTIMATION TEMPS (si presente) ============
-  if (result.temps_fabrication_h !== undefined || result.temps_pose_h !== undefined) {
-    const fab = Number(result.temps_fabrication_h) || 0;
-    const pose = Number(result.temps_pose_h) || 0;
-    const totalH = fab + pose;
-    const jours = Math.ceil(totalH / 8);
-
-    // Verifier si on a la place sur la page
-    if (y > pageH - 60) { doc.addPage(); y = 20; }
-
-    doc.setFillColor(248, 248, 250);
-    doc.setDrawColor(...C_GRIS_LIGHT);
-    doc.setLineWidth(0.2);
-    doc.roundedRect(margin, y, pageW - 2 * margin, 22, 2, 2, "FD");
-
-    doc.setTextColor(...C_TEXTE);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Estimation temps", margin + 4, y + 6);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...C_GRIS);
-    doc.text("Fabrication atelier : ", margin + 4, y + 13);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...C_TEXTE);
-    doc.text(fab + " h", margin + 38, y + 13);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...C_GRIS);
-    doc.text("Pose chantier : ", margin + 60, y + 13);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...C_TEXTE);
-    doc.text(pose + " h", margin + 88, y + 13);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...C_GRIS);
-    doc.text("Total : ", margin + 110, y + 13);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...C_OR);
-    doc.text(totalH + " h (" + jours + " jour" + (jours > 1 ? "s" : "") + ")", margin + 122, y + 13);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.setTextColor(...C_GRIS);
-    doc.text("Estimation basee sur ratios standards charpente. Sur 8h/jour.", margin + 4, y + 19);
-
-    y += 28;
-  }
 
   // ============ TOTAUX (bloc droit aligne) ============
   if (y > pageH - 50) { doc.addPage(); y = 20; }
