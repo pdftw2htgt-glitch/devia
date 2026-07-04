@@ -77,7 +77,9 @@ function ec5VerifierFlexion(o) {
   const Winst = (5*qInst*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
   const tauxWinst = (Winst/(L/EC5_FLECHE_ADM[o.typeBatiment].winst))*100;
   const kdef = EC5_KDEF[o.classeService];
-  const qNetFin = o.G*(1+1*kdef) + o.Q*(1+0.3*kdef);
+  // psi2 neige selon altitude (cours : <=1000m -> 0, >1000m -> 0.2)
+  const psi2S = (o.altitude || 0) > 1000 ? 0.2 : 0;
+  const qNetFin = o.G*(1+1*kdef) + o.Q*(1+0.3*kdef) + (o.S||0)*(1+psi2S*kdef);
   const WnetFin = (5*qNetFin*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
   const tauxWnetFin = (WnetFin/(L/EC5_FLECHE_ADM[o.typeBatiment].wnetfin))*100;
   return { tauxELU, tauxWinst, tauxWnetFin, tauxMax: Math.max(tauxELU,tauxWinst,tauxWnetFin) };
@@ -156,7 +158,10 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     const charge = {
       portee: porteeCalc, entraxe,
       G: ch.G, Q: ch.Q, S: ch.S,
-      classeService: 2, typeBatiment: "courant", dureeVariable: "court",
+      classeService: 2,
+      typeBatiment: ((params && params.type_projet) === "hangar") ? "agricole" : "courant",
+      dureeVariable: "court",
+      altitude: (params && Number(params.altitude)) || 0,
     };
     const dim = dimensionnerPiece(g.nom, charge);
     if (dim) result[g.nom] = dim;
@@ -2055,7 +2060,10 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
                              : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                              : 1.0,
                       G: ch.G, Q: ch.Q, S: ch.S,
-                      classeService: 2, typeBatiment: "courant", dureeVariable: "court",
+                      classeService: 2,
+      typeBatiment: ((params && params.type_projet) === "hangar") ? "agricole" : "courant",
+      dureeVariable: "court",
+      altitude: (params && Number(params.altitude)) || 0,
                     };
                     const dim = dimensionnerPiece(g.nom, charge);
                     if (!dim) return <span style={{ color: "#545870" }}>-</span>;
