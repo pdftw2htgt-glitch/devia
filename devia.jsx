@@ -1330,6 +1330,9 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   const C_GRIS = [120, 120, 130];     // gris secondaire
   const C_GRIS_LIGHT = [220, 220, 225]; // gris clair (separateurs)
 
+  // Formatage montants : remplace les espaces insecables (U+202F/U+00A0) que jsPDF rend mal
+  const fmtEUR = (n) => (Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[\u202f\u00a0]/g, " ") + " EUR";
+
   // ============ EN-TETE BANDEAU NOIR ============
   doc.setFillColor(...C_NOIR);
   doc.rect(0, 0, pageW, 32, "F");
@@ -1337,12 +1340,12 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   // Logo DEVIA (texte stylise, compact)
   doc.setTextColor(...C_OR);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("DEVIA", margin, 14);
-  doc.setFontSize(7);
+  doc.setFontSize(13);
+  doc.text("DEVIA", margin, 13);
+  doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(180, 180, 190);
-  doc.text("Devis charpente IA", margin, 19);
+  doc.text("Devis charpente IA", margin, 18);
 
   // Bloc droit : numero devis + date
   const numDevis = "DEV-" + new Date().getFullYear() + "-" + String(Date.now()).slice(-4);
@@ -1494,7 +1497,7 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
     p.quantite ? String(p.quantite) : "-",
     p.unite || "-",
     p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "-",
-    p.totalHT ? Number(p.totalHT).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\u202f|\u00a0/g, " ") + " EUR" : "-"
+    p.totalHT ? fmtEUR(p.totalHT) : "-"
   ]);
 
   autoTable(doc, {
@@ -1548,14 +1551,14 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   doc.setFont("helvetica", "normal");
   doc.text("Total HT", xTotaux, y);
   doc.setFont("helvetica", "bold");
-  const totalHTstr = (totaux.totalHT || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " EUR";
+  const totalHTstr = fmtEUR(totaux.totalHT);
   doc.text(totalHTstr, pageW - margin, y, { align: "right" });
 
   y += 6;
   doc.setFont("helvetica", "normal");
   doc.text("TVA " + (params.tva || 20) + "%", xTotaux, y);
   doc.setFont("helvetica", "bold");
-  const tvaStr = (totaux.tva || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " EUR";
+  const tvaStr = fmtEUR(totaux.tva);
   doc.text(tvaStr, pageW - margin, y, { align: "right" });
 
   y += 4;
@@ -1570,7 +1573,7 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL TTC", xTotaux + 2, y + 1);
-  const totalTTCstr = (totaux.totalTTC || 0).toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + " EUR";
+  const totalTTCstr = fmtEUR(totaux.totalTTC);
   doc.text(totalTTCstr, pageW - margin - 2, y + 1, { align: "right" });
 
   y += 12;
