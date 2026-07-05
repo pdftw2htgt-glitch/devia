@@ -34,7 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
-  Solive:60, Porteuse:80, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, Porteuse:80, "Poutre porteuse":100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -167,6 +167,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
                   : (g.nom === "Solive") ? 0.5
                   : (g.nom === "Porteuse") ? 2.0
+                  : (g.nom === "Poutre porteuse") ? 2.5
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                   : 1.0;
     const charge = {
@@ -976,6 +977,55 @@ setPiece("Panne");
     addBox(epRive, hRive, lg, -L/2 - epRive/2, yRive, 0, woodMat);
   };
 
+  const drawEtage = () => {
+    // Etage sur solivage : murs peripheriques + solives + poutre porteuse auto + panneau plancher
+    const hPlancher = Math.max(Ht, 2.2);          // niveau du dessus des solives
+    const epPanneau = 0.022;                       // panneau OSB/plancher
+    const [soB, soH] = sec("Solive", 0.08, 0.20);
+    const ySolive = hPlancher - soH / 2;
+
+    // ===== MURS PERIPHERIQUES (jusqu'au niveau du plancher) =====
+    setPiece("Divers");
+    addBox(L, hPlancher, 0.15, 0, hPlancher/2, lg/2, wallMat);
+    addBox(L, hPlancher, 0.15, 0, hPlancher/2, -lg/2, wallMat);
+    addBox(0.15, hPlancher, lg, -L/2, hPlancher/2, 0, wallMat);
+    addBox(0.15, hPlancher, lg, L/2, hPlancher/2, 0, wallMat);
+
+    // ===== POUTRE PORTEUSE CENTRALE (si portee > 4m) =====
+    // Les solives portent dans le sens lg. Si lg > 4m, une poutre au milieu divise la portee.
+    const needPoutre = lg > 4;
+    if (needPoutre) {
+      setPiece("Poutre porteuse");
+      const [ppB, ppH] = sec("Poutre porteuse", 0.12, 0.32);
+      const yPoutre = hPlancher - soH - ppH / 2; // sous les solives
+      // poutre dans le sens L, au milieu de lg
+      addBox(L, ppH, ppB, 0, yPoutre, 0, woodMat);
+      // Poteau(x) sous la poutre si elle est longue
+      if (L > 4) {
+        setPiece("Poteau");
+        const [potB] = sec("Poteau", 0.14, 0.14);
+        const nbPotP = Math.max(1, Math.ceil(L / 4) - 1);
+        for (let i = 1; i <= nbPotP; i++) {
+          const x = -L/2 + (i / (nbPotP + 1)) * L;
+          const hPot = yPoutre - ppH / 2;
+          addBox(potB, hPot, potB, x, hPot / 2, 0);
+        }
+      }
+    }
+
+    // ===== SOLIVES (sens lg, entraxe 0.5m) =====
+    setPiece("Solive");
+    const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
+    for (let i = 0; i < nbSolives; i++) {
+      const x = -L/2 + (i / (nbSolives - 1)) * L;
+      addBox(soB, soH, lg, x, ySolive, 0, woodMat);
+    }
+
+    // ===== PANNEAU DE PLANCHER (OSB, non structurel dans le calcul) =====
+    setPiece("Panneau plancher");
+    addBox(L, epPanneau, lg, 0, hPlancher + epPanneau / 2, 0, woodMat);
+  };
+
   const drawAppentis = () => {
     // ============================================================
     // APPENTIS PARAMETRIQUE - charpente complete adaptative
@@ -1299,6 +1349,8 @@ setPiece("Empannon de croupe");
     draw4Pans();
   } else if (typeProjet === "terrasse") {
     drawTerrasse();
+  } else if (typeProjet === "etage") {
+    drawEtage();
   } else {
     drawCharpenteTrad();
   }
@@ -2353,6 +2405,7 @@ options: [
 { val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
 { val: "4_pans", label: "Toit 4 pans (croupe)", icon: "home" },
 { val: "terrasse", label: "Terrasse bois", icon: "ruler" },
+{ val: "etage", label: "Etage sur solivage (plancher)", icon: "home" },
 ],
 },
 couverture: {
@@ -3676,6 +3729,7 @@ const zoneInfo = getZone(commune, altitude);
 "'appentis' (toit 1 pan ACCOLE a un mur existant, terrasse couverte, abri a bois contre une maison), " +
 "'4_pans' (toit en croupe a 4 pentes, maison pavillon, toit avec aretiers), " +
 "'terrasse' (terrasse bois exterieure, plancher exterieur sur plots ou poteaux, deck, SANS toit), " +
+"'etage' (plancher d'etage interieur, solivage, mezzanine, plancher bois porteur dans un batiment), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
@@ -4083,7 +4137,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
