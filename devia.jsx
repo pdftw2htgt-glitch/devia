@@ -34,7 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
-  Solive:60, Porteuse:80, "Poutre porteuse":100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -167,7 +167,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
                   : (g.nom === "Solive") ? 0.5
                   : (g.nom === "Porteuse") ? 2.0
-                  : (g.nom === "Poutre porteuse") ? 2.5
+                  : (g.nom === "Poutre porteuse" || g.nom === "Muraillere") ? 2.5
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                   : 1.0;
     const charge = {
@@ -996,7 +996,7 @@ setPiece("Panne");
     const needPoutre = lg > 4;
     if (needPoutre) {
       setPiece("Poutre porteuse");
-      const [ppB, ppH] = sec("Poutre porteuse", 0.12, 0.32);
+      const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
       const yPoutre = hPlancher - soH - ppH / 2; // sous les solives
       // poutre dans le sens L, au milieu de lg
       addBox(L, ppH, ppB, 0, yPoutre, 0, woodMat);
