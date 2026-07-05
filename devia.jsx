@@ -19,12 +19,18 @@ const EC5_FLECHE_ADM = { courant:{winst:300,wnetfin:200}, agricole:{winst:200,wn
 
 // Sections standard FR (b x h mm)
 const EC5_SECTIONS = [
-  [38,100],[38,120],[38,150],[38,175],[38,200],[38,225],
-  [50,150],[50,175],[50,200],[50,225],[50,250],
-  [63,150],[63,175],[63,200],[63,225],[63,250],
-  [75,175],[75,200],[75,225],[75,250],[75,300],
-  [100,200],[100,225],[100,250],[100,300],
-  [150,300],[150,350],[150,400],
+  // Sections STANDARD negoce francais uniquement (charpente traditionnelle)
+  // Chevrons
+  [63,75],[63,100],[75,100],
+  // Madriers / pannes courantes
+  [63,150],[63,175],[75,150],[75,175],[75,200],[75,225],
+  [100,200],[100,225],[100,250],
+  // Fortes pannes / arbaletriers
+  [100,300],[125,250],[125,300],
+  // Grosses fermes
+  [150,300],[150,350],[200,300],
+  // Carrees (poteaux, poincons)
+  [100,100],[125,125],[150,150],[175,175],[200,200],
 ];
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
