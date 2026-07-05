@@ -34,6 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
+  Solive:60, Porteuse:80, "Lame de terrasse":0, Plot:0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -164,6 +165,8 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                   : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
+                  : (g.nom === "Solive") ? 0.5
+                  : (g.nom === "Porteuse") ? 2.0
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                   : 1.0;
     const charge = {
@@ -891,6 +894,76 @@ setPiece("Panne");
   // ============================================================
   // APPENTIS (toit 1 pan accole a un mur arriere haut)
   // ============================================================
+  const drawTerrasse = () => {
+    // Terrasse bois : basse sur plots (Ht <= 0.4m) ou surelevee sur poteaux
+    const hStruct = Math.max(Ht, 0.25); // hauteur du dessus de solives
+    const surPlots = hStruct <= 0.4;
+    const epLame = 0.028;               // lame 28x145
+    const lgLame = 0.145;
+    const jeuLame = 0.005;              // jeu entre lames
+    const [soB, soH] = sec("Solive", 0.08, 0.20);
+    const [poB, poH] = sec("Porteuse", 0.10, 0.24);
+    const yDessusSolive = hStruct - epLame;      // sous-face des lames
+    const ySolive = yDessusSolive - soH / 2;     // centre solives
+    const yPorteuse = yDessusSolive - soH - poH / 2; // centre porteuses (sous solives)
+
+    // ===== APPUIS =====
+    if (surPlots) {
+      // Plots beton (non structurels bois) : petits cubes gris sous les porteuses
+      setPiece("Plot");
+      const plotMat = new THREE.MeshStandardMaterial({ color: 0x9a9aa0, roughness: 0.9, metalness: 0.0 });
+      const nbPlotsX = Math.max(2, Math.ceil(L / 1.2) + 1);
+      const nbFilesPlots = Math.max(2, Math.ceil(lg / 2.0) + 1);
+      for (let j = 0; j < nbFilesPlots; j++) {
+        const z = -lg/2 + (j / (nbFilesPlots - 1)) * lg;
+        for (let i = 0; i < nbPlotsX; i++) {
+          const x = -L/2 + (i / (nbPlotsX - 1)) * L;
+          const hPlot = Math.max(0.05, yPorteuse - poH / 2);
+          addBox(0.2, hPlot, 0.2, x, hPlot / 2, z, plotMat);
+        }
+      }
+    } else {
+      // Poteaux bois
+      setPiece("Poteau");
+      const [potB] = sec("Poteau", 0.12, 0.12);
+      const nbPotX = Math.max(2, Math.ceil(L / 2.0) + 1);
+      const nbFiles = Math.max(2, Math.ceil(lg / 2.0) + 1);
+      const hPot = yPorteuse - poH / 2;
+      for (let j = 0; j < nbFiles; j++) {
+        const z = -lg/2 + (j / (nbFiles - 1)) * lg;
+        for (let i = 0; i < nbPotX; i++) {
+          const x = -L/2 + (i / (nbPotX - 1)) * L;
+          addBox(potB, hPot, potB, x, hPot / 2, z);
+        }
+      }
+    }
+
+    // ===== PORTEUSES (dans le sens L, sur les files d'appuis) =====
+    setPiece("Porteuse");
+    const nbFilesP = Math.max(2, Math.ceil(lg / 2.0) + 1);
+    for (let j = 0; j < nbFilesP; j++) {
+      const z = -lg/2 + (j / (nbFilesP - 1)) * lg;
+      addBox(poB, poH, L, 0, yPorteuse, z, woodMat, [0, Math.PI / 2, 0]);
+    }
+
+    // ===== SOLIVES (dans le sens lg, entraxe 0.5m) =====
+    setPiece("Solive");
+    const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
+    for (let i = 0; i < nbSolives; i++) {
+      const x = -L/2 + (i / (nbSolives - 1)) * L;
+      addBox(soB, soH, lg, x, ySolive, 0, woodMat);
+    }
+
+    // ===== LAMES DE TERRASSE (dans le sens L, perpendiculaires aux solives) =====
+    setPiece("Lame de terrasse");
+    const pas = lgLame + jeuLame;
+    const nbLames = Math.floor(lg / pas);
+    for (let k = 0; k < nbLames; k++) {
+      const z = -lg/2 + lgLame / 2 + k * pas;
+      addBox(lgLame, epLame, L, 0, hStruct - epLame / 2, z, woodMat, [0, Math.PI / 2, 0]);
+    }
+  };
+
   const drawAppentis = () => {
     // ============================================================
     // APPENTIS PARAMETRIQUE - charpente complete adaptative
@@ -1212,6 +1285,8 @@ setPiece("Empannon de croupe");
     drawAppentis();
   } else if (typeProjet === "4_pans") {
     draw4Pans();
+  } else if (typeProjet === "terrasse") {
+    drawTerrasse();
   } else {
     drawCharpenteTrad();
   }
@@ -2265,6 +2340,7 @@ options: [
 { val: "hangar", label: "Hangar / Batiment agricole", icon: "factory" },
 { val: "appentis", label: "Appentis (accole a un mur)", icon: "home" },
 { val: "4_pans", label: "Toit 4 pans (croupe)", icon: "home" },
+{ val: "terrasse", label: "Terrasse bois", icon: "ruler" },
 ],
 },
 couverture: {
@@ -3587,6 +3663,7 @@ const zoneInfo = getZone(commune, altitude);
 "'hangar' (hangar agricole, batiment industriel, grand volume couvert, poteaux + 2 pans sans murs), " +
 "'appentis' (toit 1 pan ACCOLE a un mur existant, terrasse couverte, abri a bois contre une maison), " +
 "'4_pans' (toit en croupe a 4 pentes, maison pavillon, toit avec aretiers), " +
+"'terrasse' (terrasse bois exterieure, plancher exterieur sur plots ou poteaux, deck, SANS toit), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
@@ -3994,7 +4071,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
