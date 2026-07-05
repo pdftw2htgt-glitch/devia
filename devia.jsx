@@ -34,7 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
-  Solive:60, Porteuse:80, "Lame de terrasse":0, Plot:0,
+  Solive:60, Porteuse:80, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -962,6 +962,18 @@ setPiece("Panne");
       const z = -lg/2 + lgLame / 2 + k * pas;
       addBox(lgLame, epLame, L, 0, hStruct - epLame / 2, z, woodMat, [0, Math.PI / 2, 0]);
     }
+
+    // ===== PLANCHES DE RIVE (bandeau peripherique, cache la structure) =====
+    setPiece("Planche de rive");
+    const epRive = 0.022;
+    const hRive = soH + epLame + 0.02; // couvre solive + lame + petit debord
+    const yRive = hStruct - hRive / 2;
+    // 2 rives dans le sens L (devant/derriere)
+    addBox(L + 2 * epRive, hRive, epRive, 0, yRive, lg/2 + epRive/2, woodMat);
+    addBox(L + 2 * epRive, hRive, epRive, 0, yRive, -lg/2 - epRive/2, woodMat);
+    // 2 rives dans le sens lg (gauche/droite)
+    addBox(epRive, hRive, lg, L/2 + epRive/2, yRive, 0, woodMat);
+    addBox(epRive, hRive, lg, -L/2 - epRive/2, yRive, 0, woodMat);
   };
 
   const drawAppentis = () => {
@@ -4103,6 +4115,10 @@ const loadProjectDetails = (project) => {
       parts.push(essTxt);
     }
     if (formCombles) parts.push(LABELS_COMB[formCombles] || formCombles);
+    // Terrasse surelevee : garde-corps obligatoire des 1m de hauteur de chute
+    if (formType === "terrasse" && parseFloat(formHauteur) >= 1) {
+      parts.push("PREVOIR un poste garde-corps peripherique en bois (obligatoire : hauteur de chute superieure a 1m, norme NF P01-012, hauteur 1m minimum)");
+    }
     let desc = parts.join(", ");
     if (prompt.trim()) desc += ". " + prompt.trim();
     params.description = desc;
