@@ -96,10 +96,13 @@ function dimensionnerPiece(typePiece, charge) {
   if (wMini === 0) return null; // pieces non structurelles (liteau, echantignole)
   const ordreClasse = { C18:0, C24:1, C30:2 };
   const candidats = [];
+  // Les sections carrees sont reservees aux pieces en compression (poincon, contrefiche)
+  const carreOK = (typePiece === "Poincon" || typePiece === "Contrefiche" || typePiece === "Poteau");
   for (const classe of ["C18","C24","C30"]) {
     for (const [b,h] of EC5_SECTIONS) {
       if (b < wMini) continue;
       if (h/b > EC5_RATIO_MAX) continue;
+      if (!carreOK && h <= b) continue; // flexion : h > b obligatoire
       const r = ec5VerifierFlexion({ ...charge, b, h, classe });
       if (r.tauxMax <= 100) candidats.push({ b,h,classe,...r, aire:b*h });
     }
@@ -152,12 +155,15 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     let porteeCalc;
     if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
       porteeCalc = ENTRAXE_FERMES;
+    } else if (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") {
+      porteeCalc = 1.8; // un chevron porte de panne en panne (~1.8m), pas sur sa longueur totale
     } else {
       porteeCalc = g.longueurUnitMax;
     }
     porteeCalc = Math.min(porteeCalc, PORTEE_MAX);
     const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                   : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
+                  : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                   : 1.0;
     const charge = {
@@ -519,11 +525,13 @@ setPiece("Ferme");
       fermeXs.push(x);
 
       // ENTRAIT (poutre horizontale basse, sur toute la largeur)
-      const [enB, enH] = sec("Ferme", 0.16, 0.16);
+      setPiece("Entrait");
+      const [enB, enH] = sec("Entrait", 0.16, 0.16);
       addBox(enB, enH, lg, x, Ht, 0, woodMat);
 
       // ARBALETRIERS (les 2 pans inclines, section forte)
-      const [arB, arH] = sec("Ferme", 0.16, 0.16);
+      setPiece("Arbaletrier");
+      const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
       addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
 
@@ -542,7 +550,6 @@ setPiece("Ferme");
       const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);   // vers pan Z+
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);  // vers pan Z-
-      setPiece("Ferme");
     }
 
 setPiece("Sabliere");
@@ -815,10 +822,12 @@ setPiece("Ferme");
       const x = -L/2 + (i / nbFermes) * L;
 
       // Entrait (poutre horizontale basse)
-      const [enB, enH] = sec("Ferme", 0.16, 0.16);
+      setPiece("Entrait");
+      const [enB, enH] = sec("Entrait", 0.16, 0.16);
       addBox(enB, enH, lg, x, Ht, 0, woodMat);
       // Arbaletriers (pans inclines, section forte)
-      const [arB, arH] = sec("Ferme", 0.16, 0.16);
+      setPiece("Arbaletrier");
+      const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
       addBox(arB, arH, pl, x, Ht + hf/2, lg/4, woodMat, [ang, 0, 0]);
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
       // Poincon (vertical central)
@@ -834,7 +843,6 @@ setPiece("Ferme");
       const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);
-      setPiece("Ferme");
     }
 
 setPiece("Panne");
