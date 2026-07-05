@@ -978,52 +978,41 @@ setPiece("Panne");
   };
 
   const drawEtage = () => {
-    // Etage sur solivage : murs peripheriques + solives + poutre porteuse auto + panneau plancher
-    const hPlancher = Math.max(Ht, 2.2);          // niveau du dessus des solives
-    const epPanneau = 0.022;                       // panneau OSB/plancher
+    // Etage sur solivage type Cadwork : structure ouverte apparente
+    // Poteaux peripheriques (entraxe max 3m) -> 2 murailleres sur tetes -> solives posees dessus
     const [soB, soH] = sec("Solive", 0.08, 0.20);
+    const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
+    const [potB] = sec("Poteau", 0.14, 0.14);
+    const debord = 0.20;                             // debord des solives en console
+    const hPlancher = Math.max(Ht, 2.2);
     const ySolive = hPlancher - soH / 2;
+    const yMur = hPlancher - soH - ppH / 2;          // murailleres sous les solives
+    const hPot = yMur - ppH / 2;                     // tete de poteau sous la muraillere
+    const zFile = lg / 2 - debord;                   // 2 files porteuses laterales
 
-    // ===== MURS PERIPHERIQUES (jusqu'au niveau du plancher) =====
-    setPiece("Divers");
-    addBox(L, hPlancher, 0.15, 0, hPlancher/2, lg/2, wallMat);
-    addBox(L, hPlancher, 0.15, 0, hPlancher/2, -lg/2, wallMat);
-    addBox(0.15, hPlancher, lg, -L/2, hPlancher/2, 0, wallMat);
-    addBox(0.15, hPlancher, lg, L/2, hPlancher/2, 0, wallMat);
-
-    // ===== POUTRE PORTEUSE CENTRALE (si portee > 4m) =====
-    // Les solives portent dans le sens lg. Si lg > 4m, une poutre au milieu divise la portee.
-    const needPoutre = lg > 4;
-    if (needPoutre) {
-      setPiece("Poutre porteuse");
-      const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
-      const yPoutre = hPlancher - soH - ppH / 2; // sous les solives
-      // poutre dans le sens L, au milieu de lg
-      addBox(L, ppH, ppB, 0, yPoutre, 0, woodMat);
-      // Poteau(x) sous la poutre si elle est longue
-      if (L > 4) {
-        setPiece("Poteau");
-        const [potB] = sec("Poteau", 0.14, 0.14);
-        const nbPotP = Math.max(1, Math.ceil(L / 4) - 1);
-        for (let i = 1; i <= nbPotP; i++) {
-          const x = -L/2 + (i / (nbPotP + 1)) * L;
-          const hPot = yPoutre - ppH / 2;
-          addBox(potB, hPot, potB, x, hPot / 2, 0);
-        }
+    // ===== POTEAUX (2 files laterales UNIQUEMENT, entraxe max 3m, jamais au centre) =====
+    setPiece("Poteau");
+    const ENTRAXE_MAX_POTEAUX = 3.0;
+    const nbPotX = Math.max(2, Math.ceil(L / ENTRAXE_MAX_POTEAUX) + 1);
+    for (const zf of [-zFile, zFile]) {
+      for (let i = 0; i < nbPotX; i++) {
+        const x = -L/2 + potB/2 + (i / (nbPotX - 1)) * (L - potB);
+        addBox(potB, hPot, potB, x, hPot / 2, zf);
       }
     }
 
-    // ===== SOLIVES (sens lg, entraxe 0.5m) =====
+    // ===== 2 MURAILLERES (sens L, posees sur les tetes de poteaux) =====
+    setPiece("Muraillere");
+    addBox(L, ppH, ppB, 0, yMur, zFile, woodMat);
+    addBox(L, ppH, ppB, 0, yMur, -zFile, woodMat);
+
+    // ===== SOLIVES (sens lg, posees SUR les murailleres, debord en console) =====
     setPiece("Solive");
     const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
     for (let i = 0; i < nbSolives; i++) {
-      const x = -L/2 + (i / (nbSolives - 1)) * L;
+      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
       addBox(soB, soH, lg, x, ySolive, 0, woodMat);
     }
-
-    // ===== PANNEAU DE PLANCHER (OSB, non structurel dans le calcul) =====
-    setPiece("Panneau plancher");
-    addBox(L, epPanneau, lg, 0, hPlancher + epPanneau / 2, 0, woodMat);
   };
 
   const drawAppentis = () => {
