@@ -34,7 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
-  Solive:60, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, "Solive balcon":60, "Lisse de rive":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -74,19 +74,24 @@ function ec5VerifierFlexion(o) {
   const L = o.portee * 1000;
   const IGz = (o.b * Math.pow(o.h, 3)) / 12;
   let qELU = 1.35*o.G + 1.5*o.Q; if (o.S>0) qELU += 0.5*o.S;
-  const Mfz = (qELU*o.entraxe*L*L)/8;
+  // Console (porte-a-faux, ex balcon) : M = qL2/2 ; sinon poutre 2 appuis : M = qL2/8
+  const Mfz = o.console ? (qELU*o.entraxe*L*L)/2 : (qELU*o.entraxe*L*L)/8;
   const sigmaMax = Mfz/(IGz/(0.5*o.h));
   const kmod = EC5_KMOD[o.classeService][o.dureeVariable] || EC5_KMOD[o.classeService].moyen;
   const Fmd = mat.fmk*kmod/EC5_GAMMA_M;
   const tauxELU = (sigmaMax/Fmd)*100;
   const qInst = Math.max(o.Q, o.S||0);
-  const Winst = (5*qInst*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
+  const Winst = o.console
+    ? (qInst*o.entraxe*Math.pow(L,4))/(8*mat.E*IGz)
+    : (5*qInst*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
   const tauxWinst = (Winst/(L/EC5_FLECHE_ADM[o.typeBatiment].winst))*100;
   const kdef = EC5_KDEF[o.classeService];
   // psi2 neige selon altitude (cours : <=1000m -> 0, >1000m -> 0.2)
   const psi2S = (o.altitude || 0) > 1000 ? 0.2 : 0;
   const qNetFin = o.G*(1+1*kdef) + o.Q*(1+0.3*kdef) + (o.S||0)*(1+psi2S*kdef);
-  const WnetFin = (5*qNetFin*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
+  const WnetFin = o.console
+    ? (qNetFin*o.entraxe*Math.pow(L,4))/(8*mat.E*IGz)
+    : (5*qNetFin*o.entraxe*Math.pow(L,4))/(384*mat.E*IGz);
   const tauxWnetFin = (WnetFin/(L/EC5_FLECHE_ADM[o.typeBatiment].wnetfin))*100;
   return { tauxELU, tauxWinst, tauxWnetFin, tauxMax: Math.max(tauxELU,tauxWinst,tauxWnetFin) };
 }
@@ -165,7 +170,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                   : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
-                  : (g.nom === "Solive") ? 0.5
+                  : (g.nom === "Solive" || g.nom === "Solive balcon") ? 0.5
                   : (g.nom === "Porteuse") ? 2.0
                   : (g.nom === "Poutre porteuse" || g.nom === "Muraillere") ? 2.5
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
@@ -177,6 +182,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       typeBatiment: ((params && params.type_projet) === "hangar") ? "agricole" : "courant",
       dureeVariable: "court",
       altitude: (params && Number(params.altitude)) || 0,
+      console: g.nom === "Solive balcon",
     };
     const dim = dimensionnerPiece(g.nom, charge);
     if (dim) result[g.nom] = dim;
@@ -1015,6 +1021,48 @@ setPiece("Panne");
     }
   };
 
+  const drawBalcon = () => {
+    // Balcon bois en porte-a-faux : mur d'ancrage + muraillere + solives console + rive + lames
+    // L = largeur le long du mur, lg = profondeur du porte-a-faux
+    const [soB, soH] = sec("Solive balcon", 0.08, 0.22);
+    const epLame = 0.028;
+    const lgLame = 0.145;
+    const jeuLame = 0.005;
+    const hBalcon = Math.max(Ht, 2.5);              // niveau du dessus des lames
+    const yDessusSolive = hBalcon - epLame;
+    const ySolive = yDessusSolive - soH / 2;
+
+    // ===== MUR D'ANCRAGE (semi-transparent, plus large et plus haut que le balcon) =====
+    setPiece("Divers");
+    addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, wallMat);
+
+    // ===== MURAILLERE (fixee contre le mur, support arriere des solives) =====
+    setPiece("Muraillere");
+    const [muB, muH] = sec("Muraillere", 0.10, 0.24);
+    addBox(L, muH, muB, 0, ySolive, muB / 2, woodMat);
+
+    // ===== SOLIVES EN CONSOLE (sortent du mur, sens lg) =====
+    setPiece("Solive balcon");
+    const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
+    for (let i = 0; i < nbSolives; i++) {
+      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
+      addBox(soB, soH, lg, x, ySolive, muB + lg / 2, woodMat);
+    }
+
+    // ===== LISSE DE RIVE (en bout de consoles) =====
+    setPiece("Lisse de rive");
+    addBox(L, soH, 0.06, 0, ySolive, muB + lg + 0.03, woodMat);
+
+    // ===== LAMES DE PLANCHER =====
+    setPiece("Lame de terrasse");
+    const pas = lgLame + jeuLame;
+    const nbLames = Math.floor((lg + muB + 0.06) / pas);
+    for (let k = 0; k < nbLames; k++) {
+      const z = lgLame / 2 + k * pas;
+      addBox(L, epLame, lgLame, 0, hBalcon - epLame / 2, z, woodMat);
+    }
+  };
+
   const drawAppentis = () => {
     // ============================================================
     // APPENTIS PARAMETRIQUE - charpente complete adaptative
@@ -1340,6 +1388,8 @@ setPiece("Empannon de croupe");
     drawTerrasse();
   } else if (typeProjet === "etage") {
     drawEtage();
+  } else if (typeProjet === "balcon") {
+    drawBalcon();
   } else {
     drawCharpenteTrad();
   }
@@ -2395,6 +2445,7 @@ options: [
 { val: "4_pans", label: "Toit 4 pans (croupe)", icon: "home" },
 { val: "terrasse", label: "Terrasse bois", icon: "ruler" },
 { val: "etage", label: "Etage sur solivage (plancher)", icon: "home" },
+{ val: "balcon", label: "Balcon bois (porte-a-faux)", icon: "home" },
 ],
 },
 couverture: {
@@ -3719,6 +3770,7 @@ const zoneInfo = getZone(commune, altitude);
 "'4_pans' (toit en croupe a 4 pentes, maison pavillon, toit avec aretiers), " +
 "'terrasse' (terrasse bois exterieure, plancher exterieur sur plots ou poteaux, deck, SANS toit), " +
 "'etage' (plancher d'etage interieur, solivage, mezzanine, plancher bois porteur dans un batiment), " +
+"'balcon' (balcon bois en porte-a-faux fixe a une facade, avancee exterieure en console), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
@@ -4126,7 +4178,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
@@ -4159,6 +4211,9 @@ const loadProjectDetails = (project) => {
     }
     if (formCombles) parts.push(LABELS_COMB[formCombles] || formCombles);
     // Terrasse surelevee : garde-corps obligatoire des 1m de hauteur de chute
+    if (formType === "balcon") {
+      parts.push("PREVOIR imperativement un poste garde-corps peripherique (obligatoire pour un balcon, norme NF P01-012, hauteur 1m minimum)");
+    }
     if (formType === "terrasse" && parseFloat(formHauteur) >= 1) {
       parts.push("PREVOIR un poste garde-corps peripherique en bois (obligatoire : hauteur de chute superieure a 1m, norme NF P01-012, hauteur 1m minimum)");
     }
