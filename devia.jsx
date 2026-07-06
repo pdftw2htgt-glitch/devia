@@ -978,40 +978,40 @@ setPiece("Panne");
   };
 
   const drawEtage = () => {
-    // Etage sur solivage type Cadwork : structure ouverte apparente
-    // Poteaux peripheriques (entraxe max 3m) -> 2 murailleres sur tetes -> solives posees dessus
+    // Etage sur solivage type Cadwork : solives ENTRE les murailleres, dessus affleurant
+    // Poteaux peripheriques (entraxe max 3m) -> murailleres en rive -> solives a fleur entre les deux
     const [soB, soH] = sec("Solive", 0.08, 0.20);
     const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
     const [potB] = sec("Poteau", 0.14, 0.14);
-    const debord = 0.20;                             // debord des solives en console
-    const hPlancher = Math.max(Ht, 2.2);
-    const ySolive = hPlancher - soH / 2;
-    const yMur = hPlancher - soH - ppH / 2;          // murailleres sous les solives
-    const hPot = yMur - ppH / 2;                     // tete de poteau sous la muraillere
-    const zFile = lg / 2 - debord;                   // 2 files porteuses laterales
+    const hPlancher = Math.max(Ht, 2.2);             // niveau du dessus (solives ET murailleres)
+    const yMur = hPlancher - ppH / 2;                // murailleres : dessus a hPlancher
+    const ySolive = hPlancher - soH / 2;             // solives : dessus a hPlancher (affleurant)
+    const hPot = hPlancher - ppH;                    // tete de poteau sous la muraillere
+    const zMur = lg / 2 - ppB / 2;                   // murailleres en rive
 
-    // ===== POTEAUX (2 files laterales UNIQUEMENT, entraxe max 3m, jamais au centre) =====
+    // ===== POTEAUX (2 files laterales sous les murailleres, entraxe max 3m) =====
     setPiece("Poteau");
     const ENTRAXE_MAX_POTEAUX = 3.0;
     const nbPotX = Math.max(2, Math.ceil(L / ENTRAXE_MAX_POTEAUX) + 1);
-    for (const zf of [-zFile, zFile]) {
+    for (const zf of [-zMur, zMur]) {
       for (let i = 0; i < nbPotX; i++) {
         const x = -L/2 + potB/2 + (i / (nbPotX - 1)) * (L - potB);
         addBox(potB, hPot, potB, x, hPot / 2, zf);
       }
     }
 
-    // ===== 2 MURAILLERES (sens L, posees sur les tetes de poteaux) =====
+    // ===== 2 MURAILLERES (sens L, en rive, sur les tetes de poteaux) =====
     setPiece("Muraillere");
-    addBox(L, ppH, ppB, 0, yMur, zFile, woodMat);
-    addBox(L, ppH, ppB, 0, yMur, -zFile, woodMat);
+    addBox(L, ppH, ppB, 0, yMur, zMur, woodMat);
+    addBox(L, ppH, ppB, 0, yMur, -zMur, woodMat);
 
-    // ===== SOLIVES (sens lg, posees SUR les murailleres, debord en console) =====
+    // ===== SOLIVES (sens lg, ENTRE les murailleres, dessus affleurant) =====
     setPiece("Solive");
+    const lgSolive = lg - 2 * ppB;                   // s'arretent contre les murailleres
     const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
     for (let i = 0; i < nbSolives; i++) {
       const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
-      addBox(soB, soH, lg, x, ySolive, 0, woodMat);
+      addBox(soB, soH, lgSolive, x, ySolive, 0, woodMat);
     }
   };
 
