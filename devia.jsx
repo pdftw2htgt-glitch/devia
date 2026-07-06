@@ -34,7 +34,7 @@ const EC5_SECTIONS = [
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
-  Solive:60, "Solive balcon":60, "Lisse de rive":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -1060,6 +1060,56 @@ setPiece("Panne");
     for (let k = 0; k < nbLames; k++) {
       const z = lgLame / 2 + k * pas;
       addBox(L, epLame, lgLame, 0, hBalcon - epLame / 2, z, woodMat);
+    }
+
+    // ===== GARDE-CORPS (NF P01-012 : h 1m, barreaudage <= 11cm) =====
+    // Sur les 3 cotes libres (avant + 2 lateraux), pas cote mur
+    setPiece("Garde-corps");
+    const hGC = 1.0;                                  // hauteur main courante
+    const mcSec = 0.06;                               // main courante 60x60
+    const montantSec = 0.06;                          // montants 60x60
+    const barreauSec = 0.025;                         // barreaux 25x25
+    const espBarreau = 0.10;                          // espacement barreaudage
+    const zAvant = muB + lg + 0.06 - montantSec / 2;  // nu avant du balcon
+    const yMC = hBalcon + hGC - mcSec / 2;            // main courante
+    const yLB = hBalcon + 0.10;                       // lisse basse a 10cm du sol
+    const hBarreau = yMC - mcSec / 2 - (yLB + 0.02);  // entre lisse basse et main courante
+
+    // --- Cote AVANT (le long de x) ---
+    // Montants (angles + intermediaires tous les ~1.5m)
+    const nbMontantsAv = Math.max(2, Math.ceil(L / 1.5) + 1);
+    for (let i = 0; i < nbMontantsAv; i++) {
+      const x = -L/2 + montantSec/2 + (i / (nbMontantsAv - 1)) * (L - montantSec);
+      addBox(montantSec, hGC, montantSec, x, hBalcon + hGC / 2, zAvant);
+    }
+    // Main courante + lisse basse
+    addBox(L, mcSec, mcSec, 0, yMC, zAvant);
+    addBox(L, 0.04, 0.04, 0, yLB, zAvant);
+    // Barreaudage vertical
+    const nbBarreauxAv = Math.floor(L / (espBarreau + barreauSec));
+    for (let i = 1; i < nbBarreauxAv; i++) {
+      const x = -L/2 + i * (L / nbBarreauxAv);
+      addBox(barreauSec, hBarreau, barreauSec, x, yLB + 0.02 + hBarreau / 2, zAvant);
+    }
+
+    // --- Cotes LATERAUX (le long de z, du mur au nu avant) ---
+    const lgGC = zAvant - montantSec / 2;             // du mur a l'avant
+    for (const xSide of [-L/2 + montantSec/2, L/2 - montantSec/2]) {
+      // Montants intermediaires
+      const nbMontantsLat = Math.max(2, Math.ceil(lgGC / 1.5) + 1);
+      for (let i = 0; i < nbMontantsLat; i++) {
+        const z = montantSec/2 + (i / (nbMontantsLat - 1)) * (lgGC - montantSec/2);
+        addBox(montantSec, hGC, montantSec, xSide, hBalcon + hGC / 2, z);
+      }
+      // Main courante + lisse basse
+      addBox(mcSec, mcSec, lgGC, xSide, yMC, lgGC / 2);
+      addBox(0.04, 0.04, lgGC, xSide, yLB, lgGC / 2);
+      // Barreaudage
+      const nbBarreauxLat = Math.floor(lgGC / (espBarreau + barreauSec));
+      for (let i = 1; i < nbBarreauxLat; i++) {
+        const z = i * (lgGC / nbBarreauxLat);
+        addBox(barreauSec, hBarreau, barreauSec, xSide, yLB + 0.02 + hBarreau / 2, z);
+      }
     }
   };
 
