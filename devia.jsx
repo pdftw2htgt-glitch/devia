@@ -3820,29 +3820,10 @@ return out;
     }
   };
 
-  const handleGenerate = async (finalParams) => {
-setShowQuestions(false);
-setLoading(true);
-setLoadingStep(0);
-setLoadingProgress(0);
-setError(null);
-
-// Simulation de progression par etapes
-// Etape 0: Analyse de la demande (0-1.5s)
-// Etape 1: Calcul de la zone climatique (1.5-3s)
-// Etape 2: Génération du modele 3D (3-5s)
-// Etape 3: Création du devis IA (5-7s)
-// Etape 4: Finalisation (7s+ jusqu'a la fin de l'API)
-const stepTimers = [];
-stepTimers.push(setTimeout(() => { setLoadingStep(1); setLoadingProgress(20); }, 1500));
-stepTimers.push(setTimeout(() => { setLoadingStep(2); setLoadingProgress(40); }, 3000));
-stepTimers.push(setTimeout(() => { setLoadingStep(3); setLoadingProgress(65); }, 5000));
-stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); }, 7000));
-// Garde une référence pour nettoyer si necessaire
-window._deviaStepTimers = stepTimers;
-setLoadingProgress(5);
-const zoneInfo = getZone(commune, altitude);
-// Construction de la liste de prix selon le choix utilisateur
+// ===== BRIQUES REUTILISABLES DE GENERATION (solo + multi-ouvrages) =====
+  const buildDeviaPrompt = (fp) => {
+    const zoneInfo = getZone(commune, altitude);
+    // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
     let catalogSource = "marche";
     if (catalogChoice === "marche") {
@@ -3904,14 +3885,14 @@ const zoneInfo = getZone(commune, altitude);
   "3) Si un matériau necessaire n'existe pas dans le catalogue, estimé le prix au mieux mais signale-le dans les notes. " +
   "4) Adapte les quantites au projet decrit. "
 ) +
-"Type=" + (finalParams.type || "traditionnelle") + ", Couverture=" + (finalParams.couverture || "tuile_terre") + ", Essence=" + (finalParams.essence || "sapin") + ", Combles=" + (finalParams.combles || "perdus") + ". " +
+"Type=" + (fp.type || "traditionnelle") + ", Couverture=" + (fp.couverture || "tuile_terre") + ", Essence=" + (fp.essence || "sapin") + ", Combles=" + (fp.combles || "perdus") + ". " +
 "Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
-(finalParams.longueur ? "Dimensions=" + finalParams.longueur + "x" + finalParams.largeur + "m. " : "") +
-(finalParams.pente ? "Pente=" + finalParams.pente + "deg. " : "") +
+(fp.longueur ? "Dimensions=" + fp.longueur + "x" + fp.largeur + "m. " : "") +
+(fp.pente ? "Pente=" + fp.pente + "deg. " : "") +
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
-'"type":"' + (finalParams.type || "traditionnelle") + '","couverture":"' + (finalParams.couverture || "tuile_terre") + '",' +
-'"essence":"' + (finalParams.essence || "sapin") + '","combles":"' + (finalParams.combles || "perdus") + '",' +
+'"type":"' + (fp.type || "traditionnelle") + '","couverture":"' + (fp.couverture || "tuile_terre") + '",' +
+'"essence":"' + (fp.essence || "sapin") + '","combles":"' + (fp.combles || "perdus") + '",' +
 '"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_4_pans_OU_abri_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"temps_fabrication_h":24,"temps_pose_h":16,"notes":["Note 1"]}. ' +
@@ -3923,62 +3904,72 @@ const zoneInfo = getZone(commune, altitude);
 "Ajuste selon les specificites (pente forte, combles amenages, essence difficile = +20%). " +
 "AJOUTE ces 2 valeurs dans le JSON apres totaux : \"temps_fabrication_h\":XX, \"temps_pose_h\":XX (entiers). " +
 "IMPORTANT: Reponds UNIQUEMENT avec le JSON, rien d autre.";
+    return { systemPrompt, catalogSource };
+  };
+
+  const callDeviaIA = async (systemPrompt, userContent) => {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 10000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error("Erreur serveur " + response.status + " : " + errText.substring(0, 150));
+    }
+    const data = await response.json();
+    if (data && data.type === "error" && data.error) {
+      const et = data.error.type || "";
+      if (et === "overloaded_error") throw new Error("Les serveurs sont temporairement surcharges. Reessaie dans quelques instants.");
+      if (et === "rate_limit_error") throw new Error("Trop de demandes en peu de temps. Patiente un instant avant de reessayer.");
+      throw new Error("Erreur du service IA : " + (data.error.message || et || "inconnue") + ". Reessaie dans un moment.");
+    }
+    const textBlock = (data.content && Array.isArray(data.content))
+      ? data.content.find(b => b && b.type === "text" && b.text)
+      : null;
+    if (!textBlock && data.stop_reason === "max_tokens") {
+      throw new Error("Le modele a epuise son budget de generation. Reessaie - si ca persiste, contacte le support.");
+    }
+    const text = (textBlock && textBlock.text) ? textBlock.text : "";
+    if (!text) throw new Error("Reponse vide du serveur. Vérifié la cle API dans Vercel.");
+    const clean = text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim();
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Reponse inattendue : " + clean.substring(0, 120));
+    const parsed = JSON.parse(jsonMatch[0]);
+    return { parsed, data };
+  };
+
+  const handleGenerate = async (finalParams) => {
+setShowQuestions(false);
+setLoading(true);
+setLoadingStep(0);
+setLoadingProgress(0);
+setError(null);
+
+// Simulation de progression par etapes
+// Etape 0: Analyse de la demande (0-1.5s)
+// Etape 1: Calcul de la zone climatique (1.5-3s)
+// Etape 2: Génération du modele 3D (3-5s)
+// Etape 3: Création du devis IA (5-7s)
+// Etape 4: Finalisation (7s+ jusqu'a la fin de l'API)
+const stepTimers = [];
+stepTimers.push(setTimeout(() => { setLoadingStep(1); setLoadingProgress(20); }, 1500));
+stepTimers.push(setTimeout(() => { setLoadingStep(2); setLoadingProgress(40); }, 3000));
+stepTimers.push(setTimeout(() => { setLoadingStep(3); setLoadingProgress(65); }, 5000));
+stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); }, 7000));
+// Garde une référence pour nettoyer si necessaire
+window._deviaStepTimers = stepTimers;
+setLoadingProgress(5);
+const zoneInfo = getZone(commune, altitude);
+const { systemPrompt, catalogSource } = buildDeviaPrompt(finalParams);
 try {
 const userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
-const response = await fetch("/api/chat", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-model: "claude-sonnet-5",
-max_tokens: 10000,
-system: systemPrompt,
-messages: [{ role: "user", content: userContent }],
-}),
-});
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error("Erreur serveur " + response.status + " : " + errText.substring(0, 150));
-  }
-
-  const data = await response.json();
-
-  // Extraction robuste du texte
-  // Detection d'une erreur API renvoyee avec status 200 (corps d'erreur Anthropic)
-  if (data && data.type === "error" && data.error) {
-    const et = data.error.type || "";
-    if (et === "overloaded_error") {
-      throw new Error("Les serveurs sont temporairement surcharges. Reessaie dans quelques instants.");
-    }
-    if (et === "rate_limit_error") {
-      throw new Error("Trop de demandes en peu de temps. Patiente un instant avant de reessayer.");
-    }
-    throw new Error("Erreur du service IA : " + (data.error.message || et || "inconnue") + ". Reessaie dans un moment.");
-  }
-  const textBlock = (data.content && Array.isArray(data.content))
-    ? data.content.find(b => b && b.type === "text" && b.text)
-    : null;
-  if (!textBlock && data.stop_reason === "max_tokens") {
-    throw new Error("Le modele a epuise son budget de generation. Reessaie - si ca persiste, contacte le support.");
-  }
-  const text = (textBlock && textBlock.text)
-    ? textBlock.text
-    : "";
-
-  if (!text) {
-    throw new Error("Reponse vide du serveur. Vérifié la cle API dans Vercel.");
-  }
-
-  // Nettoyage : supprime les backticks markdown si presents
-  const clean = text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim();
-
-  // Extraction du JSON
-  const jsonMatch = clean.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Reponse inattendue : " + clean.substring(0, 120));
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]);
+const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   setResult({ ...parsed, _catalogSource: catalogSource });
   if (parsed.projet) {
