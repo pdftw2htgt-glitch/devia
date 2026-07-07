@@ -1087,9 +1087,9 @@ setPiece("Panne");
     const yDessusSolive = hBalcon - epLame;
     const ySolive = yDessusSolive - soH / 2;
 
-    // ===== MUR D'ANCRAGE (semi-transparent, plus large et plus haut que le balcon) =====
+    // ===== MUR D'ANCRAGE (beton, plus large et plus haut que le balcon) =====
     setPiece("Divers");
-    addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, wallMat);
+    addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, betonMat);
 
     // ===== MURAILLERE (fixee contre le mur, support arriere des solives) =====
     setPiece("Muraillere");
@@ -1332,13 +1332,9 @@ setPiece("Echantignole");
     // Nb de pannes par pan (un chevron ne franchit pas > ~2.2 m)
     const nbPannes = Math.max(1, Math.ceil(plLong / 2.2) - 1);
 
-    // ===== MURS (4 cotes) =====
-    [
-      [L, Ht, 0.15, 0, Ht/2, lg/2],
-      [L, Ht, 0.15, 0, Ht/2, -lg/2],
-      [0.15, Ht, lg, -L/2, Ht/2, 0],
-      [0.15, Ht, lg, L/2, Ht/2, 0]
-    ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
+    // ===== MURS BETON (porte pignon + fenetres) + DALLE =====
+    drawMursBeton(L, lg, Ht);
+    drawDalleBeton(L, lg, 0);
 
 setPiece("Sabliere");
     // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
