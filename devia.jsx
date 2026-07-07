@@ -356,6 +356,49 @@ function buildScene3D(scene, params, opts) {
   })();
   const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
+  // Materiau BETON (murs par defaut : opaque, gris clair mat)
+  const betonMat = new THREE.MeshStandardMaterial({ color: 0xb4b4b8, roughness: 0.95, metalness: 0.0 });
+
+  // ===== HELPER MURS BETON PERCES (porte en pignon avant + fenetres reparties) =====
+  // Lb = longueur batiment (sens X), lgb = largeur (sens Z), Hb = hauteur murs
+  const drawMursBeton = (Lb, lgb, Hb) => {
+    const ep = 0.2;
+    setPiece("Divers");
+
+    // --- Mur gouttereau le long de X (a z fixe) avec fenetres [{cx, w}] ---
+    const murX = (zPos, fenetres) => {
+      const y0 = 1.0;                                 // allege
+      const y1 = Math.min(2.0, Hb - 0.3);             // haut de fenetre
+      const fs = [...fenetres].filter(f => f.cx - f.w/2 > -Lb/2 + 0.3 && f.cx + f.w/2 < Lb/2 - 0.3).sort((a,b) => a.cx - b.cx);
+      let cursor = -Lb/2;
+      for (const f of fs) {
+        const x0 = f.cx - f.w/2, x1 = f.cx + f.w/2;
+        if (x0 > cursor) addBox(x0 - cursor, Hb, ep, (cursor + x0)/2, Hb/2, zPos, betonMat);
+        addBox(f.w, y0, ep, f.cx, y0/2, zPos, betonMat);                                   // allege
+        if (Hb > y1) addBox(f.w, Hb - y1, ep, f.cx, (y1 + Hb)/2, zPos, betonMat);          // imposte
+        cursor = x1;
+      }
+      if (cursor < Lb/2) addBox(Lb/2 - cursor, Hb, ep, (cursor + Lb/2)/2, Hb/2, zPos, betonMat);
+    };
+
+    // --- Mur pignon le long de Z (a x fixe), avec porte centree optionnelle ---
+    const murZ = (xPos, avecPorte) => {
+      if (!avecPorte || lgb < 1.6) { addBox(ep, Hb, lgb, xPos, Hb/2, 0, betonMat); return; }
+      const pw = 0.9;
+      const ph = Math.min(2.1, Hb - 0.2);
+      const seg = lgb/2 - pw/2;                        // longueur de chaque trumeau
+      addBox(ep, Hb, seg, xPos, Hb/2, -(pw/2 + seg/2), betonMat);
+      addBox(ep, Hb, seg, xPos, Hb/2, (pw/2 + seg/2), betonMat);
+      if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);                // linteau
+    };
+
+    // Pignon avant (x = +L/2) : PORTE. Pignon arriere : plein.
+    murZ(Lb/2, true);
+    murZ(-Lb/2, false);
+    // Gouttereau avant (z = +lg/2) : 2 fenetres. Arriere : 1 fenetre.
+    murX(lgb/2, [{ cx: -Lb/4, w: 1.2 }, { cx: Lb/4, w: 1.2 }]);
+    murX(-lgb/2, [{ cx: 0, w: 1.2 }]);
+  };
 
   const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || woodMat);
