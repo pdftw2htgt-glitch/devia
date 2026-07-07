@@ -2875,6 +2875,8 @@ const [formLargeur, setFormLargeur] = useState("");
 const [formHauteur, setFormHauteur] = useState("");
 const [formPente, setFormPente] = useState("");
 const [formGroupe, setFormGroupe] = useState(""); // id du groupe choisi pour ce devis ("" = aucun)
+const [formSousType, setFormSousType] = useState(""); // type de l'ouvrage en cours (mode Structure personnalisee)
+const [formStructures, setFormStructures] = useState([]); // liste des ouvrages ajoutes (mode custom)
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
@@ -4293,6 +4295,21 @@ const loadProjectDetails = (project) => {
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
 
   const handleSubmit = () => {
+    // MODE STRUCTURE PERSONNALISEE : description combinee multi-ouvrages
+    if (formType === "custom") {
+      if (formStructures.length === 0) return;
+      const s0 = formStructures[0];
+      const params = {
+        type: s0.type, couverture: s0.couverture, essence: s0.essence, finition: s0.finition,
+        combles: s0.combles, longueur: s0.longueur, largeur: s0.largeur, hauteur: s0.hauteur, pente: s0.pente,
+      };
+      let desc = "PROJET MULTI-OUVRAGES (" + formStructures.length + " structures distinctes, chiffrer CHAQUE ouvrage dans une section dediee du devis avec sous-total) : "
+        + formStructures.map((s, i) => "OUVRAGE " + (i + 1) + " = " + s.desc).join(" ; ");
+      if (prompt.trim()) desc += ". " + prompt.trim();
+      params.description = desc;
+      handleGenerate(params);
+      return;
+    }
     // Construit les params directement depuis le formulaire structure
     const params = {
       type: formType || undefined,
@@ -4333,6 +4350,7 @@ const loadProjectDetails = (project) => {
     handleGenerate(params);
   };
 
+const typeEffectif = formType === "custom" ? formSousType : formType;
 const zoneInfo = commune ? getZone(commune, altitude) : null;
 // === DEVIA Design System v2 - Liquid Glass ===
 // Cards translucides avec backdrop-filter, bordures ultra-fines, plus d'espace
@@ -4538,28 +4556,98 @@ return (
                   {QUESTIONS.type.options.map(opt => (
                     <option key={opt.val} value={opt.val}>{opt.label}</option>
                   ))}
+                  <option value="custom">Structure personnalisee (plusieurs ouvrages)</option>
                 </select>
               </div>
+              {/* MODE STRUCTURE PERSONNALISEE : sous-type + liste des ouvrages */}
+              {formType === "custom" && (
+                <div style={{ marginBottom: 18, padding: 14, background: "rgba(240,192,64,0.04)", border: "1px solid rgba(240,192,64,0.18)", borderRadius: 12 }}>
+                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Ouvrage n°{formStructures.length + 1} — type
+                  </label>
+                  <select value={formSousType} onChange={e => setFormSousType(e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+                      color: formSousType ? "#e8eaf2" : "#545870",
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+                      backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
+                    <option value="">Type de cet ouvrage...</option>
+                    {QUESTIONS.type.options.map(opt => (
+                      <option key={opt.val} value={opt.val}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <div style={{ color: "#545870", fontSize: 11, marginTop: 8 }}>
+                    Configure les champs ci-dessous (dimensions, essence...) puis ajoute l'ouvrage a la liste.
+                  </div>
+                  <button type="button"
+                    disabled={!formSousType || !formLongueur || !formLargeur}
+                    onClick={() => {
+                      const LABELS_FIN2 = { rabote: "rabote", brut: "brut de sciage", traite: "traite autoclave" };
+                      const sansToit = ["terrasse","etage","balcon"].includes(formSousType);
+                      const p2 = [];
+                      p2.push(LABELS_TYPE[formSousType] || formSousType);
+                      p2.push(formLongueur + "x" + formLargeur + "m");
+                      if (formHauteur) p2.push("hauteur " + formHauteur + "m");
+                      if (formPente && !sansToit) p2.push("pente " + formPente + " degres");
+                      if (formCouverture && !sansToit) p2.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
+                      if (formEssence) p2.push("essence " + (LABELS_ESS[formEssence] || formEssence) + (formFinition ? " " + (LABELS_FIN2[formFinition] || formFinition) : ""));
+                      if (formCombles && !sansToit) p2.push(LABELS_COMB[formCombles] || formCombles);
+                      if (formSousType === "balcon") p2.push("avec garde-corps peripherique reglementaire NF P01-012");
+                      const structure = {
+                        type: formSousType,
+                        longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
+                        hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
+                        pente: (formPente && !sansToit) ? parseFloat(formPente) : undefined,
+                        couverture: (!sansToit && formCouverture) || undefined,
+                        essence: formEssence || undefined, finition: formFinition || undefined,
+                        combles: (!sansToit && formCombles) || undefined,
+                        desc: p2.join(", ")
+                      };
+                      setFormStructures(prev => [...prev, structure]);
+                      setFormSousType(""); setFormLongueur(""); setFormLargeur(""); setFormHauteur("");
+                      setFormPente(""); setFormCouverture(""); setFormCombles("");
+                    }}
+                    style={{ marginTop: 10, width: "100%", padding: "10px 14px", borderRadius: 9, cursor: "pointer",
+                      background: (!formSousType || !formLongueur || !formLargeur) ? "rgba(255,255,255,0.03)" : "rgba(240,192,64,0.12)",
+                      border: "1px solid " + ((!formSousType || !formLongueur || !formLargeur) ? "rgba(255,255,255,0.08)" : "rgba(240,192,64,0.5)"),
+                      color: (!formSousType || !formLongueur || !formLargeur) ? "#545870" : "#f0c040",
+                      fontSize: 13, fontWeight: 600 }}>
+                    + Ajouter cette structure
+                  </button>
+                  {formStructures.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      {formStructures.map((s, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, marginBottom: 6 }}>
+                          <div style={{ fontSize: 12.5, color: "#d0d2dc", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ color: "#f0c040", fontWeight: 700 }}>{i + 1}.</span> {s.desc}
+                          </div>
+                          <button type="button" onClick={() => setFormStructures(prev => prev.filter((_, j) => j !== i))}
+                            style={{ background: "transparent", border: "none", color: "#e05252", cursor: "pointer", fontSize: 15, flexShrink: 0 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Dimensions */}
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "balcon" ? "Largeur le long du mur (m)" : "Longueur (m)"}</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "balcon" ? "Largeur le long du mur (m)" : "Longueur (m)"}</div>
                   </div>
                   <div>
                     <input value={formLargeur} onChange={e => setFormLargeur(e.target.value)} type="number" placeholder="Largeur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "balcon" ? "Profondeur / avancee (m)" : "Largeur (m)"}</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "balcon" ? "Profondeur / avancee (m)" : "Largeur (m)"}</div>
                   </div>
                   <div>
                     <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "terrasse" ? "Hauteur du platelage (m)" : formType === "etage" ? "Hauteur sous plancher (m)" : formType === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "terrasse" ? "Hauteur du platelage (m)" : typeEffectif === "etage" ? "Hauteur sous plancher (m)" : typeEffectif === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
                   </div>
                 </div>
               </div>
               {/* Pente */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
@@ -4609,7 +4697,7 @@ return (
                 })()}
               </div>
               {/* Couverture */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.couverture.options.map(opt => (
@@ -4649,7 +4737,7 @@ return (
                 )}
               </div>
               {/* Combles */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {QUESTIONS.combles.options.map(opt => (
@@ -4836,7 +4924,7 @@ return (
                 )}
               </div>
 
-              <button onClick={handleSubmit} disabled={loading || !formType || !formLongueur || !formLargeur || !commune.trim()}
+              <button onClick={handleSubmit} disabled={loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim()}
                 style={{
                   ...btnPrimary,
                   width: "100%",
@@ -4845,16 +4933,16 @@ return (
                   fontWeight: 700,
                   letterSpacing: "0.01em",
                   marginTop: 8,
-                  opacity: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? 0.45 : 1,
-                  cursor: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "not-allowed" : "pointer",
-                  boxShadow: loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
+                  opacity: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? 0.45 : 1,
+                  cursor: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "not-allowed" : "pointer",
+                  boxShadow: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 10
                 }}
-                onMouseEnter={(e) => { if (!loading && formType && formLongueur && formLargeur && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || !formType || !formLongueur || !formLargeur || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
+                onMouseEnter={(e) => { if (!loading && (formType === "custom" ? formStructures.length > 0 : (formType && formLongueur && formLargeur)) && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
                 {loading ? (
                   <>
                     <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
@@ -4934,6 +5022,8 @@ return (
                     setFormHauteur("");
                     setFormPente("");
                     setFormGroupe("");
+                    setFormSousType("");
+                    setFormStructures([]);
                   }}>Nouveau</button>
                   <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
