@@ -358,6 +358,16 @@ function buildScene3D(scene, params, opts) {
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
   // Materiau BETON (murs par defaut : opaque, gris clair mat)
   const betonMat = new THREE.MeshStandardMaterial({ color: 0xb4b4b8, roughness: 0.95, metalness: 0.0 });
+  // Beton lisse (dalles, plus clair que les murs)
+  const dalleMat = new THREE.MeshStandardMaterial({ color: 0xc8c8cc, roughness: 0.85, metalness: 0.0 });
+
+  // ===== HELPER DALLE BETON =====
+  // debord = 0 pour dalle interieure (entre murs), >0 pour dalle apparente (carport, hangar)
+  const drawDalleBeton = (Lb, lgb, debord) => {
+    setPiece("Divers");
+    const ep = 0.14;
+    addBox(Lb + 2 * (debord || 0), ep, lgb + 2 * (debord || 0), 0, 0.07, 0, dalleMat);
+  };
 
   // ===== HELPER MURS BETON PERCES (porte en pignon avant + fenetres reparties) =====
   // Lb = longueur batiment (sens X), lgb = largeur (sens Z), Hb = hauteur murs
@@ -562,6 +572,7 @@ function buildScene3D(scene, params, opts) {
 
     // ===== MURS BETON (porte pignon + fenetres) =====
     drawMursBeton(L, lg, Ht);
+    drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
     // ===== FERMES (tous les ~3.5m) =====
@@ -664,6 +675,9 @@ setPiece("Chevron");
     const [potCB] = sec("Poteau", 0.18, 0.18); const sectionPotau = potCB;
     const ang = Math.atan(denivele / lg);
     const longueurChevron = lg / Math.cos(ang);
+
+    // ===== DALLE BETON (apparente, deborde de l'emprise) =====
+    drawDalleBeton(L, lg, 0.3);
 
 setPiece("Poteau");
     // ===== POTEAUX (specificite carport) =====
@@ -842,6 +856,9 @@ setPiece("Liteau");
   // HANGAR (poteaux + 2 pans, sans murs, grande portee)
   // ============================================================
   const drawHangar = () => {
+    // ===== DALLE BETON (apparente) =====
+    drawDalleBeton(L, lg, 0.3);
+
     const hf = lg / 2 * Math.tan((pente * Math.PI) / 180);
     const ang = Math.atan(hf / (lg/2));
     const pl = (lg/2) / Math.cos(ang);
