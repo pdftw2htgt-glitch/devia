@@ -4251,15 +4251,16 @@ const loadProjectDetails = (project) => {
     if (formType) parts.push(LABELS_TYPE[formType] || formType);
     if (formLongueur && formLargeur) parts.push(formLongueur + "x" + formLargeur + "m");
     if (formHauteur) parts.push("hauteur " + formHauteur + "m");
-    if (formPente) parts.push("pente " + formPente + " degres");
-    if (formCouverture) parts.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
+    const isSansToit = ["terrasse","etage","balcon"].includes(formType);
+    if (formPente && !isSansToit) parts.push("pente " + formPente + " degres");
+    if (formCouverture && !isSansToit) parts.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
     if (formEssence) {
       const LABELS_FIN = { rabote: "rabote", brut: "brut de sciage", traite: "traite autoclave" };
       let essTxt = "essence " + (LABELS_ESS[formEssence] || formEssence);
       if (formFinition) essTxt += " " + (LABELS_FIN[formFinition] || formFinition);
       parts.push(essTxt);
     }
-    if (formCombles) parts.push(LABELS_COMB[formCombles] || formCombles);
+    if (formCombles && !isSansToit) parts.push(LABELS_COMB[formCombles] || formCombles);
     // Terrasse surelevee : garde-corps obligatoire des 1m de hauteur de chute
     if (formType === "balcon") {
       parts.push("PREVOIR imperativement un poste garde-corps peripherique (obligatoire pour un balcon, norme NF P01-012, hauteur 1m minimum)");
@@ -4486,20 +4487,20 @@ return (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Longueur (m)</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "balcon" ? "Largeur le long du mur (m)" : "Longueur (m)"}</div>
                   </div>
                   <div>
                     <input value={formLargeur} onChange={e => setFormLargeur(e.target.value)} type="number" placeholder="Largeur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Largeur (m)</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "balcon" ? "Profondeur / avancee (m)" : "Largeur (m)"}</div>
                   </div>
                   <div>
                     <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>Hauteur mur (m)</div>
+                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{formType === "terrasse" ? "Hauteur du platelage (m)" : formType === "etage" ? "Hauteur sous plancher (m)" : formType === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
                   </div>
                 </div>
               </div>
               {/* Pente */}
-              <div style={{ marginBottom: 18 }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
@@ -4549,7 +4550,7 @@ return (
                 })()}
               </div>
               {/* Couverture */}
-              <div style={{ marginBottom: 18 }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.couverture.options.map(opt => (
@@ -4589,7 +4590,7 @@ return (
                 )}
               </div>
               {/* Combles */}
-              <div style={{ marginBottom: 18 }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(formType) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {QUESTIONS.combles.options.map(opt => (
