@@ -3944,6 +3944,132 @@ return out;
     return { parsed, data };
   };
 
+  // ===== GENERATION MULTI-OUVRAGES : 1 appel IA par structure, fusion cote code =====
+  const handleGenerateMulti = async (structures) => {
+    if (!structures || structures.length === 0) return;
+    setShowQuestions(false);
+    setLoading(true);
+    setLoadingStep(0);
+    setLoadingProgress(3);
+    setError(null);
+
+    try {
+      const devisParOuvrage = [];
+      let tokensInTotal = 0, tokensOutTotal = 0;
+      let catalogSourceGlobal = "marche";
+
+      for (let i = 0; i < structures.length; i++) {
+        const s = structures[i];
+        setLoadingStep(Math.min(4, i + 1));
+        setLoadingProgress(Math.round(5 + (i / structures.length) * 85));
+        const fp = {
+          type: s.type, couverture: s.couverture, essence: s.essence, finition: s.finition,
+          combles: s.combles, longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur,
+          pente: s.pente, description: s.desc,
+        };
+        const { systemPrompt, catalogSource } = buildDeviaPrompt(fp);
+        catalogSourceGlobal = catalogSource;
+        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description);
+        tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
+        tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
+        devisParOuvrage.push(parsed);
+      }
+
+      setLoadingProgress(92);
+
+      // ===== FUSION DETERMINISTE =====
+      const postesFusion = [];
+      const notesFusion = [];
+      let htTotal = 0, tvaTotal = 0, ttcTotal = 0, fabTotal = 0, poseTotal = 0;
+      devisParOuvrage.forEach((d, i) => {
+        const num = i + 1;
+        const label = "Ouvrage " + num + " - ";
+        (d.postes || []).forEach(p => {
+          postesFusion.push({ ...p, designation: label + (p.designation || "") });
+        });
+        const sousHT = (d.postes || []).reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
+        notesFusion.push("Ouvrage " + num + " (" + ((d.projet && d.projet.description) || structures[i].desc) + ") : sous-total HT " + sousHT.toFixed(2) + " EUR");
+        if (d.totaux) {
+          htTotal += Number(d.totaux.totalHT) || 0;
+          tvaTotal += Number(d.totaux.tva) || 0;
+          ttcTotal += Number(d.totaux.totalTTC) || 0;
+        }
+        fabTotal += Number(d.temps_fabrication_h) || 0;
+        poseTotal += Number(d.temps_pose_h) || 0;
+        (d.notes || []).forEach(n => notesFusion.push("Ouvrage " + num + " : " + n));
+      });
+
+      const p1 = devisParOuvrage[0].projet || {};
+      const fusion = {
+        projet: { ...p1, description: "Projet multi-ouvrages (" + structures.length + " structures) : " + structures.map((s, i) => "Ouvrage " + (i + 1) + " = " + (LABELS_TYPE[s.type] || s.type)).join(", ") },
+        postes: postesFusion,
+        totaux: { totalHT: Math.round(htTotal * 100) / 100, tva: Math.round(tvaTotal * 100) / 100, totalTTC: Math.round(ttcTotal * 100) / 100 },
+        temps_fabrication_h: fabTotal,
+        temps_pose_h: poseTotal,
+        notes: notesFusion,
+        _ouvrages: devisParOuvrage,
+        _catalogSource: catalogSourceGlobal,
+      };
+
+      setResult(fusion);
+      setView3DParams({
+        longueur: p1.longueur || structures[0].longueur || 10,
+        largeur: p1.largeur || structures[0].largeur || 8,
+        hauteur: p1.hauteur || structures[0].hauteur || 3,
+        pente: p1.pente || structures[0].pente || 35,
+        type_projet: p1.type_projet || "autre",
+        couverture: p1.couverture || structures[0].couverture || "tuile_terre"
+      });
+
+      // Sauvegarde Supabase (projet fusionne)
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const newProject = {
+              user_id: user.id,
+              nom: nomProjet.trim() || fusion.projet.description || "Projet multi-ouvrages",
+              commune: p1.commune || commune,
+              longueur: p1.longueur || null, largeur: p1.largeur || null,
+              hauteur: p1.hauteur || null, pente: p1.pente || null, surface: p1.surface || null,
+              type_charpente: "multi",
+              groupe_id: formGroupe || null,
+              total_ttc: fusion.totaux.totalTTC, total_ht: fusion.totaux.totalHT,
+              devis_data: fusion,
+              tokens_in: tokensInTotal, tokens_out: tokensOutTotal,
+            };
+            const { data: inserted, error: insertError } = await supabase.from("projects").insert(newProject).select().single();
+            if (!insertError && inserted) {
+              (async () => {
+                try {
+                  const { data: logData } = await supabase.from("usage_logs").insert({
+                    user_id: user.id, tokens_in: tokensInTotal, tokens_out: tokensOutTotal,
+                    model: "claude-sonnet-5", project_id: inserted.id,
+                  }).select().single();
+                  if (logData) setUsageLogs(prev => [logData, ...prev]);
+                } catch (e) { console.error("Erreur usage_logs multi:", e); }
+              })();
+              setProjects(prev => [{
+                id: inserted.id, nom: inserted.nom, commune: inserted.commune || "",
+                date: inserted.created_at ? inserted.created_at.split("T")[0] : "",
+                ttc: inserted.total_ttc || 0,
+                dims: structures.length + " ouvrages",
+                devis_data: inserted.devis_data,
+              }, ...prev]);
+            }
+          }
+        } catch (e) { console.error("Erreur sauvegarde multi:", e); }
+      })();
+
+      setLoadingProgress(100);
+      setActiveResultTab("devis");
+    } catch (e) {
+      setError("Erreur (generation multi-ouvrages) : " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGenerate = async (finalParams) => {
 setShowQuestions(false);
 setLoading(true);
@@ -4289,17 +4415,11 @@ const loadProjectDetails = (project) => {
     // MODE STRUCTURE PERSONNALISEE : description combinee multi-ouvrages
     if (formType === "custom") {
       if (formStructures.length === 0) return;
-      const s0 = formStructures[0];
-      const params = {
-        type: s0.type, couverture: s0.couverture, essence: s0.essence, finition: s0.finition,
-        combles: s0.combles, longueur: s0.longueur, largeur: s0.largeur, hauteur: s0.hauteur, pente: s0.pente,
-      };
-      let desc = "PROJET MULTI-OUVRAGES compose de " + formStructures.length + " structures DISTINCTES. "
-        + "CONSIGNE IMPERATIVE DE FORMAT : chiffrer TOUS les ouvrages. La designation de CHAQUE poste doit OBLIGATOIREMENT commencer par 'Ouvrage N - ' (N = numero de l'ouvrage concerne). Regrouper les postes par ouvrage dans l'ordre (tous les postes Ouvrage 1, puis tous les postes Ouvrage 2, etc.). "
-        + formStructures.map((s, i) => "OUVRAGE " + (i + 1) + " = " + s.desc).join(" ; ");
-      if (prompt.trim()) desc += ". " + prompt.trim();
-      params.description = desc;
-      handleGenerate(params);
+      // Phase 3 : generation individuelle par ouvrage + fusion cote code
+      const structs = prompt.trim()
+        ? formStructures.map((s, i) => i === 0 ? { ...s, desc: s.desc + ". Precisions generales : " + prompt.trim() } : s)
+        : formStructures;
+      handleGenerateMulti(structs);
       return;
     }
     // Construit les params directement depuis le formulaire structure
