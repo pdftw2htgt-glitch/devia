@@ -4464,18 +4464,21 @@ return (
                   <div style={{ color: "#545870", fontSize: 11, marginTop: 6 }}>Cree des groupes dans l'onglet Projets pour ranger tes devis.</div>
                 )}
               </div>
-              {/* Type de charpente */}
+              {/* Type de structure (menu deroulant) */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de structure</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  Type de structure <span style={{ color: "#f0c040" }}>*</span>
+                </label>
+                <select value={formType} onChange={e => setFormType(e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
+                    color: formType ? "#e8eaf2" : "#545870",
+                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
+                    backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
+                  <option value="">Choisir un type de structure...</option>
                   {QUESTIONS.type.options.map(opt => (
-                    <button key={opt.val} type="button" onClick={() => setFormType(opt.val)}
-                      style={{ background: formType === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formType === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formType === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formType === opt.val ? "#f0c040" : "#9ca0b8")}</span>
-                      {opt.label}
-                    </button>
+                    <option key={opt.val} value={opt.val}>{opt.label}</option>
                   ))}
-                </div>
+                </select>
               </div>
               {/* Dimensions */}
               <div style={{ marginBottom: 18 }}>
