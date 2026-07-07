@@ -560,13 +560,8 @@ function buildScene3D(scene, params, opts) {
     const pl = (lg/2) / Math.cos(ang);                     // longueur d'un arbaletrier
     const yFait = Ht + hf;                                  // hauteur du faitage
 
-    // ===== MURS (4 cotes) =====
-    [
-      [L, Ht, 0.15, 0, Ht/2, lg/2],
-      [L, Ht, 0.15, 0, Ht/2, -lg/2],
-      [0.15, Ht, lg, -L/2, Ht/2, 0],
-      [0.15, Ht, lg, L/2, Ht/2, 0]
-    ].forEach(([sx, sy, sz, px, py, pz]) => addBox(sx, sy, sz, px, py, pz, wallMat));
+    // ===== MURS BETON (porte pignon + fenetres) =====
+    drawMursBeton(L, lg, Ht);
 
 setPiece("Ferme");
     // ===== FERMES (tous les ~3.5m) =====
