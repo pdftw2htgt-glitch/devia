@@ -4303,7 +4303,8 @@ const loadProjectDetails = (project) => {
         type: s0.type, couverture: s0.couverture, essence: s0.essence, finition: s0.finition,
         combles: s0.combles, longueur: s0.longueur, largeur: s0.largeur, hauteur: s0.hauteur, pente: s0.pente,
       };
-      let desc = "PROJET MULTI-OUVRAGES (" + formStructures.length + " structures distinctes, chiffrer CHAQUE ouvrage dans une section dediee du devis avec sous-total) : "
+      let desc = "PROJET MULTI-OUVRAGES compose de " + formStructures.length + " structures DISTINCTES. "
+        + "CONSIGNE IMPERATIVE DE FORMAT : chiffrer TOUS les ouvrages. La designation de CHAQUE poste doit OBLIGATOIREMENT commencer par 'Ouvrage N - ' (N = numero de l'ouvrage concerne). Regrouper les postes par ouvrage dans l'ordre (tous les postes Ouvrage 1, puis tous les postes Ouvrage 2, etc.). "
         + formStructures.map((s, i) => "OUVRAGE " + (i + 1) + " = " + s.desc).join(" ; ");
       if (prompt.trim()) desc += ". " + prompt.trim();
       params.description = desc;
