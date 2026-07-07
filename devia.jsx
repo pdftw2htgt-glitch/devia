@@ -746,14 +746,38 @@ setPiece("Chevron");
     const couvColor = couv.couleur;
     const monopenteRoofMat = makeRoofMaterial(couv, L, longueurChevron);
 
-    // ===== 4 MURS (hauteurs variables sur les cotes) =====
-    // Mur arriere (Z+, haut)
-    addBox(L, Hhaut, 0.15, 0, Hhaut/2, lg/2, wallMat);
-    // Mur avant (Z-, bas)
-    addBox(L, Hbas, 0.15, 0, Hbas/2, -lg/2, wallMat);
-
-    // Mur lateral gauche (partie basse + triangle haut)
-    addBox(0.15, Hbas, lg, -L/2, Hbas/2, 0, wallMat);
+    // ===== 4 MURS BETON (hauteurs variables) + DALLE =====
+    setPiece("Divers");
+    const epMur = 0.2;
+    const betonTriMat = new THREE.MeshStandardMaterial({ color: 0xb4b4b8, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide });
+    // Mur arriere (Z+, haut) : 2 fenetres construites autour
+    {
+      const y0 = 1.0, y1 = Math.min(2.0, Hhaut - 0.3);
+      const fen = [{ cx: -L/4, w: 1.2 }, { cx: L/4, w: 1.2 }].filter(f => f.cx - f.w/2 > -L/2 + 0.3 && f.cx + f.w/2 < L/2 - 0.3);
+      let cursor = -L/2;
+      for (const f of fen.sort((a,b) => a.cx - b.cx)) {
+        const x0 = f.cx - f.w/2, x1 = f.cx + f.w/2;
+        if (x0 > cursor) addBox(x0 - cursor, Hhaut, epMur, (cursor + x0)/2, Hhaut/2, lg/2, betonMat);
+        addBox(f.w, y0, epMur, f.cx, y0/2, lg/2, betonMat);
+        if (Hhaut > y1) addBox(f.w, Hhaut - y1, epMur, f.cx, (y1 + Hhaut)/2, lg/2, betonMat);
+        cursor = x1;
+      }
+      if (cursor < L/2) addBox(L/2 - cursor, Hhaut, epMur, (cursor + L/2)/2, Hhaut/2, lg/2, betonMat);
+    }
+    // Mur avant (Z-, bas) : porte centree
+    {
+      const pw = 0.9, ph = Math.min(2.1, Hbas - 0.2);
+      if (L >= 1.6 && ph > 1.6) {
+        const seg = L/2 - pw/2;
+        addBox(seg, Hbas, epMur, -(pw/2 + seg/2), Hbas/2, -lg/2, betonMat);
+        addBox(seg, Hbas, epMur, (pw/2 + seg/2), Hbas/2, -lg/2, betonMat);
+        if (Hbas > ph) addBox(pw, Hbas - ph, epMur, 0, (ph + Hbas)/2, -lg/2, betonMat);
+      } else {
+        addBox(L, Hbas, epMur, 0, Hbas/2, -lg/2, betonMat);
+      }
+    }
+    // Murs lateraux (rectangle bas + triangle haut) en beton
+    addBox(epMur, Hbas, lg, -L/2, Hbas/2, 0, betonMat);
     const triGeo = new THREE.BufferGeometry();
     const triVertices = new Float32Array([
       -L/2, Hbas, -lg/2,
@@ -762,10 +786,9 @@ setPiece("Chevron");
     ]);
     triGeo.setAttribute("position", new THREE.BufferAttribute(triVertices, 3));
     triGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(triGeo, wallMat));
+    scene.add(new THREE.Mesh(triGeo, betonTriMat));
 
-    // Mur lateral droit (partie basse + triangle haut)
-    addBox(0.15, Hbas, lg, L/2, Hbas/2, 0, wallMat);
+    addBox(epMur, Hbas, lg, L/2, Hbas/2, 0, betonMat);
     const triGeo2 = new THREE.BufferGeometry();
     const triVertices2 = new Float32Array([
       L/2, Hbas, -lg/2,
@@ -774,7 +797,10 @@ setPiece("Chevron");
     ]);
     triGeo2.setAttribute("position", new THREE.BufferAttribute(triVertices2, 3));
     triGeo2.computeVertexNormals();
-    scene.add(new THREE.Mesh(triGeo2, wallMat));
+    scene.add(new THREE.Mesh(triGeo2, betonTriMat));
+
+    // Dalle interieure
+    drawDalleBeton(L, lg, 0);
 
     setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere) =====
