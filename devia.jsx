@@ -1232,11 +1232,10 @@ setPiece("Panne");
     // 6) Section sablieres : un peu plus fortes que les pannes
     const secSabliere = Math.min(0.20, secPanne + 0.02);
 
-    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison) =====
-    const murArriereMat = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0.0,
-      color: 0xd4ccb6, transparent: true, opacity: 0.85, side: THREE.DoubleSide
-    });
-    addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, murArriereMat);
+    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison, beton) =====
+    addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, betonMat);
+    // Dalle beton apparente (deborde legerement)
+    drawDalleBeton(L, lg, 0.2);
 
 setPiece("Poteau");
     // ===== POTEAUX AVANT (cote ouvert, nb adaptatif) =====
@@ -1246,24 +1245,7 @@ setPiece("Poteau");
       addBox(secPoteau, Hbas, secPoteau, x, Hbas/2, -lg/2, woodMat);
     }
 
-    // ===== MURS LATERAUX TRAPEZOIDAUX (translucides) =====
-    const triGeoL = new THREE.BufferGeometry();
-    const triVertL = new Float32Array([
-      -L/2, 0, -lg/2,  -L/2, Hbas, -lg/2,  -L/2, Hhaut, lg/2,
-      -L/2, 0, -lg/2,  -L/2, Hhaut, lg/2,  -L/2, 0, lg/2,
-    ]);
-    triGeoL.setAttribute("position", new THREE.BufferAttribute(triVertL, 3));
-    triGeoL.computeVertexNormals();
-    scene.add(new THREE.Mesh(triGeoL, wallMat));
-
-    const triGeoR = new THREE.BufferGeometry();
-    const triVertR = new Float32Array([
-      L/2, 0, -lg/2,  L/2, Hbas, -lg/2,  L/2, Hhaut, lg/2,
-      L/2, 0, -lg/2,  L/2, Hhaut, lg/2,  L/2, 0, lg/2,
-    ]);
-    triGeoR.setAttribute("position", new THREE.BufferAttribute(triVertR, 3));
-    triGeoR.computeVertexNormals();
-    scene.add(new THREE.Mesh(triGeoR, wallMat));
+    // (Appentis OUVERT : pas de murs lateraux, structure apparente)
 
 setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere contre mur) =====
