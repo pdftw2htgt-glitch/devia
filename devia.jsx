@@ -398,12 +398,15 @@ function buildScene3D(scene, params, opts) {
       const yBase = k * hEtage;
       const y0F = 1.0, y1F = Math.min(2.0, hEtage - 0.3);
       let ouvAv = [{ cx: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { cx: Lb/4, w: 1.2, y0: y0F, y1: y1F }];
-      if (pfB && pfB.yPlancher >= yBase - 0.01 && pfB.yPlancher < yBase + hEtage) {
-        const pfY0 = Math.max(0, pfB.yPlancher - yBase);
-        const pfY1 = Math.min(hEtage, pfY0 + 2.1);
-        const pf = { cx: pfB.cx || 0, w: pfB.w || 1.4, y0: pfY0, y1: pfY1 };
-        ouvAv = ouvAv.filter(f => Math.abs(f.cx - pf.cx) > (f.w + pf.w)/2 + 0.2);
-        ouvAv.push(pf);
+      if (pfB) {
+        // PF balcon : intersection avec CETTE bande (l'ouverture peut traverser plusieurs niveaux)
+        const pfStart = pfB.yPlancher, pfEnd = pfB.yPlancher + 2.1;
+        const i0 = Math.max(pfStart, yBase), i1 = Math.min(pfEnd, yBase + hEtage);
+        if (i1 - i0 > 0.05) {
+          const pf = { cx: pfB.cx || 0, w: pfB.w || 1.4, y0: i0 - yBase, y1: i1 - yBase };
+          ouvAv = ouvAv.filter(f => Math.abs(f.cx - pf.cx) > (f.w + pf.w)/2 + 0.2);
+          ouvAv.push(pf);
+        }
       }
       bandeX(lgb/2, yBase, hEtage, ouvAv);
       bandeX(-lgb/2, yBase, hEtage, [{ cx: 0, w: 1.2, y0: y0F, y1: y1F }]);
