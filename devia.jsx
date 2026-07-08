@@ -374,40 +374,58 @@ function buildScene3D(scene, params, opts) {
   const drawMursBeton = (Lb, lgb, Hb) => {
     const ep = 0.2;
     setPiece("Divers");
+    // ===== MULTI-NIVEAUX : murs > ~4m -> etages avec planchers et fenetres par niveau =====
+    const nbNiveaux = Math.max(1, Math.round(Hb / 2.8));
+    const hEtage = Hb / nbNiveaux;
+    const pfB = opts && opts.pfBalcon; // { cx, w, yPlancher } : porte-fenetre balcon sur le gouttereau Z+
 
-    // --- Mur gouttereau le long de X (a z fixe) avec fenetres [{cx, w}] ---
-    const murX = (zPos, fenetres) => {
-      const y0 = 1.0;                                 // allege
-      const y1 = Math.min(2.0, Hb - 0.3);             // haut de fenetre
-      const fs = [...fenetres].filter(f => f.cx - f.w/2 > -Lb/2 + 0.3 && f.cx + f.w/2 < Lb/2 - 0.3).sort((a,b) => a.cx - b.cx);
+    // --- Bande de mur gouttereau (a z fixe, de yBase a yBase+hBande) avec ouvertures [{cx,w,y0,y1}] ---
+    const bandeX = (zPos, yBase, hBande, ouvertures) => {
+      const fs = ouvertures.filter(f => f.cx - f.w/2 > -Lb/2 + 0.3 && f.cx + f.w/2 < Lb/2 - 0.3).sort((a,b) => a.cx - b.cx);
       let cursor = -Lb/2;
       for (const f of fs) {
         const x0 = f.cx - f.w/2, x1 = f.cx + f.w/2;
-        if (x0 > cursor) addBox(x0 - cursor, Hb, ep, (cursor + x0)/2, Hb/2, zPos, betonMat);
-        addBox(f.w, y0, ep, f.cx, y0/2, zPos, betonMat);                                   // allege
-        if (Hb > y1) addBox(f.w, Hb - y1, ep, f.cx, (y1 + Hb)/2, zPos, betonMat);          // imposte
+        if (x0 > cursor) addBox(x0 - cursor, hBande, ep, (cursor + x0)/2, yBase + hBande/2, zPos, betonMat);
+        if (f.y0 > 0.05) addBox(f.w, f.y0, ep, f.cx, yBase + f.y0/2, zPos, betonMat);                       // allege
+        if (f.y1 < hBande - 0.05) addBox(f.w, hBande - f.y1, ep, f.cx, yBase + (f.y1 + hBande)/2, zPos, betonMat); // imposte
         cursor = x1;
       }
-      if (cursor < Lb/2) addBox(Lb/2 - cursor, Hb, ep, (cursor + Lb/2)/2, Hb/2, zPos, betonMat);
+      if (cursor < Lb/2) addBox(Lb/2 - cursor, hBande, ep, (cursor + Lb/2)/2, yBase + hBande/2, zPos, betonMat);
     };
 
-    // --- Mur pignon le long de Z (a x fixe), avec porte centree optionnelle ---
+    // --- Gouttereaux : fenetres a CHAQUE niveau + porte-fenetre balcon au niveau concerne ---
+    for (let k = 0; k < nbNiveaux; k++) {
+      const yBase = k * hEtage;
+      const y0F = 1.0, y1F = Math.min(2.0, hEtage - 0.3);
+      let ouvAv = [{ cx: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { cx: Lb/4, w: 1.2, y0: y0F, y1: y1F }];
+      if (pfB && pfB.yPlancher >= yBase - 0.01 && pfB.yPlancher < yBase + hEtage) {
+        const pfY0 = Math.max(0, pfB.yPlancher - yBase);
+        const pfY1 = Math.min(hEtage, pfY0 + 2.1);
+        const pf = { cx: pfB.cx || 0, w: pfB.w || 1.4, y0: pfY0, y1: pfY1 };
+        ouvAv = ouvAv.filter(f => Math.abs(f.cx - pf.cx) > (f.w + pf.w)/2 + 0.2);
+        ouvAv.push(pf);
+      }
+      bandeX(lgb/2, yBase, hEtage, ouvAv);
+      bandeX(-lgb/2, yBase, hEtage, [{ cx: 0, w: 1.2, y0: y0F, y1: y1F }]);
+    }
+
+    // --- Pignons : porte au RDC (avant), plein au-dessus et a l'arriere ---
     const murZ = (xPos, avecPorte) => {
       if (!avecPorte || lgb < 1.6) { addBox(ep, Hb, lgb, xPos, Hb/2, 0, betonMat); return; }
       const pw = 0.9;
-      const ph = Math.min(2.1, Hb - 0.2);
-      const seg = lgb/2 - pw/2;                        // longueur de chaque trumeau
+      const ph = Math.min(2.1, hEtage - 0.2);
+      const seg = lgb/2 - pw/2;
       addBox(ep, Hb, seg, xPos, Hb/2, -(pw/2 + seg/2), betonMat);
       addBox(ep, Hb, seg, xPos, Hb/2, (pw/2 + seg/2), betonMat);
-      if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);                // linteau
+      if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);
     };
-
-    // Pignon avant (x = +L/2) : PORTE. Pignon arriere : plein.
     murZ(Lb/2, true);
     murZ(-Lb/2, false);
-    // Gouttereau avant (z = +lg/2) : 2 fenetres. Arriere : 1 fenetre.
-    murX(lgb/2, [{ cx: -Lb/4, w: 1.2 }, { cx: Lb/4, w: 1.2 }]);
-    murX(-lgb/2, [{ cx: 0, w: 1.2 }]);
+
+    // --- PLANCHERS INTERMEDIAIRES (un par etage) ---
+    for (let k = 1; k < nbNiveaux; k++) {
+      addBox(Lb - 2 * ep, 0.18, lgb - 2 * ep, 0, k * hEtage, 0, dalleMat);
+    }
   };
 
   const addBox = (sx, sy, sz, px, py, pz, mat, rot) => {
@@ -2489,7 +2507,11 @@ function Viewer3D({ params, onMetre }) {
       let cursorX = -totalW / 2;
       const posRangee = new Map();
       rangee.forEach((o) => {
-        const grp = buildOuvrage(o, null);
+        const isPorteur = params.ouvrages.indexOf(o) === idxPorteur;
+        const extra = (isPorteur && ancres.length > 0)
+          ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: ancres[0].hauteur || 2.5 } }
+          : null;
+        const grp = buildOuvrage(o, extra);
         grp.position.x = cursorX + (o.longueur || 8) / 2;
         posRangee.set(o, grp.position.x);
         cursorX += (o.longueur || 8) + gap;
