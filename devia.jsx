@@ -1113,9 +1113,11 @@ setPiece("Panne");
     const yDessusSolive = hBalcon - epLame;
     const ySolive = yDessusSolive - soH / 2;
 
-    // ===== MUR D'ANCRAGE (beton, plus large et plus haut que le balcon) =====
-    setPiece("Divers");
-    addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, betonMat);
+    // ===== MUR D'ANCRAGE (beton) - masque si le balcon est ancre sur un batiment de la scene =====
+    if (!(opts && opts.sansMurAncrage)) {
+      setPiece("Divers");
+      addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, betonMat);
+    }
 
     // ===== MURAILLERE (fixee contre le mur, support arriere des solives) =====
     setPiece("Muraillere");
@@ -2446,32 +2448,59 @@ function Viewer3D({ params, onMetre }) {
     if (params.ouvrages && params.ouvrages.length > 1) {
       // ===== MODE MULTI-OUVRAGES : un THREE.Group par ouvrage, cote a cote le long de X =====
       const gap = 2.0;
-      const totalW = params.ouvrages.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * (params.ouvrages.length - 1);
-      let cursorX = -totalW / 2;
       const metresAll = [];
       let densiteRef = 450;
-      params.ouvrages.forEach((o) => {
+      // Helper : preBuild EC5 + build final d'un ouvrage dans un groupe
+      const buildOuvrage = (o, extraOpts) => {
         const oParams = { ...params, ...o };
-        // preBuild dans un groupe jetable (jamais ajoute a la scene) pour le calcul EC5
         const tmpGrp = new THREE.Group();
-        const pre = buildScene3D(tmpGrp, oParams, { couverture: oParams.couverture, mode: params.mode3D });
+        const pre = buildScene3D(tmpGrp, oParams, { couverture: oParams.couverture, mode: params.mode3D, ...(extraOpts || {}) });
         let secs = {};
         try {
           const agg = agregerMetre(pre.metre, pre.densiteBois || 450);
           secs = calculerSectionsCharpente(agg, oParams, params.sk);
         } catch (e) { secs = {}; }
         tmpGrp.traverse((obj) => { if (obj.isMesh && obj.geometry) obj.geometry.dispose(); });
-        // build final dans le vrai groupe, positionne cote a cote
         const grp = new THREE.Group();
         const res = buildScene3D(grp, oParams, {
           couverture: oParams.couverture, mode: params.mode3D,
           sections: secs, sectionMode: params.sectionMode || "conseillee",
+          ...(extraOpts || {}),
         });
-        grp.position.x = cursorX + (o.longueur || 8) / 2;
-        cursorX += (o.longueur || 8) + gap;
         scene.add(grp);
         metresAll.push(...res.metre);
         densiteRef = res.densiteBois || 450;
+        return grp;
+      };
+
+      // ===== ANCRAGE SEMANTIQUE : balcons ancres sur le batiment porteur =====
+      const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
+      const idxPorteur = params.ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
+      const rangee = [];
+      const ancres = [];
+      params.ouvrages.forEach((o, i) => {
+        const balconAncrable = o.type_projet === "balcon" && idxPorteur >= 0 && i !== idxPorteur
+          && ((o.hauteur || 2.5) + 2.0 <= (params.ouvrages[idxPorteur].hauteur || 3));
+        if (balconAncrable) ancres.push(o); else rangee.push(o);
+      });
+
+      // Rangee : cote a cote le long de X
+      const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
+      let cursorX = -totalW / 2;
+      const posRangee = new Map();
+      rangee.forEach((o) => {
+        const grp = buildOuvrage(o, null);
+        grp.position.x = cursorX + (o.longueur || 8) / 2;
+        posRangee.set(o, grp.position.x);
+        cursorX += (o.longueur || 8) + gap;
+      });
+
+      // Ancres : balcons colles sur la facade Z+ du porteur, sans mur d'ancrage propre
+      ancres.forEach((o) => {
+        const porteur = params.ouvrages[idxPorteur];
+        const grp = buildOuvrage(o, { sansMurAncrage: true });
+        grp.position.x = posRangee.get(porteur) || 0;
+        grp.position.z = (porteur.largeur || 6) / 2;
       });
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
@@ -2910,6 +2939,7 @@ const [formPente, setFormPente] = useState("");
 const [formGroupe, setFormGroupe] = useState(""); // id du groupe choisi pour ce devis ("" = aucun)
 const [formSousType, setFormSousType] = useState(""); // type de l'ouvrage en cours (mode Structure personnalisee)
 const [formStructures, setFormStructures] = useState([]); // liste des ouvrages ajoutes (mode custom)
+const [formCustomError, setFormCustomError] = useState(""); // erreur de coherence multi-ouvrages
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [nomProjet, setNomProjet] = useState("");
 const [commune, setCommune] = useState("");
@@ -4732,6 +4762,16 @@ return (
                   <button type="button"
                     disabled={!formSousType || !formLongueur || !formLargeur}
                     onClick={() => {
+                      // REGLE METIER : un balcon exige un etage (murs du batiment assez hauts)
+                      if (formSousType === "balcon") {
+                        const porteur = formStructures.find(s => ["traditionnelle","fermette","monopente","4_pans"].includes(s.type));
+                        const hBalc = parseFloat(formHauteur) || 2.5;
+                        if (porteur && hBalc + 2.0 > (porteur.hauteur || 3)) {
+                          setFormCustomError("Balcon impossible : le batiment principal (murs " + porteur.hauteur + "m) n'a pas d'etage a cette hauteur. Il faut au moins " + (hBalc + 2.0).toFixed(1) + "m de murs (balcon a " + hBalc + "m + 2m de porte-fenetre), ou baisser la hauteur du balcon.");
+                          return;
+                        }
+                      }
+                      setFormCustomError("");
                       const LABELS_FIN2 = { rabote: "rabote", brut: "brut de sciage", traite: "traite autoclave" };
                       const sansToit = ["terrasse","etage","balcon"].includes(formSousType);
                       const p2 = [];
@@ -4764,6 +4804,9 @@ return (
                       fontSize: 13, fontWeight: 600 }}>
                     + Ajouter cette structure
                   </button>
+                  {formCustomError && (
+                    <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(224,82,82,0.08)", border: "1px solid rgba(224,82,82,0.3)", borderRadius: 8, color: "#e05252", fontSize: 12, lineHeight: 1.5 }}>{formCustomError}</div>
+                  )}
                   {formStructures.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       {formStructures.map((s, i) => (
