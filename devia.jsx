@@ -2443,25 +2443,58 @@ function Viewer3D({ params, onMetre }) {
     scene.add(sun);
 
     // Construction de la scene via fonction commune
-    // 1er passage : sans sections (pour obtenir le metre)
-    const preBuild = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
-    // calcul des sections EC5 a partir du metre obtenu
-    let sectionsEC5 = {};
-    try {
-      const agg = agregerMetre(preBuild.metre, preBuild.densiteBois || 450);
-      sectionsEC5 = calculerSectionsCharpente(agg, params, params.sk);
-    } catch (e) { sectionsEC5 = {}; }
-    // 2e passage : on vide la scene des meshes et on redessine avec les sections
-    // (simple : on retire tous les Mesh ajoutes par le 1er passage)
-    const toRemove = [];
-    scene.traverse((o) => { if (o.isMesh) toRemove.push(o); });
-    toRemove.forEach((o) => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
-    const buildResultViewer = buildScene3D(scene, params, {
-      couverture: params.couverture, mode: params.mode3D,
-      sections: sectionsEC5, sectionMode: params.sectionMode || "conseillee",
-    });
-    if (onMetreRef.current && buildResultViewer.metre) {
-      onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450), buildResultViewer.metre);
+    if (params.ouvrages && params.ouvrages.length > 1) {
+      // ===== MODE MULTI-OUVRAGES : un THREE.Group par ouvrage, cote a cote le long de X =====
+      const gap = 2.0;
+      const totalW = params.ouvrages.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * (params.ouvrages.length - 1);
+      let cursorX = -totalW / 2;
+      const metresAll = [];
+      let densiteRef = 450;
+      params.ouvrages.forEach((o) => {
+        const oParams = { ...params, ...o };
+        // preBuild dans un groupe jetable (jamais ajoute a la scene) pour le calcul EC5
+        const tmpGrp = new THREE.Group();
+        const pre = buildScene3D(tmpGrp, oParams, { couverture: oParams.couverture, mode: params.mode3D });
+        let secs = {};
+        try {
+          const agg = agregerMetre(pre.metre, pre.densiteBois || 450);
+          secs = calculerSectionsCharpente(agg, oParams, params.sk);
+        } catch (e) { secs = {}; }
+        tmpGrp.traverse((obj) => { if (obj.isMesh && obj.geometry) obj.geometry.dispose(); });
+        // build final dans le vrai groupe, positionne cote a cote
+        const grp = new THREE.Group();
+        const res = buildScene3D(grp, oParams, {
+          couverture: oParams.couverture, mode: params.mode3D,
+          sections: secs, sectionMode: params.sectionMode || "conseillee",
+        });
+        grp.position.x = cursorX + (o.longueur || 8) / 2;
+        cursorX += (o.longueur || 8) + gap;
+        scene.add(grp);
+        metresAll.push(...res.metre);
+        densiteRef = res.densiteBois || 450;
+      });
+      if (onMetreRef.current && metresAll.length) {
+        onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
+      }
+    } else {
+      // ===== MODE SOLO (flux inchange) =====
+      // 1er passage : sans sections (pour obtenir le metre)
+      const preBuild = buildScene3D(scene, params, { couverture: params.couverture, mode: params.mode3D });
+      let sectionsEC5 = {};
+      try {
+        const agg = agregerMetre(preBuild.metre, preBuild.densiteBois || 450);
+        sectionsEC5 = calculerSectionsCharpente(agg, params, params.sk);
+      } catch (e) { sectionsEC5 = {}; }
+      const toRemove = [];
+      scene.traverse((o) => { if (o.isMesh) toRemove.push(o); });
+      toRemove.forEach((o) => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
+      const buildResultViewer = buildScene3D(scene, params, {
+        couverture: params.couverture, mode: params.mode3D,
+        sections: sectionsEC5, sectionMode: params.sectionMode || "conseillee",
+      });
+      if (onMetreRef.current && buildResultViewer.metre) {
+        onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450), buildResultViewer.metre);
+      }
     }
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
@@ -4012,13 +4045,19 @@ return out;
       };
 
       setResult(fusion);
+      const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon" };
       setView3DParams({
         longueur: p1.longueur || structures[0].longueur || 10,
         largeur: p1.largeur || structures[0].largeur || 8,
         hauteur: p1.hauteur || structures[0].hauteur || 3,
         pente: p1.pente || structures[0].pente || 35,
         type_projet: p1.type_projet || "autre",
-        couverture: p1.couverture || structures[0].couverture || "tuile_terre"
+        couverture: p1.couverture || structures[0].couverture || "tuile_terre",
+        ouvrages: structures.map((s, i) => ({
+          longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
+          couverture: s.couverture, essence: s.essence,
+          type_projet: (devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad",
+        })),
       });
 
       // Sauvegarde Supabase (projet fusionne)
