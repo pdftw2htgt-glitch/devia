@@ -667,35 +667,45 @@ setPiece("Panne");
     }
 
 setPiece("Echantignole");
-    // ===== ECHANTIGNOLES PRISMATIQUES (cale triangulaire : base sur le rampant, face verticale contre la panne) =====
-    const addEchantignole = (fx, zPied, yPied, hFace, signZ) => {
-      const eB2 = 0.08, eLen = 0.18;
+    // ===== ECHANTIGNOLES v2 : dessus HORIZONTAL (la sous-face de la panne repose dessus),
+    // base sur le rampant, talon vertical a l'aval qui bloque la panne =====
+    const addEchantignole = (fx, zRef, yRef, signZ) => {
+      const eB2 = 0.08;                             // largeur (le long de L)
+      const tT = 0.05;                              // epaisseur du talon
+      const hT = 0.06;                              // hauteur du talon
       const x1 = fx - eB2/2, x2 = fx + eB2/2;
-      const zA = signZ * zPied, zB2 = signZ * (zPied + eLen);
-      const yA = yPied, yB2 = yPied - eLen * tanA, yC = yPied + hFace;
+      const yTop = yRef + (pnB/2) * tanA;           // dessus horizontal = sous-face de la panne
+      const z1 = zRef - pnB/2;                      // pointe amont (epaisseur nulle)
+      const z2 = zRef + pnB/2;                      // face aval de la panne
+      const z3 = z2 + tT;                           // arriere du talon
+      const yD = yTop - (z3 - z1) * tanA;           // base rampant a l'arriere du talon
+      const s = signZ;
+      const A = [0, yTop, s * z1], G = [0, yTop, s * z2], F = [0, yTop + hT, s * z2], E = [0, yTop + hT, s * z3], D = [0, yD, s * z3];
+      const mk = (p, x) => [x, p[1], p[2]];
       const pos = [];
       const tri = (p, q, r) => { pos.push(p[0],p[1],p[2], q[0],q[1],q[2], r[0],r[1],r[2]); };
-      const A1 = [x1, yA, zA], B1 = [x1, yB2, zB2], C1 = [x1, yC, zA];
-      const A2 = [x2, yA, zA], B2 = [x2, yB2, zB2], C2 = [x2, yC, zA];
-      tri(A1, B1, C1); tri(A2, C2, B2);           // 2 bouts
-      tri(A1, A2, B2); tri(A1, B2, B1);           // face rampant (hypotenuse basse)
-      tri(A1, C1, C2); tri(A1, C2, A2);           // face verticale (contre la panne)
-      tri(B1, B2, C2); tri(B1, C2, C1);           // face inclinee superieure
+      const quad = (a, b, c, d) => { tri(a, b, c); tri(a, c, d); };
+      const A1=mk(A,x1), G1=mk(G,x1), F1=mk(F,x1), E1=mk(E,x1), D1=mk(D,x1);
+      const A2=mk(A,x2), G2=mk(G,x2), F2=mk(F,x2), E2=mk(E,x2), D2=mk(D,x2);
+      tri(A1,G1,F1); tri(A1,F1,E1); tri(A1,E1,D1);
+      tri(A2,F2,G2); tri(A2,E2,F2); tri(A2,D2,E2);
+      quad(A1,A2,G2,G1);   // dessus horizontal (support de la panne)
+      quad(G1,G2,F2,F1);   // face avant du talon (contre la panne)
+      quad(F1,F2,E2,E1);   // dessus du talon
+      quad(E1,E2,D2,D1);   // arriere du talon
+      quad(D1,D2,A2,A1);   // base sur le rampant
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide }));
       m.castShadow = true;
       scene.add(m);
-      logPiece(eB2, hFace, eLen, { pos: [fx, yPied, zA], rot: null, quat: null });
+      logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
     };
     pannesInfo.forEach(({ zRef, yRef }) => {
-      const zPied = zRef + pnB/2;                  // pied de la face aval de la panne
-      const yPied = yRef - (pnB/2) * tanA;         // sur le rampant a cette position
-      const hFace = pnB * tanA + 0.05;             // remonte 5cm au-dessus du coin bas de la panne
       fermeXs.forEach((fx) => {
-        addEchantignole(fx, zPied, yPied, hFace, 1);
-        addEchantignole(fx, zPied, yPied, hFace, -1);
+        addEchantignole(fx, zRef, yRef, 1);
+        addEchantignole(fx, zRef, yRef, -1);
       });
     });
 
