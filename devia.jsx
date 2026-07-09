@@ -660,7 +660,8 @@ setPiece("Panne");
       const t = p / (nbPannesParPan + 1);
       const yRef = Ht + hf * t + (arH2/2) * cosA;   // extrados au droit de l'axe de la panne
       const zRef = (lg/2) * (1 - t) + (arH2/2) * sinA;
-      const yP = yRef + (pnB/2) * tanA + pnH/2;     // le coin bas-amont touche le rampant
+      const eEch = 0.03;                             // epaisseur mini de l'echantignole sous le coin amont
+      const yP = yRef + (pnB/2) * tanA + eEch + pnH/2; // la panne repose SUR le dessus de la cale
       pannesInfo.push({ zRef, yRef });
       addBox(L + 0.3, pnH, pnB, 0, yP, zRef, woodMat);   // pan Z+ (droite)
       addBox(L + 0.3, pnH, pnB, 0, yP, -zRef, woodMat);  // pan Z- (droite)
@@ -670,12 +671,13 @@ setPiece("Echantignole");
     // ===== ECHANTIGNOLES v2 : dessus HORIZONTAL (la sous-face de la panne repose dessus),
     // base sur le rampant, talon vertical a l'aval qui bloque la panne =====
     const addEchantignole = (fx, zRef, yRef, signZ) => {
-      const eB2 = 0.08;                             // largeur (le long de L)
+      const eB2 = arB2;                             // largeur = celle de l'arbaletrier
+      const eEch2 = 0.03;                           // epaisseur mini sous le coin amont
       const tT = 0.05;                              // epaisseur du talon
       const hT = 0.06;                              // hauteur du talon
       const x1 = fx - eB2/2, x2 = fx + eB2/2;
-      const yTop = yRef + (pnB/2) * tanA;           // dessus horizontal = sous-face de la panne
-      const z1 = zRef - pnB/2;                      // pointe amont (epaisseur nulle)
+      const yTop = yRef + (pnB/2) * tanA + eEch2;   // dessus horizontal = sous-face de la panne (remontee)
+      const z1 = zRef - pnB/2 - eEch2 / tanA;       // pointe : la base rampante rejoint le dessus en amont
       const z2 = zRef + pnB/2;                      // face aval de la panne
       const z3 = z2 + tT;                           // arriere du talon
       const yD = yTop - (z3 - z1) * tanA;           // base rampant a l'arriere du talon
@@ -712,7 +714,7 @@ setPiece("Echantignole");
 setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE, poses SUR les pannes =====
     const ENTRAXE_CHEVRON_MAX = 0.6;
-    const dPerpChevron = arH2/2 + pnH * cosA + chH/2;
+    const dPerpChevron = arH2/2 + (pnH + 0.03) * cosA + chH/2;
     const chevronXs = [];
     for (let t = 0; t < fermeXs.length - 1; t++) {
       const x0 = fermeXs[t], x1 = fermeXs[t + 1];
@@ -761,7 +763,7 @@ setPiece("Chevron");
     // Chaque pan est prolonge de ext = dPerp*tan(ang) le long du rampant pour que
     // les 2 pans decales se rejoignent au plan central (z=0) : plus de fente au faitage.
     const couv = getCouverture(opts && opts.couverture);
-    const dPerpCouv = arH2/2 + pnH * cosA + chH + 0.01;
+    const dPerpCouv = arH2/2 + (pnH + 0.03) * cosA + chH + 0.01;
     const ext = dPerpCouv * Math.tan(ang);
     const plCouv = pl + ext;
     const tradRoofMat = makeRoofMaterial(couv, L, plCouv);
