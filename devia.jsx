@@ -703,8 +703,6 @@ setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE, poses SUR les pannes =====
     const ENTRAXE_CHEVRON_MAX = 0.6;
     const dPerpChevron = arH2/2 + pnH * cosA + chH/2;
-    const yCh = Ht + hf/2 + dPerpChevron * cosA;
-    const zCh = lg/4 + dPerpChevron * sinA;
     const chevronXs = [];
     for (let t = 0; t < fermeXs.length - 1; t++) {
       const x0 = fermeXs[t], x1 = fermeXs[t + 1];
@@ -714,9 +712,37 @@ setPiece("Chevron");
         chevronXs.push(x0 + (j / (nbInter + 1)) * travee);
       }
     }
+    // Chevron = prisme a COUPES VERTICALES : onglet au faitage (z=0, les 2 pans s'emboitent)
+    // et coupe d'aplomb a l'egout. Le rampant du pan : y(z) = Ht + hf - |z|*tan(ang).
+    const addChevronOnglet = (x, signZ) => {
+      const dv = (dPerpChevron - chH/2) / cosA;    // decalage VERTICAL du dessous (perp -> vertical)
+      const dvH = chH / cosA;                       // epaisseur verticale du chevron
+      const yLigne = (z) => Ht + hf - z * tanA;     // rampant de base (z >= 0)
+      const zE = lg/2;                              // egout (aplomb du mur)
+      const yB0 = yLigne(0) + dv,  yH0 = yB0 + dvH;   // about faitage (z=0)
+      const yBE = yLigne(zE) + dv, yHE = yBE + dvH;   // about egout (z=zE)
+      const x1 = x - chB/2, x2 = x + chB/2;
+      const s = signZ;
+      const pos = [];
+      const quad = (a, b, c, d) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); };
+      const A1=[x1,yB0,0], B1=[x1,yH0,0], C1=[x1,yHE,s*zE], D1=[x1,yBE,s*zE];
+      const A2=[x2,yB0,0], B2=[x2,yH0,0], C2=[x2,yHE,s*zE], D2=[x2,yBE,s*zE];
+      quad(A1,B1,C1,D1); quad(A2,D2,C2,B2);        // 2 joues
+      quad(B1,B2,C2,C1);                            // dessus
+      quad(A1,D1,D2,A2);                            // dessous
+      quad(A1,A2,B2,B1);                            // about faitage (coupe onglet verticale)
+      quad(D1,C1,C2,D2);                            // about egout (coupe d'aplomb)
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide }));
+      m.castShadow = true;
+      scene.add(m);
+      logPiece(chB, chH, zE / cosA, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
+    };
     chevronXs.forEach((x) => {
-      addBox(chB, chH, pl, x, yCh, zCh, woodMat, [ang, 0, 0]);   // pan Z+
-      addBox(chB, chH, pl, x, yCh, -zCh, woodMat, [-ang, 0, 0]); // pan Z-
+      addChevronOnglet(x, 1);   // pan Z+
+      addChevronOnglet(x, -1);  // pan Z-
     });
 
     // ===== COUVERTURE : posee sur les chevrons, FAITAGE FERME =====
