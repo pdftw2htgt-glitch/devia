@@ -937,8 +937,10 @@ setPiece("Sabliere");
 setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
     const nbFermes = Math.max(2, Math.ceil(L / 3));
+    const fermeXsH = [];
     for (let i = 0; i <= nbFermes; i++) {
       const x = -L/2 + (i / nbFermes) * L;
+      fermeXsH.push(x);
 
       // Entrait (poutre horizontale basse)
       setPiece("Entrait");
@@ -979,15 +981,22 @@ setPiece("Panne");
     }
 
     setPiece("Chevron");
-    // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
-    const espChevron = 0.6;
-    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
+    const ENTRAXE_CHEVRON_MAX_H = 0.6;
+    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const chevronXsH = [];
+    for (let t = 0; t < fermeXsH.length - 1; t++) {
+      const x0 = fermeXsH[t], x1 = fermeXsH[t + 1];
+      const travee = x1 - x0;
+      const nbInter = Math.max(0, Math.ceil(travee / ENTRAXE_CHEVRON_MAX_H) - 1);
+      for (let j = 1; j <= nbInter; j++) {
+        chevronXsH.push(x0 + (j / (nbInter + 1)) * travee);
+      }
+    }
+    chevronXsH.forEach((x) => {
       addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
       addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
-    }
+    });
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
