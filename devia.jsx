@@ -652,37 +652,57 @@ setPiece("Panne faitiere");
     const cosA = Math.cos(ang), sinA = Math.sin(ang);
 
 setPiece("Panne");
-    // ===== PANNES DEVERSEES (posees SUR l'extrados des arbaletriers) =====
-    const dPerpPanne = arH2/2 + pnH/2;
+    // ===== PANNES D'APLOMB (droites, coin amont pose sur l'extrados, calees par echantignoles) =====
+    const tanA = Math.tan(ang);
     const nbPannesParPan = 2;
-    const pannesT = [];
+    const pannesInfo = [];
     for (let p = 1; p <= nbPannesParPan; p++) {
       const t = p / (nbPannesParPan + 1);
-      pannesT.push(t);
-      const yP = Ht + hf * t + dPerpPanne * cosA;
-      const zP = (lg/2) * (1 - t) + dPerpPanne * sinA;
-      addBox(L + 0.3, pnH, pnB, 0, yP, zP, woodMat, [ang, 0, 0]);    // pan Z+ (deversee)
-      addBox(L + 0.3, pnH, pnB, 0, yP, -zP, woodMat, [-ang, 0, 0]);  // pan Z- (deversee)
+      const yRef = Ht + hf * t + (arH2/2) * cosA;   // extrados au droit de l'axe de la panne
+      const zRef = (lg/2) * (1 - t) + (arH2/2) * sinA;
+      const yP = yRef + (pnB/2) * tanA + pnH/2;     // le coin bas-amont touche le rampant
+      pannesInfo.push({ zRef, yRef });
+      addBox(L + 0.3, pnH, pnB, 0, yP, zRef, woodMat);   // pan Z+ (droite)
+      addBox(L + 0.3, pnH, pnB, 0, yP, -zRef, woodMat);  // pan Z- (droite)
     }
 
 setPiece("Echantignole");
-    // ===== ECHANTIGNOLES (cales sous chaque panne, a chaque ferme, cote aval) =====
-    const eB = 0.08, eH = 0.10, eLong = 0.16;
-    const dPerpEch = arH2/2 + eH/2;
-    const dAval = pnB/2 + eLong/2; // decalage le long du rampant, vers le bas
-    pannesT.forEach((t) => {
-      const yE = Ht + hf * t + dPerpEch * cosA - dAval * sinA;
-      const zE = (lg/2) * (1 - t) + dPerpEch * sinA + dAval * cosA;
+    // ===== ECHANTIGNOLES PRISMATIQUES (cale triangulaire : base sur le rampant, face verticale contre la panne) =====
+    const addEchantignole = (fx, zPied, yPied, hFace, signZ) => {
+      const eB2 = 0.08, eLen = 0.18;
+      const x1 = fx - eB2/2, x2 = fx + eB2/2;
+      const zA = signZ * zPied, zB2 = signZ * (zPied + eLen);
+      const yA = yPied, yB2 = yPied - eLen * tanA, yC = yPied + hFace;
+      const pos = [];
+      const tri = (p, q, r) => { pos.push(p[0],p[1],p[2], q[0],q[1],q[2], r[0],r[1],r[2]); };
+      const A1 = [x1, yA, zA], B1 = [x1, yB2, zB2], C1 = [x1, yC, zA];
+      const A2 = [x2, yA, zA], B2 = [x2, yB2, zB2], C2 = [x2, yC, zA];
+      tri(A1, B1, C1); tri(A2, C2, B2);           // 2 bouts
+      tri(A1, A2, B2); tri(A1, B2, B1);           // face rampant (hypotenuse basse)
+      tri(A1, C1, C2); tri(A1, C2, A2);           // face verticale (contre la panne)
+      tri(B1, B2, C2); tri(B1, C2, C1);           // face inclinee superieure
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide }));
+      m.castShadow = true;
+      scene.add(m);
+      logPiece(eB2, hFace, eLen, { pos: [fx, yPied, zA], rot: null, quat: null });
+    };
+    pannesInfo.forEach(({ zRef, yRef }) => {
+      const zPied = zRef + pnB/2;                  // pied de la face aval de la panne
+      const yPied = yRef - (pnB/2) * tanA;         // sur le rampant a cette position
+      const hFace = pnB * tanA + 0.05;             // remonte 5cm au-dessus du coin bas de la panne
       fermeXs.forEach((fx) => {
-        addBox(eB, eH, eLong, fx, yE, zE, woodMat, [ang, 0, 0]);
-        addBox(eB, eH, eLong, fx, yE, -zE, woodMat, [-ang, 0, 0]);
+        addEchantignole(fx, zPied, yPied, hFace, 1);
+        addEchantignole(fx, zPied, yPied, hFace, -1);
       });
     });
 
 setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE, poses SUR les pannes =====
     const ENTRAXE_CHEVRON_MAX = 0.6;
-    const dPerpChevron = arH2/2 + pnH + chH/2;
+    const dPerpChevron = arH2/2 + pnH * cosA + chH/2;
     const yCh = Ht + hf/2 + dPerpChevron * cosA;
     const zCh = lg/4 + dPerpChevron * sinA;
     const chevronXs = [];
@@ -703,7 +723,7 @@ setPiece("Chevron");
     // Chaque pan est prolonge de ext = dPerp*tan(ang) le long du rampant pour que
     // les 2 pans decales se rejoignent au plan central (z=0) : plus de fente au faitage.
     const couv = getCouverture(opts && opts.couverture);
-    const dPerpCouv = arH2/2 + pnH + chH + 0.01;
+    const dPerpCouv = arH2/2 + pnH * cosA + chH + 0.01;
     const ext = dPerpCouv * Math.tan(ang);
     const plCouv = pl + ext;
     const tradRoofMat = makeRoofMaterial(couv, L, plCouv);
