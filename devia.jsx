@@ -740,6 +740,8 @@ setPiece("Chevron");
       scene.add(m);
       logPiece(chB, chH, zE / cosA, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
     };
+    // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
+    fermeXs.forEach((fx) => chevronXs.push(fx));
     chevronXs.forEach((x) => {
       addChevronOnglet(x, 1);   // pan Z+
       addChevronOnglet(x, -1);  // pan Z-
