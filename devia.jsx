@@ -643,24 +643,48 @@ setPiece("Panne faitiere");
     const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
     addBox(L + 0.4, pfH, pfB, 0, yFait, 0, woodMat);
 
+    // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
+    // Toute la geometrie du pan derive de cette ligne par decalages perpendiculaires dPerp :
+    // y = yLigne + dPerp*cos(ang), z = zLigne +- dPerp*sin(ang)
+    const [arB2, arH2] = sec("Arbaletrier", 0.16, 0.16);
+    const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const cosA = Math.cos(ang), sinA = Math.sin(ang);
+
 setPiece("Panne");
-    // ===== PANNES INTERMEDIAIRES (le long du toit, sur les 2 pans) =====
+    // ===== PANNES DEVERSEES (posees SUR l'extrados des arbaletriers) =====
+    const dPerpPanne = arH2/2 + pnH/2;
     const nbPannesParPan = 2;
+    const pannesT = [];
     for (let p = 1; p <= nbPannesParPan; p++) {
-      const t = p / (nbPannesParPan + 1); // position le long de l'arbaletrier
-      const yPanne = Ht + hf * t;
-      const zPanne = (lg/2) * (1 - t);
-      const [pnB, pnH] = sec("Panne", 0.12, 0.12);
-      addBox(L + 0.3, pnH, pnB, 0, yPanne, zPanne, woodMat);
-      addBox(L + 0.3, pnH, pnB, 0, yPanne, -zPanne, woodMat);
+      const t = p / (nbPannesParPan + 1);
+      pannesT.push(t);
+      const yP = Ht + hf * t + dPerpPanne * cosA;
+      const zP = (lg/2) * (1 - t) + dPerpPanne * sinA;
+      addBox(L + 0.3, pnH, pnB, 0, yP, zP, woodMat, [ang, 0, 0]);    // pan Z+ (deversee)
+      addBox(L + 0.3, pnH, pnB, 0, yP, -zP, woodMat, [-ang, 0, 0]);  // pan Z- (deversee)
     }
 
+setPiece("Echantignole");
+    // ===== ECHANTIGNOLES (cales sous chaque panne, a chaque ferme, cote aval) =====
+    const eB = 0.08, eH = 0.10, eLong = 0.16;
+    const dPerpEch = arH2/2 + eH/2;
+    const dAval = pnB/2 + eLong/2; // decalage le long du rampant, vers le bas
+    pannesT.forEach((t) => {
+      const yE = Ht + hf * t + dPerpEch * cosA - dAval * sinA;
+      const zE = (lg/2) * (1 - t) + dPerpEch * sinA + dAval * cosA;
+      fermeXs.forEach((fx) => {
+        addBox(eB, eH, eLong, fx, yE, zE, woodMat, [ang, 0, 0]);
+        addBox(eB, eH, eLong, fx, yE, -zE, woodMat, [-ang, 0, 0]);
+      });
+    });
+
 setPiece("Chevron");
-    // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
-    // Regle metier : les arbaletriers comptent comme porteurs a leur position ;
-    // les chevrons sont repartis EQUIDISTANTS dans chaque travee, jamais colles a une ferme.
+    // ===== CHEVRONS : CALEPINAGE PAR TRAVEE, poses SUR les pannes =====
     const ENTRAXE_CHEVRON_MAX = 0.6;
-    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const dPerpChevron = arH2/2 + pnH + chH/2;
+    const yCh = Ht + hf/2 + dPerpChevron * cosA;
+    const zCh = lg/4 + dPerpChevron * sinA;
     const chevronXs = [];
     for (let t = 0; t < fermeXs.length - 1; t++) {
       const x0 = fermeXs[t], x1 = fermeXs[t + 1];
@@ -671,24 +695,28 @@ setPiece("Chevron");
       }
     }
     chevronXs.forEach((x) => {
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);   // pan Z+
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]); // pan Z-
+      addBox(chB, chH, pl, x, yCh, zCh, woodMat, [ang, 0, 0]);   // pan Z+
+      addBox(chB, chH, pl, x, yCh, -zCh, woodMat, [-ang, 0, 0]); // pan Z-
     });
 
-    // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
+    // ===== COUVERTURE : posee sur les chevrons, FAITAGE FERME =====
+    // Chaque pan est prolonge de ext = dPerp*tan(ang) le long du rampant pour que
+    // les 2 pans decales se rejoignent au plan central (z=0) : plus de fente au faitage.
     const couv = getCouverture(opts && opts.couverture);
-    const tradRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.6, pl);
-    // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
-    const dPerp = 0.06;
-    const dY = dPerp * Math.cos(ang);
-    const dZ = dPerp * Math.sin(ang);
+    const dPerpCouv = arH2/2 + pnH + chH + 0.01;
+    const ext = dPerpCouv * Math.tan(ang);
+    const plCouv = pl + ext;
+    const tradRoofMat = makeRoofMaterial(couv, L, plCouv);
+    const rg = new THREE.PlaneGeometry(L + 0.6, plCouv);
+    // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut le long du rampant
+    const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA;
+    const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA;
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
+    r1.position.set(0, yR, zR);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
+    r2.position.set(0, yR, -zR);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
   };
