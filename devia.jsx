@@ -656,17 +656,24 @@ setPiece("Panne");
     }
 
 setPiece("Chevron");
-    // ===== CHEVRONS RAPPROCHES (tous les ~0.5m, sur les pannes) =====
-    const espChevron = 0.5;
-    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      // Chevron pan Z+ (section fine)
-      const [chB, chH] = sec("Chevron", 0.07, 0.07);
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
-      // Chevron pan Z-
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
+    // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
+    // Regle metier : les arbaletriers comptent comme porteurs a leur position ;
+    // les chevrons sont repartis EQUIDISTANTS dans chaque travee, jamais colles a une ferme.
+    const ENTRAXE_CHEVRON_MAX = 0.6;
+    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const chevronXs = [];
+    for (let t = 0; t < fermeXs.length - 1; t++) {
+      const x0 = fermeXs[t], x1 = fermeXs[t + 1];
+      const travee = x1 - x0;
+      const nbInter = Math.max(0, Math.ceil(travee / ENTRAXE_CHEVRON_MAX) - 1);
+      for (let j = 1; j <= nbInter; j++) {
+        chevronXs.push(x0 + (j / (nbInter + 1)) * travee);
+      }
     }
+    chevronXs.forEach((x) => {
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);   // pan Z+
+      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]); // pan Z-
+    });
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
