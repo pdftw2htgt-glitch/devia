@@ -329,7 +329,7 @@ function buildScene3D(scene, params, opts) {
     if (essenceRaw.includes(k)) { essenceKey = k; break; }
   }
   // Materiau bois : couleur unie par defaut, puis on tente la texture (async)
-  const woodMat = new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: woodColor, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide });
   (function loadWoodTexture() {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
     if (mode !== "realiste") return;
@@ -699,8 +699,7 @@ setPiece("Echantignole");
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
       g.computeVertexNormals();
-      const matBois2 = woodMat.clone(); matBois2.side = THREE.DoubleSide;
-      const m = new THREE.Mesh(g, matBois2);
+      const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
       logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
@@ -748,8 +747,7 @@ setPiece("Chevron");
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
       g.computeVertexNormals();
-      const matBois2 = woodMat.clone(); matBois2.side = THREE.DoubleSide;
-      const m = new THREE.Mesh(g, matBois2);
+      const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
       logPiece(chB, chH, zE / cosA, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
