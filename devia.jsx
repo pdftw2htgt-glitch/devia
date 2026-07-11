@@ -2699,8 +2699,8 @@ function Viewer3D({ params, onMetre }) {
     controls.rotateSpeed = 0.6;
     controls.zoomSpeed = 0.8;
     controls.panSpeed = 0.5;
-    controls.minDistance = 5;               // limite zoom in
-    controls.maxDistance = 50;              // limite zoom out
+    controls.minDistance = 0.8;             // limite zoom in (inspection rapprochee des assemblages)
+    controls.maxDistance = 80;              // limite zoom out (grands projets multi-ouvrages)
     controls.minPolarAngle = 0.1;           // empeche de passer en dessous
     controls.maxPolarAngle = Math.PI / 2.1; // empeche de passer sous le sol
     controls.autoRotate = false;            // CAO : pas de rotation automatique
