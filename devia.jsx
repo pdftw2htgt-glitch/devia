@@ -2703,14 +2703,35 @@ function Viewer3D({ params, onMetre }) {
     controls.maxDistance = 50;              // limite zoom out
     controls.minPolarAngle = 0.1;           // empeche de passer en dessous
     controls.maxPolarAngle = Math.PI / 2.1; // empeche de passer sous le sol
-    controls.autoRotate = true;             // rotation lente au demarrage
-    controls.autoRotateSpeed = 0.5;
+    controls.autoRotate = false;            // CAO : pas de rotation automatique
+    controls.zoomToCursor = true;           // CAO : la molette zoome vers le point pointe (style Cadwork)
+    controls.screenSpacePanning = true;     // pan dans le plan ecran (plus naturel en CAO)
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,             // clic gauche : orbite
+      MIDDLE: THREE.MOUSE.PAN,              // clic molette : deplacement lateral (style CAO)
+      RIGHT: THREE.MOUSE.PAN                // clic droit : deplacement aussi
+    };
     camera.lookAt(0, yCentre, 0);
     controls.update();
 
-    // Arreter l'auto-rotation au premier mouvement utilisateur
-    const stopAutoRotate = () => { controls.autoRotate = false; };
-    controls.addEventListener("start", stopAutoRotate);
+    // DOUBLE-CLIC : recentrer l'orbite sur le point clique (raycasting, style Cadwork)
+    const raycaster = new THREE.Raycaster();
+    const handleDblClick = (ev) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(
+        ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+        -((ev.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(scene.children, true);
+      const hit = hits.find(h => h.object.isMesh);
+      if (hit) {
+        // glisse le target vers le point clique (recentrage doux)
+        controls.target.copy(hit.point);
+        controls.update();
+      }
+    };
+    renderer.domElement.addEventListener("dblclick", handleDblClick);
 
     // Boucle de rendu
     let animId;
