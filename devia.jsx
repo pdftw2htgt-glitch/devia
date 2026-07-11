@@ -3253,6 +3253,7 @@ const [result, setResult] = useState(null);
 const [error, setError] = useState(null);
 const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, hauteur: 3, pente: 35 });
 const [activeResultTab, setActiveResultTab] = useState("devis");
+const [ouvrageActif, setOuvrageActif] = useState(-1); // -1 = tous les ouvrages (mode multi)
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
   const [metreData, setMetreData] = useState(null);
   const [metreBrut, setMetreBrut] = useState(null);
@@ -4475,6 +4476,7 @@ const loadProjectDetails = (project) => {
       setError("Donnees du devis non disponibles pour ce projet.");
       return;
     }
+    setOuvrageActif(-1);
     setResult(project.devis_data);
     if (project.devis_data.projet) {
       const p = project.devis_data.projet;
@@ -5454,6 +5456,22 @@ return (
                 </div>
               )}
             </div>
+            {result && result._ouvrages3D && result._ouvrages3D.length > 1 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                {[{ idx: -1, label: "Tous les ouvrages" }, ...result._ouvrages3D.map((o, i) => ({ idx: i, label: "Ouvrage " + (i + 1) }))].map(opt => (
+                  <button key={opt.idx} onClick={() => setOuvrageActif(opt.idx)}
+                    style={{
+                      background: ouvrageActif === opt.idx ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)",
+                      border: ouvrageActif === opt.idx ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.07)",
+                      color: ouvrageActif === opt.idx ? "#f0c040" : "#9ca0b8",
+                      borderRadius: 999, padding: "6px 14px", cursor: "pointer",
+                      fontSize: 12, fontWeight: 600, transition: "all 0.15s"
+                    }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div style={{ display: "inline-flex", gap: 2, marginBottom: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 999, padding: 4 }}>
               {[{ id: "devis", label: "Devis" }, { id: "3d", label: "Vue 3D" }, { id: "calcul", label: "Calcul" }].map(t => (
                 <button key={t.id} onClick={() => setActiveResultTab(t.id)}
@@ -5637,7 +5655,14 @@ return (
                   ))}
                 </div>
                 <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
-                  <Viewer3D params={{ ...view3DParams, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
+                  <Viewer3D params={{ ...view3DParams,
+                    ouvrages: (view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif])
+                      ? [view3DParams.ouvrages[ouvrageActif]]
+                      : view3DParams.ouvrages,
+                    ...(view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif]
+                      ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture }
+                      : {}),
+                    mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
