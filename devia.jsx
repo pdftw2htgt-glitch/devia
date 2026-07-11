@@ -5518,6 +5518,76 @@ return (
                     </div>
                   ))}
                 </div>
+                {result._ouvrages && result._ouvrages.length > 1 ? (
+                  <>
+                    {result._ouvrages.map((ouv, oi) => {
+                      if (ouvrageActif >= 0 && oi !== ouvrageActif) return null;
+                      const postesO = (ouv.postes || []).map(p => ({ ...p, designation: (p.designation || "").replace(/^Ouvrage \d+ - /, "") }));
+                      const sousHT = postesO.reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
+                      return (
+                        <div key={oi} style={{ marginBottom: 24 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                            <span style={{ background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.4)", color: "#f0c040", borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Ouvrage {oi + 1}</span>
+                            <span style={{ color: "#9ca0b8", fontSize: 12.5 }}>{(ouv.projet && ouv.projet.description) || ""}</span>
+                          </div>
+                          <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: 10 }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                              <thead>
+                                <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                                  {[
+                                    { label: "Categorie", align: "left" },
+                                    { label: "Designation", align: "left" },
+                                    { label: "U", align: "left" },
+                                    { label: "Qte", align: "right" },
+                                    { label: "PU HT", align: "right" },
+                                    { label: "Total HT", align: "right" }
+                                  ].map(h => (
+                                    <th key={h.label} style={{ padding: "12px 16px", textAlign: h.align, color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h.label}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {postesO.map((p, i) => (
+                                  <tr key={i} style={{ borderBottom: i < postesO.length - 1 ? "1px solid rgba(255, 255, 255, 0.04)" : "none", transition: "background 0.12s" }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.025)"; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
+                                    <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                                      <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 600, padding: "3px 8px", background: "rgba(96, 165, 250, 0.08)", borderRadius: 999, letterSpacing: "0.02em" }}>{p.categorie}</span>
+                                    </td>
+                                    <td style={{ padding: "12px 16px", color: "#e8eaf2", fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
+                                    <td style={{ padding: "12px 16px", color: "#7a7d92", fontSize: 13 }}>{p.unite}</td>
+                                    <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
+                                    <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
+                                    <td style={{ padding: "12px 16px", color: "#f0c040", fontWeight: 600, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.totalHT ? p.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                            <span style={{ color: "#9ca0b8", fontSize: 13, fontWeight: 600 }}>Sous-total Ouvrage {oi + 1} : <span style={{ color: "#f0c040" }}>{sousHT.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} EUR HT</span></span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                      <div style={{ background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.3)", borderRadius: 12, padding: "14px 20px", textAlign: "right" }}>
+                        {(() => {
+                          const src = ouvrageActif >= 0 ? (result._ouvrages[ouvrageActif].totaux || {}) : (result.totaux || {});
+                          const lbl = ouvrageActif >= 0 ? "Ouvrage " + (ouvrageActif + 1) : "general";
+                          return (
+                            <>
+                              <div style={{ color: "#9ca0b8", fontSize: 12, marginBottom: 4 }}>Total HT ({lbl}) : <span style={{ color: "#e8eaf2", fontWeight: 600 }}>{(src.totalHT || 0).toLocaleString("fr-FR")} EUR</span></div>
+                              <div style={{ color: "#9ca0b8", fontSize: 12, marginBottom: 6 }}>TVA : <span style={{ color: "#e8eaf2", fontWeight: 600 }}>{(src.tva || 0).toLocaleString("fr-FR")} EUR</span></div>
+                              <div style={{ color: "#f0c040", fontSize: 18, fontWeight: 800, textShadow: "0 0 24px rgba(240, 192, 64, 0.25)" }}>TOTAL TTC : {(src.totalTTC || 0).toLocaleString("fr-FR")} EUR</div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: 20 }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
@@ -5582,6 +5652,9 @@ return (
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
+
                 {result.notes && result.notes.length > 0 && (
                   <div style={{ marginTop: 20, padding: 18, background: "rgba(255, 255, 255, 0.02)", borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
