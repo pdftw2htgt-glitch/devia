@@ -35,6 +35,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -1335,6 +1336,41 @@ setPiece("Panne");
     }
   };
 
+  const drawGardeCorps = () => {
+    // Garde-corps autonome : ligne droite le long de X, pose au sol, h 1.00m (NF P01-012 habitation)
+    const hGC = 1.0;
+    const mcSec = 0.06;
+    const montantSec = 0.06;
+    const barreauSec = 0.025;
+    const espBarreau = 0.10;
+
+    // Montants (angles + intermediaires tous les ~1.5m)
+    setPiece("Montant garde-corps");
+    const nbMontants = Math.max(2, Math.ceil(L / 1.5) + 1);
+    for (let i = 0; i < nbMontants; i++) {
+      const x = -L/2 + montantSec/2 + (i / (nbMontants - 1)) * (L - montantSec);
+      addBox(montantSec, hGC, montantSec, x, hGC / 2, 0, woodMat);
+    }
+
+    // Main courante
+    setPiece("Main courante");
+    addBox(L, mcSec, mcSec, 0, hGC - mcSec / 2, 0, woodMat);
+
+    // Lisse basse a 10cm
+    setPiece("Lisse basse");
+    addBox(L, 0.04, 0.04, 0, 0.10, 0, woodMat);
+
+    // Barreaudage vertical (espacement <= 11cm reglementaire)
+    setPiece("Barreaudage");
+    const yMC = hGC - mcSec / 2;
+    const hBarreau = yMC - mcSec / 2 - 0.12;
+    const nbBarreaux = Math.floor(L / (espBarreau + barreauSec));
+    for (let i = 1; i < nbBarreaux; i++) {
+      const x = -L/2 + i * (L / nbBarreaux);
+      addBox(barreauSec, hBarreau, barreauSec, x, 0.12 + hBarreau / 2, 0, woodMat);
+    }
+  };
+
   const drawAppentis = () => {
     // ============================================================
     // APPENTIS PARAMETRIQUE - charpente complete adaptative
@@ -1640,6 +1676,8 @@ setPiece("Empannon de croupe");
     drawEtage();
   } else if (typeProjet === "balcon") {
     drawBalcon();
+  } else if (typeProjet === "garde_corps") {
+    drawGardeCorps();
   } else {
     drawCharpenteTrad();
   }
@@ -2781,6 +2819,7 @@ options: [
 { val: "terrasse", label: "Terrasse bois", icon: "ruler" },
 { val: "etage", label: "Etage sur solivage (plancher)", icon: "home" },
 { val: "balcon", label: "Balcon bois (porte-a-faux)", icon: "home" },
+{ val: "garde_corps", label: "Garde-corps bois", icon: "ruler" },
 ],
 },
 couverture: {
@@ -4090,6 +4129,7 @@ return out;
 "'terrasse' (terrasse bois exterieure, plancher exterieur sur plots ou poteaux, deck, SANS toit), " +
 "'etage' (plancher d'etage interieur, solivage, mezzanine, plancher bois porteur dans un batiment), " +
 "'balcon' (balcon bois en porte-a-faux fixe a une facade, avancee exterieure en console), " +
+"'garde_corps' (garde-corps seul, rambarde, balustrade bois, remplacement de garde-corps existant), " +
 "'abri' (abri jardin, abri petit volume), " +
 "'autre' (si rien ne correspond clairement). " +
 "IMPORTANT : si la description mentionne 'monopente' ou '1 seule pente' avec des murs, utilise 'monopente'. Si elle mentionne 'accole', 'contre un mur', 'contre la maison', utilise 'appentis'. " +
@@ -4642,7 +4682,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
@@ -4675,7 +4715,7 @@ const loadProjectDetails = (project) => {
     if (formType) parts.push(LABELS_TYPE[formType] || formType);
     if (formLongueur && formLargeur) parts.push(formLongueur + "x" + formLargeur + "m");
     if (formHauteur) parts.push("hauteur " + formHauteur + "m");
-    const isSansToit = ["terrasse","etage","balcon"].includes(formType);
+    const isSansToit = ["terrasse","etage","balcon","garde_corps"].includes(formType);
     if (formPente && !isSansToit) parts.push("pente " + formPente + " degres");
     if (formCouverture && !isSansToit) parts.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
     if (formEssence) {
@@ -4686,6 +4726,9 @@ const loadProjectDetails = (project) => {
     }
     if (formCombles && !isSansToit) parts.push(LABELS_COMB[formCombles] || formCombles);
     // Terrasse surelevee : garde-corps obligatoire des 1m de hauteur de chute
+    if (formType === "garde_corps") {
+      parts.push("Garde-corps hauteur 1,00 m conforme NF P01-012 (habitation), barreaudage vertical espacement <= 11 cm, effort horizontal 0,6 kN/ml. Note : porter a 1,10 m pour les lieux de travail (Code du travail R4323-59)");
+    }
     if (formType === "balcon") {
       parts.push("PREVOIR imperativement un poste garde-corps peripherique (obligatoire pour un balcon, norme NF P01-012, hauteur 1m minimum)");
     }
@@ -4940,7 +4983,7 @@ return (
                       }
                       setFormCustomError("");
                       const LABELS_FIN2 = { rabote: "rabote", brut: "brut de sciage", traite: "traite autoclave" };
-                      const sansToit = ["terrasse","etage","balcon"].includes(formSousType);
+                      const sansToit = ["terrasse","etage","balcon","garde_corps"].includes(formSousType);
                       const p2 = [];
                       p2.push(LABELS_TYPE[formSousType] || formSousType);
                       p2.push(formLongueur + "x" + formLargeur + "m");
@@ -4997,18 +5040,18 @@ return (
                     <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
                     <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "balcon" ? "Largeur le long du mur (m)" : "Longueur (m)"}</div>
                   </div>
-                  <div>
+                  <div style={{ display: typeEffectif === "garde_corps" ? "none" : undefined }}>
                     <input value={formLargeur} onChange={e => setFormLargeur(e.target.value)} type="number" placeholder="Largeur" style={inputStyle} />
                     <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "balcon" ? "Profondeur / avancee (m)" : "Largeur (m)"}</div>
                   </div>
-                  <div>
+                  <div style={{ display: typeEffectif === "garde_corps" ? "none" : undefined }}>
                     <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
                     <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "terrasse" ? "Hauteur du platelage (m)" : typeEffectif === "etage" ? "Hauteur sous plancher (m)" : typeEffectif === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
                   </div>
                 </div>
               </div>
               {/* Pente */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
@@ -5058,7 +5101,7 @@ return (
                 })()}
               </div>
               {/* Couverture */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.couverture.options.map(opt => (
@@ -5098,7 +5141,7 @@ return (
                 )}
               </div>
               {/* Combles */}
-              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon"].includes(typeEffectif) ? "none" : undefined }}>
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {QUESTIONS.combles.options.map(opt => (
@@ -5285,7 +5328,7 @@ return (
                 )}
               </div>
 
-              <button onClick={handleSubmit} disabled={loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim()}
+              <button onClick={handleSubmit} disabled={loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || (formType !== "garde_corps" && !formLargeur))) || !commune.trim()}
                 style={{
                   ...btnPrimary,
                   width: "100%",
@@ -5294,16 +5337,16 @@ return (
                   fontWeight: 700,
                   letterSpacing: "0.01em",
                   marginTop: 8,
-                  opacity: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? 0.45 : 1,
-                  cursor: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "not-allowed" : "pointer",
-                  boxShadow: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
+                  opacity: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || (formType !== "garde_corps" && !formLargeur))) || !commune.trim() ? 0.45 : 1,
+                  cursor: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || (formType !== "garde_corps" && !formLargeur))) || !commune.trim() ? "not-allowed" : "pointer",
+                  boxShadow: loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || (formType !== "garde_corps" && !formLargeur))) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 10
                 }}
-                onMouseEnter={(e) => { if (!loading && (formType === "custom" ? formStructures.length > 0 : (formType && formLongueur && formLargeur)) && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || !formLargeur)) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
+                onMouseEnter={(e) => { if (!loading && (formType === "custom" ? formStructures.length > 0 : (formType && formLongueur && (formType === "garde_corps" || formLargeur))) && commune.trim()) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 12px 32px rgba(240, 192, 64, 0.35), 0 4px 8px rgba(240, 192, 64, 0.2)"; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = loading || (formType === "custom" ? formStructures.length === 0 : (!formType || !formLongueur || (formType !== "garde_corps" && !formLargeur))) || !commune.trim() ? "none" : "0 8px 24px rgba(240, 192, 64, 0.28), 0 2px 6px rgba(240, 192, 64, 0.15)"; }}>
                 {loading ? (
                   <>
                     <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(10,10,10,0.25)", borderTopColor: "#0a0a0a", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
