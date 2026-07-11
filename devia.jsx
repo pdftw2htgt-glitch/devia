@@ -4238,8 +4238,14 @@ return out;
         _catalogSource: catalogSourceGlobal,
       };
 
-      setResult(fusion);
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon" };
+      const ouvrages3D = structures.map((s, i) => ({
+        longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
+        couverture: s.couverture, essence: s.essence,
+        type_projet: (devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad",
+      }));
+      fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
+      setResult(fusion);
       setView3DParams({
         longueur: p1.longueur || structures[0].longueur || 10,
         largeur: p1.largeur || structures[0].largeur || 8,
@@ -4247,11 +4253,7 @@ return out;
         pente: p1.pente || structures[0].pente || 35,
         type_projet: p1.type_projet || "autre",
         couverture: p1.couverture || structures[0].couverture || "tuile_terre",
-        ouvrages: structures.map((s, i) => ({
-          longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-          couverture: s.couverture, essence: s.essence,
-          type_projet: (devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad",
-        })),
+        ouvrages: ouvrages3D,
       });
 
       // Sauvegarde Supabase (projet fusionne)
@@ -4442,7 +4444,8 @@ const loadProjectDetails = (project) => {
         hauteur: p.hauteur || 3,
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
-        couverture: p.couverture || "tuile_terre"
+        couverture: p.couverture || "tuile_terre",
+        ouvrages: project.devis_data._ouvrages3D || undefined,
       });
     }
     setActiveResultTab("devis");
