@@ -2793,7 +2793,7 @@ function Viewer3D({ params, onMetre }) {
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      controls.removeEventListener("start", stopAutoRotate);
+      renderer.domElement.removeEventListener("dblclick", handleDblClick);
       controls.dispose();
       cancelAnimationFrame(animId);
       renderer.dispose();
