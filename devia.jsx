@@ -35,7 +35,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
-  Liteau:0, Echantignole:0, Defaut:60,
+  "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
 
@@ -619,6 +619,20 @@ setPiece("Ferme");
       setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.15, 0.15);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
+
+      // LIENS DE FAITAGE (echarpes ~45deg du poincon vers la sous-face de la faitiere)
+      // Contreventement longitudinal : 2 liens par ferme intermediaire, 1 seul vers l'interieur en pignon
+      setPiece("Lien de faitage");
+      const lienSec = 0.07;
+      const lienPortee = Math.min(0.7, L / (2 * nbFermes) - 0.1); // ne pas depasser la mi-travee
+      if (lienPortee > 0.25) {
+        const yHautLien = yFait - 0.10;                 // arrivee : sous la faitiere
+        const yBasLien = yHautLien - lienPortee;        // depart sur le poincon (echarpe a 45deg)
+        const estPremiereFerme = (i === 0);
+        const estDerniereFerme = (i === nbFermes);
+        if (!estDerniereFerme) addBeam(x, yBasLien, 0, x + lienPortee, yHautLien, 0, lienSec, woodMat); // vers X+
+        if (!estPremiereFerme) addBeam(x, yBasLien, 0, x - lienPortee, yHautLien, 0, lienSec, woodMat); // vers X-
+      }
 
       // CONTREFICHES (jambes de force du bas du poincon vers les arbaletriers)
       // Dessinees point-a-point : touchent forcement les 2 extremites
