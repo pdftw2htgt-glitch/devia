@@ -2762,7 +2762,7 @@ function Viewer3D({ params, onMetre }) {
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
         mountRef.current.removeChild(renderer.domElement);
     };
-  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.sectionMode]);
+  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.sectionMode, JSON.stringify(params.ouvrages || null)]);
 
   return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
