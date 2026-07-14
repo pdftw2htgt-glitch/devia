@@ -2022,13 +2022,33 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
 
   // ============ TABLEAU DES POSTES ============
   const postes = result.postes || [];
-  const tableBody = postes.map(p => [
-    p.designation || "",
+  const posteRow = (p) => [
+    (p.designation || "").replace(/^Ouvrage \d+ - /, ""),
     p.quantite ? String(p.quantite) : "-",
     p.unite || "-",
     p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "-",
     p.totalHT ? fmtEUR(p.totalHT) : "-"
-  ]);
+  ];
+  let tableBody;
+  if (result._ouvrages && result._ouvrages.length > 1) {
+    tableBody = [];
+    result._ouvrages.forEach((ouv, oi) => {
+      const desc = (ouv.projet && ouv.projet.description) || "";
+      tableBody.push([{
+        content: "OUVRAGE " + (oi + 1) + (desc ? " - " + desc : ""),
+        colSpan: 5,
+        styles: { fillColor: [240, 192, 64], textColor: [25, 28, 38], fontStyle: "bold", fontSize: 8.5 }
+      }]);
+      (ouv.postes || []).forEach(p => tableBody.push(posteRow(p)));
+      const sousHT = (ouv.postes || []).reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
+      tableBody.push([
+        { content: "Sous-total Ouvrage " + (oi + 1), colSpan: 4, styles: { halign: "right", fontStyle: "bold", textColor: [90, 90, 100], fillColor: [245, 245, 247] } },
+        { content: fmtEUR(sousHT), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 245, 247] } }
+      ]);
+    });
+  } else {
+    tableBody = postes.map(posteRow);
+  }
 
   autoTable(doc, {
     startY: y,
