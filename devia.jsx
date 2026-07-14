@@ -2740,6 +2740,7 @@ function Viewer3D({ params, onMetre }) {
       };
 
       // ===== ANCRAGE SEMANTIQUE : balcons/appentis ancres, monopente accolee =====
+      console.log("[DEVIA-DEBUG] types des ouvrages :", params.ouvrages.map(o => o.type_projet));
       const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
       const idxPorteur = params.ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
       const rangee = [];
