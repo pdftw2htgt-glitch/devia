@@ -1422,8 +1422,10 @@ setPiece("Panne");
     // 6) Section sablieres : un peu plus fortes que les pannes
     const secSabliere = Math.min(0.20, secPanne + 0.02);
 
-    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison, beton) =====
-    addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, betonMat);
+    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison, beton) - masque si ancre sur un batiment =====
+    if (!(opts && opts.sansMurAncrage)) {
+      addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, betonMat);
+    }
     // Dalle beton apparente (deborde legerement)
     drawDalleBeton(L, lg, 0.2);
 
@@ -2737,38 +2739,57 @@ function Viewer3D({ params, onMetre }) {
         return grp;
       };
 
-      // ===== ANCRAGE SEMANTIQUE : balcons ancres sur le batiment porteur =====
+      // ===== ANCRAGE SEMANTIQUE : balcons/appentis ancres, monopente accolee =====
       const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
       const idxPorteur = params.ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
       const rangee = [];
       const ancres = [];
       params.ouvrages.forEach((o, i) => {
-        const balconAncrable = o.type_projet === "balcon" && idxPorteur >= 0 && i !== idxPorteur
-          && ((o.hauteur || 2.5) + 2.0 <= (params.ouvrages[idxPorteur].hauteur || 3));
-        if (balconAncrable) ancres.push(o); else rangee.push(o);
+        if (idxPorteur < 0 || i === idxPorteur) { rangee.push(o); return; }
+        const porteur = params.ouvrages[idxPorteur];
+        const balconAncrable = o.type_projet === "balcon"
+          && ((o.hauteur || 2.5) + 2.0 <= (porteur.hauteur || 3));
+        // Appentis : haut du rampant (Ht + lg*tan(pente)) sous le haut du mur porteur (-10cm)
+        const hautAppentis = (o.hauteur || 2.2) + (o.largeur || 2) * Math.tan(((o.pente || 15) * Math.PI) / 180);
+        const appentisAncrable = o.type_projet === "appentis"
+          && hautAppentis <= (porteur.hauteur || 3) - 0.1;
+        if (balconAncrable || appentisAncrable) ancres.push(o); else rangee.push(o);
       });
 
-      // Rangee : cote a cote le long de X
-      const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
+      // Rangee : cote a cote le long de X (monopente accolee au porteur : gap 0)
+      const gapDe = (a, b) => ((a && a.type_projet === "monopente") || (b && b.type_projet === "monopente")) ? 0 : gap;
+      let totalW = 0;
+      rangee.forEach((o, i) => { totalW += (o.longueur || 8) + (i > 0 ? gapDe(rangee[i-1], o) : 0); });
       let cursorX = -totalW / 2;
       const posRangee = new Map();
-      rangee.forEach((o) => {
+      rangee.forEach((o, i) => {
+        if (i > 0) cursorX += gapDe(rangee[i-1], o);
         const isPorteur = params.ouvrages.indexOf(o) === idxPorteur;
-        const extra = (isPorteur && ancres.length > 0)
-          ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: ancres[0].hauteur || 2.5 } }
+        const balconsAncres = ancres.filter(a => a.type_projet === "balcon");
+        const extra = (isPorteur && balconsAncres.length > 0)
+          ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: balconsAncres[0].hauteur || 2.5 } }
           : null;
         const grp = buildOuvrage(o, extra);
         grp.position.x = cursorX + (o.longueur || 8) / 2;
         posRangee.set(o, grp.position.x);
-        cursorX += (o.longueur || 8) + gap;
+        cursorX += (o.longueur || 8);
       });
 
-      // Ancres : balcons colles sur la facade Z+ du porteur, sans mur d'ancrage propre
+      // Ancres : colles sur le porteur, sans mur d'ancrage propre
       ancres.forEach((o) => {
         const porteur = params.ouvrages[idxPorteur];
+        const px = posRangee.get(porteur) || 0;
         const grp = buildOuvrage(o, { sansMurAncrage: true });
-        grp.position.x = posRangee.get(porteur) || 0;
-        grp.position.z = (porteur.largeur || 6) / 2;
+        if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
+          // PORCHE : adosse au pignon avant (x = +L/2 du porteur), centre sur la porte
+          grp.rotation.y = -Math.PI / 2; // son cote haut (Z+) tourne vers le pignon (X+)
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2;
+          grp.position.z = 0;
+        } else {
+          // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
+          grp.position.x = px;
+          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) : 0);
+        }
       });
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
