@@ -35,7 +35,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
-  "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
+  Muraillere:0, "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -1440,10 +1440,15 @@ setPiece("Poteau");
     // (Appentis OUVERT : pas de murs lateraux, structure apparente)
 
 setPiece("Sabliere");
-    // ===== SABLIERES (basse avant + haute arriere contre mur) =====
+    // ===== SABLIERE (basse avant, sur les poteaux) =====
     const [sbB, sbH] = sec("Sabliere", secSabliere, secSabliere);
     addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
-    addBox(L + 0.3, sbH, sbB, 0, Hhaut, lg/2, woodMat);
+
+setPiece("Muraillere");
+    // ===== MURAILLERE (panne fixee au mur d'adossement, recoit les abouts hauts des chevrons) =====
+    const [muB, muH] = sec("Muraillere", secSabliere, secSabliere);
+    const zMuraillere = lg/2 - muB/2 - 0.01; // plaquee contre le nu interieur du mur
+    addBox(L + 0.3, muH, muB, 0, Hhaut - muH/2, zMuraillere, woodMat);
 
 setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
@@ -1465,7 +1470,12 @@ setPiece("Chevron");
       const x = -L/2 + (i / nbChevrons) * L;
       chevronXs.push(x);
       const [chB, chH] = sec("Chevron", secChevron, secChevron);
-      addBox(chB, chH, longueurRampant + 0.2, x, yCentre + secChevron*0.8, 0, woodMat, [-ang, 0, 0]);
+      // Le chevron va du debord avant jusqu'a la muraillere (about hors du mur)
+      const rampantUtile = longueurRampant - (muB + 0.01) / Math.cos(ang) + 0.15; // -epaisseur muraillere, +debord avant
+      const decalRampant = -((longueurRampant + 0.2) - rampantUtile) / 2; // recentre vers l'avant (bas de pente)
+      const dyC = decalRampant * Math.sin(ang);
+      const dzC = decalRampant * Math.cos(ang);
+      addBox(chB, chH, rampantUtile, x, yCentre + secChevron*0.8 + dyC, dzC, woodMat, [-ang, 0, 0]);
     }
 
 setPiece("Liteau");
