@@ -3337,6 +3337,7 @@ const [commune, setCommune] = useState("");
   const [communeSuggestions, setCommuneSuggestions] = useState([]); // liste de communes homonymes a proposer
   const [communeChoisie, setCommuneChoisie] = useState(false); // true quand l'user a clique une suggestion (evite re-recherche)
 const [altitude, setAltitude] = useState("200");
+const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne pas ecraser) / false = auto-remplie
 const [files, setFiles] = useState([]);
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -3747,9 +3748,10 @@ return out;
   // Auto-remplissage de l'altitude quand addressData est mis a jour
   useEffect(() => {
     if (!addressData || !addressData.lat || !addressData.lng) return;
-    // Si l'user a déjà saisi une altitude differente de la valeur par defaut 200, on ne touche pas
-    if (altitude && altitude !== "200" && altitude.trim() !== "") {
-      console.log("[DEVIA] Altitude déjà saisie par l'user, pas de remplissage auto");
+    // On n'ecrase l'altitude QUE si elle n'a pas ete saisie manuellement par l'utilisateur
+    // (une altitude auto-remplie par une commune precedente doit etre remplacee par la nouvelle)
+    if (altitudeManuelle.current && altitude && altitude.trim() !== "") {
+      console.log("[DEVIA] Altitude saisie manuellement, pas de remplissage auto");
       return;
     }
 
@@ -5284,7 +5286,7 @@ return (
                 </div>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
-                  <input value={altitude} onChange={e => setAltitude(e.target.value)} type="number" placeholder="200" style={inputStyle} />
+                  <input value={altitude} onChange={e => { setAltitude(e.target.value); altitudeManuelle.current = true; }} type="number" placeholder="200" style={inputStyle} />
                 </div>
               </div>
               {zoneInfo && (
@@ -5505,6 +5507,7 @@ return (
                     setCommune("");
                     setCommuneSuggestions([]);
                     setAltitude("200");
+                    altitudeManuelle.current = false;
                     setFiles([]);
                     setMetreData(null);
                     setMetreBrut(null);
