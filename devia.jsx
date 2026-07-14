@@ -2652,6 +2652,7 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
 function Viewer3D({ params, onMetre }) {
   const mountRef = useRef(null);
   const onMetreRef = useRef(onMetre);
+  const camStateRef = useRef(null); // memoire camera entre reconstructions (bascule technique/realiste)
   onMetreRef.current = onMetre;
 
   useEffect(() => {
@@ -2669,7 +2670,14 @@ function Viewer3D({ params, onMetre }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
-    camera.position.set(12, 8, 12);
+    // Cle geometrique : si elle n'a pas change (ex: bascule technique/realiste), on restaure la camera
+    const geoKey = JSON.stringify([params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.ouvrages || null]);
+    const savedCam = (camStateRef.current && camStateRef.current.key === geoKey) ? camStateRef.current : null;
+    if (savedCam) {
+      camera.position.copy(savedCam.pos);
+    } else {
+      camera.position.set(12, 8, 12);
+    }
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.45));
     const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
@@ -2797,7 +2805,11 @@ function Viewer3D({ params, onMetre }) {
 
     // Configuration OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, yCentre, 0);
+    if (savedCam) {
+      controls.target.copy(savedCam.target);
+    } else {
+      controls.target.set(0, yCentre, 0);
+    }
     controls.enableDamping = true;          // mouvement fluide
     controls.dampingFactor = 0.08;
     controls.rotateSpeed = 0.6;
@@ -2858,6 +2870,7 @@ function Viewer3D({ params, onMetre }) {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      camStateRef.current = { key: geoKey, pos: camera.position.clone(), target: controls.target.clone() };
       window.removeEventListener("resize", handleResize);
       renderer.domElement.removeEventListener("dblclick", handleDblClick);
       controls.dispose();
