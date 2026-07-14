@@ -2754,17 +2754,16 @@ function Viewer3D({ params, onMetre }) {
         const hautAppentis = (o.hauteur || 2.2) + (o.largeur || 2) * Math.tan(((o.pente || 15) * Math.PI) / 180);
         const appentisAncrable = o.type_projet === "appentis"
           && hautAppentis <= (porteur.hauteur || 3) - 0.1;
-        if (balconAncrable || appentisAncrable) ancres.push(o); else rangee.push(o);
+        const monopenteAccolable = o.type_projet === "monopente";
+        if (balconAncrable || appentisAncrable || monopenteAccolable) ancres.push(o); else rangee.push(o);
       });
 
-      // Rangee : cote a cote le long de X (monopente accolee au porteur : gap 0)
-      const gapDe = (a, b) => ((a && a.type_projet === "monopente") || (b && b.type_projet === "monopente")) ? 0 : gap;
-      let totalW = 0;
-      rangee.forEach((o, i) => { totalW += (o.longueur || 8) + (i > 0 ? gapDe(rangee[i-1], o) : 0); });
+      // Rangee : cote a cote le long de X
+      const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
       let cursorX = -totalW / 2;
       const posRangee = new Map();
       rangee.forEach((o, i) => {
-        if (i > 0) cursorX += gapDe(rangee[i-1], o);
+        if (i > 0) cursorX += gap;
         const isPorteur = params.ouvrages.indexOf(o) === idxPorteur;
         const balconsAncres = ancres.filter(a => a.type_projet === "balcon");
         const extra = (isPorteur && balconsAncres.length > 0)
@@ -2781,7 +2780,12 @@ function Viewer3D({ params, onMetre }) {
         const porteur = params.ouvrages[idxPorteur];
         const px = posRangee.get(porteur) || 0;
         const grp = buildOuvrage(o, { sansMurAncrage: true });
-        if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
+        if (o.type_projet === "monopente") {
+          // Garage accole : cote haut (Z+ local) tourne contre le pignon X+ du porteur, pente vers l'exterieur
+          grp.rotation.y = -Math.PI / 2;
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 4) / 2;
+          grp.position.z = 0;
+        } else if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
           // PORCHE : adosse au pignon avant (x = +L/2 du porteur), centre sur la porte
           grp.rotation.y = -Math.PI / 2; // son cote haut (Z+) tourne vers le pignon (X+)
           grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2;
