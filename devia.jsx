@@ -353,7 +353,20 @@ function buildScene3D(scene, params, opts) {
         () => { if (onFail) onFail(); }
       );
     };
-    tryLoad("png", () => tryLoad("jpg", null));
+    // png -> jpg -> fallback epicea (si la texture de l'essence n'existe pas encore)
+    tryLoad("png", () => tryLoad("jpg", () => {
+      if (code !== "bois_epicea") {
+        loader.load("/textures/bois_epicea.png", (img) => {
+          img.colorSpace = THREE.SRGBColorSpace;
+          img.wrapS = THREE.RepeatWrapping;
+          img.wrapT = THREE.RepeatWrapping;
+          img.repeat.set(1, 2.5);
+          woodMat.map = img;
+          woodMat.color.set(0xffffff);
+          woodMat.needsUpdate = true;
+        });
+      }
+    }));
   })();
   const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
