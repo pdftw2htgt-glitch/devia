@@ -1750,19 +1750,65 @@ function capture3DViews(view3DParams) {
 
   // Construction de la scene via fonction commune
   // Couleurs adaptees pour le PDF (plus contrastees sur fond blanc)
-  const buildResult = buildScene3D(scene, view3DParams, {
+  const pdfOpts = {
     woodColor: 0xa8743a,
     roofColor: 0x6b4a3f,
     wallColor: 0xd8d2c0,
     wallOpacity: 0.25,
     couverture: view3DParams.couverture
-  });
-  const yCentre = buildResult.yCentre;
+  };
+  let yCentre;
+  let empriseL = L, empriseLg = lg;
+  if (view3DParams.ouvrages && view3DParams.ouvrages.length > 1) {
+    // ===== MULTI-OUVRAGES : scene assemblee (meme logique que le viewer) =====
+    const gap = 2.0;
+    const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
+    const ouvrages = view3DParams.ouvrages;
+    const idxPorteur = ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
+    const rangee = [];
+    const ancres = [];
+    ouvrages.forEach((o, i) => {
+      const balconAncrable = o.type_projet === "balcon" && idxPorteur >= 0 && i !== idxPorteur
+        && ((o.hauteur || 2.5) + 2.0 <= (ouvrages[idxPorteur].hauteur || 3));
+      if (balconAncrable) ancres.push(o); else rangee.push(o);
+    });
+    const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
+    let cursorX = -totalW / 2;
+    const posRangee = new Map();
+    let yMax = 0;
+    rangee.forEach((o) => {
+      const isPorteur = ouvrages.indexOf(o) === ouvrages[idxPorteur] ? true : ouvrages.indexOf(o) === idxPorteur;
+      const extra = (isPorteur && ancres.length > 0)
+        ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: ancres[0].hauteur || 2.5 } }
+        : {};
+      const grp = new THREE.Group();
+      const res = buildScene3D(grp, { ...view3DParams, ...o }, { ...pdfOpts, couverture: o.couverture || view3DParams.couverture, ...extra });
+      grp.position.x = cursorX + (o.longueur || 8) / 2;
+      posRangee.set(o, grp.position.x);
+      cursorX += (o.longueur || 8) + gap;
+      scene.add(grp);
+      yMax = Math.max(yMax, res.yCentre || 0);
+    });
+    ancres.forEach((o) => {
+      const porteur = ouvrages[idxPorteur];
+      const grp = new THREE.Group();
+      buildScene3D(grp, { ...view3DParams, ...o }, { ...pdfOpts, couverture: o.couverture || view3DParams.couverture, sansMurAncrage: true });
+      grp.position.x = posRangee.get(porteur) || 0;
+      grp.position.z = (porteur.largeur || 6) / 2;
+      scene.add(grp);
+    });
+    yCentre = yMax;
+    empriseL = totalW;
+    empriseLg = Math.max(...ouvrages.map(o => o.largeur || 6)) + (ancres.length > 0 ? 2 : 0);
+  } else {
+    const buildResult = buildScene3D(scene, view3DParams, pdfOpts);
+    yCentre = buildResult.yCentre;
+  }
 
   // Pas de sol (sinon ca pollue les vues sur fond blanc)
 
-  // Distance camera proportionnelle a la taille
-  const maxDim = Math.max(L, lg, Ht * 2);
+  // Distance camera proportionnelle a la taille (emprise totale en multi)
+  const maxDim = Math.max(empriseL, empriseLg, Ht * 2);
   const dist = maxDim * 1.8;
 
   // ============ CAPTURE 3 VUES ============
