@@ -35,7 +35,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
-  Muraillere:0, "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
+  "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -3263,6 +3263,7 @@ const [formCouverture, setFormCouverture] = useState("");
 const [formEssence, setFormEssence] = useState("");
 const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
+const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
 const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
 const [formHauteur, setFormHauteur] = useState("");
@@ -4412,7 +4413,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence,
+        couverture: s.couverture, essence: s.essence, murs: s.murs,
         type_projet: (devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad",
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
@@ -4512,7 +4513,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         hauteur: p.hauteur || 3,
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
-        couverture: p.couverture || "tuile_terre"
+        couverture: p.couverture || "tuile_terre",
+        murs: finalParams.murs || undefined
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -4833,6 +4835,7 @@ const loadProjectDetails = (project) => {
     // Construit les params directement depuis le formulaire structure
     const params = {
       type: formType || undefined,
+      murs: formMurs || undefined,
       couverture: formCouverture || undefined,
       essence: formEssence || undefined,
       finition: formFinition || undefined,
@@ -4857,6 +4860,9 @@ const loadProjectDetails = (project) => {
       parts.push(essTxt);
     }
     if (formCombles && !isSansToit) parts.push(LABELS_COMB[formCombles] || formCombles);
+    if (formMurs === "ossature_bois" && !isSansToit) {
+      parts.push("MURS A OSSATURE BOIS (lisses basse et haute, montants 45x145 entraxe 60cm, entretoises, panneaux OSB de contreventement, pare-pluie) : CHIFFRER les murs ossature bois en plus de la charpente (postes bois ossature, OSB, visserie, pare-pluie)");
+    }
     // Terrasse surelevee : garde-corps obligatoire des 1m de hauteur de chute
     if (formType === "garde_corps") {
       parts.push("Garde-corps hauteur 1,00 m conforme NF P01-012 (habitation), barreaudage vertical espacement <= 11 cm, effort horizontal 0,6 kN/ml. Note : porter a 1,10 m pour les lieux de travail (Code du travail R4323-59)");
@@ -5124,9 +5130,11 @@ return (
                       if (formCouverture && !sansToit) p2.push("couverture " + (LABELS_COUV[formCouverture] || formCouverture));
                       if (formEssence) p2.push("essence " + (LABELS_ESS[formEssence] || formEssence) + (formFinition ? " " + (LABELS_FIN2[formFinition] || formFinition) : ""));
                       if (formCombles && !sansToit) p2.push(LABELS_COMB[formCombles] || formCombles);
+                      if (formMurs === "ossature_bois" && !sansToit) p2.push("murs a ossature bois 45x145 (chiffrer les murs)");
                       if (formSousType === "balcon") p2.push("avec garde-corps peripherique reglementaire NF P01-012");
                       const structure = {
                         type: formSousType,
+                        murs: formMurs || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
                         pente: (formPente && !sansToit) ? parseFloat(formPente) : undefined,
@@ -5280,6 +5288,21 @@ return (
                     <button key={opt.val} type="button" onClick={() => setFormCombles(opt.val)}
                       style={{ background: formCombles === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formCombles === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Type de murs */}
+              <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","4_pans","monopente"].includes(typeEffectif) ? undefined : "none" }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de murs</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {[
+                    { val: "", label: "Beton / maconnerie existante" },
+                    { val: "ossature_bois", label: "Ossature bois (45x145)" }
+                  ].map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormMurs(opt.val)}
+                      style={{ background: formMurs === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formMurs === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -5560,6 +5583,7 @@ return (
                     setFormPente("");
                     setFormGroupe("");
                     setFormSousType("");
+                    setFormMurs("");
                     setFormStructures([]);
                   }}>Nouveau</button>
                   <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
