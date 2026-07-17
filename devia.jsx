@@ -36,6 +36,7 @@ const EC5_LARGEUR_MINI = {
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0,
+  "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
@@ -386,12 +387,11 @@ function buildScene3D(scene, params, opts) {
 
   // ===== HELPER MURS BETON PERCES (porte en pignon avant + fenetres reparties) =====
   // Lb = longueur batiment (sens X), lgb = largeur (sens Z), Hb = hauteur murs
-  // ===== MURS A OSSATURE BOIS (45x145, entraxe 0.6, lisses + entretoises + OSB) =====
+  // ===== MURS A OSSATURE BOIS v2 (45x145 e0.6, coins joints, baies : montants doubles + linteau + allege) =====
   const drawMursOssature = (Lb, lgb, Hb) => {
-    const mB = 0.045, mH = 0.145;            // montant 45x145
+    const mB = 0.045, mH = 0.145;
     const ENTRAXE_MOB = 0.6;
     const modeReal = (opts && opts.mode) === "realiste";
-    // OSB : opaque texture bois clair en realiste, tres discret en technique (montants visibles)
     const osbMat = new THREE.MeshStandardMaterial({
       color: modeReal ? 0xd9c48f : 0xc8b070,
       roughness: 0.9, metalness: 0.0,
@@ -399,56 +399,100 @@ function buildScene3D(scene, params, opts) {
       side: THREE.DoubleSide
     });
 
-    // Un pan de mur ossature : longueur locale len, oriente par axe ("x" ou "z"), a la position fixe
-    const panOssature = (len, axe, posFixe) => {
+    // Un pan : longueur len le long de "x" ou "z", position fixe posFixe, ouvertures [{c,w,y0,y1}]
+    const panOssature = (len, axe, posFixe, ouvertures) => {
+      const ouv = (ouvertures || []).filter(o => o.c - o.w/2 > -len/2 + 0.2 && o.c + o.w/2 < len/2 - 0.2).sort((a,b) => a.c - b.c);
+
+      const montant = (cx, y0, y1, piece) => {
+        const h = y1 - y0; if (h < 0.03) return;
+        setPiece(piece || "Montant MOB");
+        if (axe === "x") addBox(mB, h, mH, cx, y0 + h/2, posFixe, woodMat);
+        else addBox(mH, h, mB, posFixe, y0 + h/2, cx, woodMat);
+      };
+      const traverse = (c0, c1, y, piece) => {
+        const lT = c1 - c0; if (lT < 0.03) return;
+        setPiece(piece);
+        const cm = (c0 + c1) / 2;
+        if (axe === "x") addBox(lT, mB, mH, cm, y + mB/2, posFixe, woodMat);
+        else addBox(mH, mB, lT, posFixe, y + mB/2, cm, woodMat);
+      };
+
+      // Lisses basse et haute (toute la longueur)
+      traverse(-len/2, len/2, 0, "Lisse MOB");
+      traverse(-len/2, len/2, Hb - mB, "Lisse MOB");
+
+      const inBaie = (cx) => ouv.find(o => cx > o.c - o.w/2 - mB && cx < o.c + o.w/2 + mB);
+
+      // Montants calepines (rive a rive, entraxe <= 0.6) - interrompus par les baies (potelets haut/bas)
       const nbTravees = Math.max(1, Math.ceil(len / ENTRAXE_MOB));
-      // Lisses basse et haute (a plat : 145 de large, 45 d'epaisseur)
-      setPiece("Lisse MOB");
-      if (axe === "x") {
-        addBox(len, mB, mH, 0, mB/2, posFixe, woodMat);
-        addBox(len, mB, mH, 0, Hb - mB/2, posFixe, woodMat);
-      } else {
-        addBox(mH, mB, len, posFixe, mB/2, 0, woodMat);
-        addBox(mH, mB, len, posFixe, Hb - mB/2, 0, woodMat);
-      }
-      // Montants verticaux (rive a rive, entraxe <= 0.6)
-      setPiece("Montant MOB");
-      const hMont = Hb - 2 * mB;
+      const montantXs = [];
       for (let i = 0; i <= nbTravees; i++) {
-        const c = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
-        if (axe === "x") addBox(mB, hMont, mH, c, mB + hMont/2, posFixe, woodMat);
-        else addBox(mH, hMont, mB, posFixe, mB + hMont/2, c, woodMat);
-      }
-      // Entretoises a mi-hauteur (entre montants)
-      setPiece("Entretoise MOB");
-      for (let i = 0; i < nbTravees; i++) {
-        const c0 = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
-        const c1 = -len/2 + mB/2 + ((i + 1) / nbTravees) * (len - mB);
-        const cMid = (c0 + c1) / 2;
-        const lEntre = (c1 - c0) - mB;
-        if (lEntre > 0.05) {
-          if (axe === "x") addBox(lEntre, mB, mH, cMid, Hb/2, posFixe, woodMat);
-          else addBox(mH, mB, lEntre, posFixe, Hb/2, cMid, woodMat);
+        const cx = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
+        montantXs.push(cx);
+        const b = inBaie(cx);
+        if (!b) {
+          montant(cx, mB, Hb - mB);
+        } else {
+          if (b.y0 > mB + 0.08) montant(cx, mB, b.y0 - mB, "Potelet MOB");
+          if (b.y1 < Hb - mB - 0.08) montant(cx, b.y1 + mB, Hb - mB, "Potelet MOB");
         }
       }
-      // Panneau OSB (face exterieure)
+
+      // Entretoises a mi-hauteur (hors baies)
+      for (let i = 0; i < montantXs.length - 1; i++) {
+        const c0 = montantXs[i] + mB/2, c1 = montantXs[i + 1] - mB/2;
+        const cMid = (c0 + c1) / 2;
+        if (c1 - c0 > 0.08 && !inBaie(cMid)) {
+          traverse(c0, c1, Hb/2, "Entretoise MOB");
+        }
+      }
+
+      // Encadrement des baies : montants DOUBLES + linteau + traverse d'allege
+      ouv.forEach(o => {
+        const bG = o.c - o.w/2, bD = o.c + o.w/2;
+        montant(bG - mB/2, mB, Hb - mB);
+        montant(bG - mB * 1.5, mB, Hb - mB);
+        montant(bD + mB/2, mB, Hb - mB);
+        montant(bD + mB * 1.5, mB, Hb - mB);
+        traverse(bG - mB, bD + mB, o.y1, "Linteau MOB");
+        if (o.y0 > mB + 0.08) traverse(bG - mB, bD + mB, o.y0 - mB, "Traverse allege MOB");
+      });
+
+      // OSB decoupe autour des baies (segments pleins + allege + imposte)
       setPiece("Panneau OSB");
+      const ep = 0.012;
       const dOsb = (mH/2 + 0.006) * Math.sign(posFixe || 1);
-      const g = axe === "x"
-        ? new THREE.BoxGeometry(len, Hb, 0.012)
-        : new THREE.BoxGeometry(0.012, Hb, len);
-      const mOsb = new THREE.Mesh(g, osbMat);
-      if (axe === "x") mOsb.position.set(0, Hb/2, posFixe + dOsb);
-      else mOsb.position.set(posFixe + dOsb, Hb/2, 0);
-      mOsb.castShadow = modeReal;
-      scene.add(mOsb);
+      const osbSeg = (c0, c1, yB, yH) => {
+        const lS = c1 - c0, hS = yH - yB;
+        if (lS < 0.03 || hS < 0.03) return;
+        const cm = (c0 + c1) / 2, ym = (yB + yH) / 2;
+        const g = axe === "x" ? new THREE.BoxGeometry(lS, hS, ep) : new THREE.BoxGeometry(ep, hS, lS);
+        const m = new THREE.Mesh(g, osbMat);
+        if (axe === "x") m.position.set(cm, ym, posFixe + dOsb);
+        else m.position.set(posFixe + dOsb, ym, cm);
+        m.castShadow = modeReal;
+        scene.add(m);
+      };
+      let cursor = -len/2;
+      ouv.forEach(o => {
+        const x0 = o.c - o.w/2, x1 = o.c + o.w/2;
+        if (x0 > cursor) osbSeg(cursor, x0, 0, Hb);
+        if (o.y0 > 0.05) osbSeg(x0, x1, 0, o.y0);
+        if (o.y1 < Hb - 0.05) osbSeg(x0, x1, o.y1, Hb);
+        cursor = x1;
+      });
+      if (cursor < len/2) osbSeg(cursor, len/2, 0, Hb);
     };
 
-    // 4 pans : 2 gouttereaux (le long de X) + 2 pignons (le long de Z)
-    panOssature(Lb, "x", lgb/2);
-    panOssature(Lb, "x", -lgb/2);
-    panOssature(lgb - 2 * mH, "z", Lb/2 - mH/2);
-    panOssature(lgb - 2 * mH, "z", -(Lb/2 - mH/2));
+    // Positions des baies : identiques aux murs beton
+    const y0F = 1.0, y1F = Math.min(2.0, Hb - 0.3);
+    const hPorte = Math.min(2.1, Hb - 0.2);
+    // Gouttereaux (pleine longueur) : avant 2 fenetres, arriere 1
+    panOssature(Lb, "x", lgb/2, [{ c: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { c: Lb/4, w: 1.2, y0: y0F, y1: y1F }]);
+    panOssature(Lb, "x", -lgb/2, [{ c: 0, w: 1.2, y0: y0F, y1: y1F }]);
+    // Pignons : jusqu'a la face interieure des gouttereaux (coins joints), porte au pignon avant
+    panOssature(lgb - mH, "z", Lb/2 - mH/2, [{ c: 0, w: 0.9, y0: 0, y1: hPorte }]);
+    panOssature(lgb - mH, "z", -(Lb/2 - mH/2), []);
   };
 
   const drawMursBeton = (Lb, lgb, Hb) => {
