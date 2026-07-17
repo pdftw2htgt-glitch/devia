@@ -35,6 +35,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
 };
@@ -385,6 +386,71 @@ function buildScene3D(scene, params, opts) {
 
   // ===== HELPER MURS BETON PERCES (porte en pignon avant + fenetres reparties) =====
   // Lb = longueur batiment (sens X), lgb = largeur (sens Z), Hb = hauteur murs
+  // ===== MURS A OSSATURE BOIS (45x145, entraxe 0.6, lisses + entretoises + OSB) =====
+  const drawMursOssature = (Lb, lgb, Hb) => {
+    const mB = 0.045, mH = 0.145;            // montant 45x145
+    const ENTRAXE_MOB = 0.6;
+    const modeReal = (opts && opts.mode) === "realiste";
+    // OSB : opaque texture bois clair en realiste, tres discret en technique (montants visibles)
+    const osbMat = new THREE.MeshStandardMaterial({
+      color: modeReal ? 0xd9c48f : 0xc8b070,
+      roughness: 0.9, metalness: 0.0,
+      transparent: !modeReal, opacity: modeReal ? 1.0 : 0.12,
+      side: THREE.DoubleSide
+    });
+
+    // Un pan de mur ossature : longueur locale len, oriente par axe ("x" ou "z"), a la position fixe
+    const panOssature = (len, axe, posFixe) => {
+      const nbTravees = Math.max(1, Math.ceil(len / ENTRAXE_MOB));
+      // Lisses basse et haute (a plat : 145 de large, 45 d'epaisseur)
+      setPiece("Lisse MOB");
+      if (axe === "x") {
+        addBox(len, mB, mH, 0, mB/2, posFixe, woodMat);
+        addBox(len, mB, mH, 0, Hb - mB/2, posFixe, woodMat);
+      } else {
+        addBox(mH, mB, len, posFixe, mB/2, 0, woodMat);
+        addBox(mH, mB, len, posFixe, Hb - mB/2, 0, woodMat);
+      }
+      // Montants verticaux (rive a rive, entraxe <= 0.6)
+      setPiece("Montant MOB");
+      const hMont = Hb - 2 * mB;
+      for (let i = 0; i <= nbTravees; i++) {
+        const c = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
+        if (axe === "x") addBox(mB, hMont, mH, c, mB + hMont/2, posFixe, woodMat);
+        else addBox(mH, hMont, mB, posFixe, mB + hMont/2, c, woodMat);
+      }
+      // Entretoises a mi-hauteur (entre montants)
+      setPiece("Entretoise MOB");
+      for (let i = 0; i < nbTravees; i++) {
+        const c0 = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
+        const c1 = -len/2 + mB/2 + ((i + 1) / nbTravees) * (len - mB);
+        const cMid = (c0 + c1) / 2;
+        const lEntre = (c1 - c0) - mB;
+        if (lEntre > 0.05) {
+          if (axe === "x") addBox(lEntre, mB, mH, cMid, Hb/2, posFixe, woodMat);
+          else addBox(mH, mB, lEntre, posFixe, Hb/2, cMid, woodMat);
+        }
+      }
+      // Panneau OSB (face exterieure)
+      setPiece("Panneau OSB");
+      const dOsb = (mH/2 + 0.006) * Math.sign(posFixe || 1);
+      const g = axe === "x"
+        ? new THREE.BoxGeometry(len, Hb, 0.012)
+        : new THREE.BoxGeometry(0.012, Hb, len);
+      const mOsb = new THREE.Mesh(g, osbMat);
+      if (axe === "x") mOsb.position.set(0, Hb/2, posFixe + dOsb);
+      else mOsb.position.set(posFixe + dOsb, Hb/2, 0);
+      mOsb.castShadow = modeReal;
+      scene.add(mOsb);
+    };
+
+    // 4 pans : 2 gouttereaux (le long de X) + 2 pignons (le long de Z)
+    panOssature(Lb, "x", lgb/2);
+    panOssature(Lb, "x", -lgb/2);
+    panOssature(lgb - 2 * mH, "z", Lb/2 - mH/2);
+    panOssature(lgb - 2 * mH, "z", -(Lb/2 - mH/2));
+  };
+
   const drawMursBeton = (Lb, lgb, Hb) => {
     const ep = 0.2;
     setPiece("Divers");
@@ -606,7 +672,7 @@ function buildScene3D(scene, params, opts) {
     const yFait = Ht + hf;                                  // hauteur du faitage
 
     // ===== MURS BETON (porte pignon + fenetres) =====
-    drawMursBeton(L, lg, Ht);
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, Ht); } else { drawMursBeton(L, lg, Ht); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
@@ -1543,7 +1609,7 @@ setPiece("Echantignole");
     const nbPannes = Math.max(1, Math.ceil(plLong / 2.2) - 1);
 
     // ===== MURS BETON (porte pignon + fenetres) + DALLE =====
-    drawMursBeton(L, lg, Ht);
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, Ht); } else { drawMursBeton(L, lg, Ht); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Sabliere");
