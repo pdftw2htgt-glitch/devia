@@ -4065,14 +4065,18 @@ return out;
         // Ville seule ou rue sans numero -> altitude du CENTRE de la commune (reference stable).
         if (addressData.type !== "housenumber" && addressData.citycode) {
           try {
-            const urlC = "https://geo.api.gouv.fr/communes/" + addressData.citycode + "?fields=centre";
+            const urlC = "https://geo.api.gouv.fr/communes/" + addressData.citycode + "?fields=centre,mairie";
             const respC = await fetch(urlC);
             if (respC.ok) {
               const dataC = await respC.json();
-              if (dataC && dataC.centre && dataC.centre.coordinates) {
-                lngAlt = dataC.centre.coordinates[0];
-                latAlt = dataC.centre.coordinates[1];
-                console.log("[DEVIA] Altitude basee sur le centre commune", addressData.citycode);
+              // MAIRIE en priorite : c'est le bourg reel. Le champ "centre" est le barycentre GEOMETRIQUE
+              // de la commune (a Chamonix il tombe en pleine montagne a 1817m !)
+              const pt = (dataC && dataC.mairie && dataC.mairie.coordinates) ? dataC.mairie
+                : (dataC && dataC.centre && dataC.centre.coordinates) ? dataC.centre : null;
+              if (pt) {
+                lngAlt = pt.coordinates[0];
+                latAlt = pt.coordinates[1];
+                console.log("[DEVIA] Altitude basee sur la mairie/bourg de la commune", addressData.citycode);
               }
             }
           } catch (e) { console.warn("[DEVIA] Erreur centre commune:", e); }
