@@ -3755,7 +3755,13 @@ const fileInputRef = useRef(null);
         '"hauteur_murs":num_ou_null,"hauteur_faitage":num_ou_null,' +
         '"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null",' +
         '"couverture":"tuile_terre|tuile_beton|ardoise|bac_acier|zinc|shingle|fibrociment|null",' +
-        '"murs":"ossature_bois|null","notes":"resume 1 phrase de ce que montre le plan"}. ' +
+        '"murs":"ossature_bois|null",' +
+        '"commune":"ville_ou_adresse_du_chantier_ou_null","combles":"perdus|amenageables|habitables|null",' +
+        '"essence":"sapin|epicea|douglas|chene|meleze|null",' +
+        '"nom_projet":"nom_court_du_projet_ou_null","notes":"resume 1 phrase de ce que montre le plan"}. ' +
+        "COMMUNE : cherche dans le cartouche du plan (adresse du chantier, ville du maitre d'ouvrage, lieu-dit) - recopie ville et code postal si lisibles. " +
+        "NOM_PROJET : compose un nom court et parlant, ex 'Charpente 2 pans - Annecy' ou le nom du client si visible au cartouche. " +
+        "COMBLES : si le plan montre un amenagement sous toiture (chambres, plancher, fenetres de toit) mets amenageables/habitables, si la charpente est encombree (fermettes en W) mets perdus. " +
         "REGLE PENTE (tres important) : recopie la valeur de pente TELLE QU'ECRITE sur le plan dans pente_valeur, et indique l'unite dans pente_unite : 'pourcent' si le plan ecrit % (ex: 50%), 'degres' si le plan ecrit deg ou un petit rond (ex: 35). En France les plans notent souvent la pente en POURCENTAGE : ne convertis JAMAIS toi-meme, recopie la valeur brute avec son unite. " +
         "REGLES DE LECTURE DES HAUTEURS (tres important) : hauteur_murs = hauteur a l'egout / sabliere / sous la toiture (le haut des murs verticaux). hauteur_faitage = hauteur TOTALE du batiment au sommet du toit. " +
         "Une cote unique prise au point le plus haut du batiment est presque toujours la hauteur au FAITAGE, pas la hauteur des murs. Ne confonds JAMAIS les deux : si le plan ne montre qu'une hauteur totale, remplis hauteur_faitage et laisse hauteur_murs a null. " +
@@ -3811,6 +3817,36 @@ const fileInputRef = useRef(null);
       if (penteDeg) setFormPente(String(penteDeg));
       if (j.couverture) setFormCouverture(j.couverture);
       if (j.murs === "ossature_bois") setFormMurs("ossature_bois");
+      if (j.combles && ["perdus", "amenageables", "habitables"].includes(j.combles)) setFormCombles(j.combles);
+      if (j.essence && ["sapin", "epicea", "douglas", "chene", "meleze"].includes(j.essence)) setFormEssence(j.essence);
+      if (j.nom_projet) setNomProjet(prev => prev ? prev : j.nom_projet);
+      // Commune du cartouche : geocodage puis resolution comme un clic sur suggestion (declenche l'altitude)
+      if (j.commune) {
+        (async () => {
+          try {
+            const urlC = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(j.commune) + "&type=municipality&limit=1";
+            const rC = await fetch(urlC);
+            if (rC.ok) {
+              const dC = await rC.json();
+              const f = dC.features && dC.features[0];
+              if (f && f.properties) {
+                const s = {
+                  ville: f.properties.city || f.properties.name,
+                  codePostal: f.properties.postcode || "",
+                  lat: f.geometry.coordinates[1],
+                  lng: f.geometry.coordinates[0],
+                  type: f.properties.type,
+                  citycode: f.properties.citycode,
+                };
+                setCommuneChoisie(true);
+                setCommune(s.ville + (s.codePostal ? " " + s.codePostal : ""));
+                setAddressData(s);
+                setCommuneSuggestions([]);
+              }
+            }
+          } catch (e) { console.warn("[DEVIA] Commune du plan:", e); }
+        })();
+      }
       if (j.notes) setPrompt(prev => prev ? prev : ("D'apres le plan : " + j.notes));
       setAnalyseFichier("ok");
     } catch (e) {
