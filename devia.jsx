@@ -4061,9 +4061,9 @@ return out;
     const fetchAltitude = async () => {
       try {
         let latAlt = addressData.lat, lngAlt = addressData.lng;
-        // Si l'adresse est precise (numero/rue), on prend plutot le centre de la COMMUNE
-        // (l'altitude communale est ce qui compte pour la neige, et evite les rues mal geocodees)
-        if ((addressData.type === "housenumber" || addressData.type === "street") && addressData.citycode) {
+        // REGLE : adresse complete avec NUMERO saisie par l'utilisateur -> altitude du point exact du chantier.
+        // Ville seule ou rue sans numero -> altitude du CENTRE de la commune (reference stable).
+        if (addressData.type !== "housenumber" && addressData.citycode) {
           try {
             const urlC = "https://geo.api.gouv.fr/communes/" + addressData.citycode + "?fields=centre";
             const respC = await fetch(urlC);
