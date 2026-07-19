@@ -4489,7 +4489,7 @@ return out;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 10000,
+        max_tokens: 16000,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
       }),
@@ -4514,9 +4514,23 @@ return out;
     const text = (textBlock && textBlock.text) ? textBlock.text : "";
     if (!text) throw new Error("Reponse vide du serveur. Vérifié la cle API dans Vercel.");
     const clean = text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Reponse inattendue : " + clean.substring(0, 120));
-    const parsed = JSON.parse(jsonMatch[0]);
+    // Extraction equilibree : du premier { jusqu'a l'accolade fermante correspondante
+    const start = clean.indexOf("{");
+    if (start < 0) throw new Error("Reponse inattendue : " + clean.substring(0, 120));
+    let depth = 0, end = -1, inStr = false, esc = false;
+    for (let i = start; i < clean.length; i++) {
+      const ch = clean[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (end < 0) {
+      throw new Error("Le devis genere est incomplet (reponse tronquee). Reessaie - si ca persiste, simplifie le plan ou la description.");
+    }
+    const parsed = JSON.parse(clean.substring(start, end + 1));
     return { parsed, data };
   };
 
