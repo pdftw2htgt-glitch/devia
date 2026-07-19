@@ -2975,7 +2975,7 @@ function Viewer3D({ params, onMetre }) {
     controls.zoomSpeed = 0.8;
     controls.panSpeed = 0.5;
     controls.minDistance = 0.8;             // limite zoom in (inspection rapprochee des assemblages)
-    controls.maxDistance = 80;              // limite zoom out (grands projets multi-ouvrages)
+    controls.maxDistance = document.fullscreenElement ? 120 : 80; // limite zoom out (elargie en plein ecran)
     controls.minPolarAngle = 0.1;           // empeche de passer en dessous
     controls.maxPolarAngle = Math.PI / 2.1; // empeche de passer sous le sol
     controls.autoRotate = false;            // CAO : pas de rotation automatique
@@ -6199,22 +6199,6 @@ return (
                     }}>
                     Exporter IFC
                   </button>
-                  <button onClick={toggle3DFullscreen} title={is3DFullscreen ? "Quitter le plein ecran (Echap)" : "Plein ecran"}
-                    style={{
-                      padding: "7px 12px", borderRadius: 8, cursor: "pointer",
-                      fontSize: 13, fontWeight: 600,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      background: is3DFullscreen ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)",
-                      color: is3DFullscreen ? "#f0c040" : "#9ca0b8",
-                      transition: "all 0.12s", display: "inline-flex", alignItems: "center", gap: 6
-                    }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      {is3DFullscreen
-                        ? <><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></>
-                        : <><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>}
-                    </svg>
-                    {is3DFullscreen ? "Quitter" : "Plein ecran"}
-                  </button>
                   {[{ id: "mini", label: "Section mini" }, { id: "conseillee", label: "Section conseillee" }].map(m => (
                     <button key={m.id} onClick={() => setSectionMode(m.id)}
                       style={{
@@ -6229,7 +6213,25 @@ return (
                     </button>
                   ))}
                 </div>
-                <div ref={viewer3DContainerRef} style={{ ...cardStyle, height: is3DFullscreen ? "100vh" : 420, padding: 0, overflow: "hidden", background: is3DFullscreen ? "#0a0c12" : cardStyle.background }}>
+                <div ref={viewer3DContainerRef} style={{ ...cardStyle, height: is3DFullscreen ? "100vh" : 420, padding: 0, overflow: "hidden", position: "relative", background: is3DFullscreen ? "#0a0c12" : cardStyle.background }}>
+                  <button onClick={toggle3DFullscreen} title={is3DFullscreen ? "Quitter le plein ecran (Echap)" : "Plein ecran"}
+                    style={{
+                      position: "absolute", top: 12, right: 12, zIndex: 10,
+                      width: 36, height: 36, borderRadius: 9, cursor: "pointer",
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      border: "1px solid rgba(255,255,255,0.14)",
+                      background: "rgba(10,12,18,0.55)", backdropFilter: "blur(8px)",
+                      color: is3DFullscreen ? "#f0c040" : "#c8cad4",
+                      transition: "all 0.15s"
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(10,12,18,0.8)"; e.currentTarget.style.color = "#f0c040"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(10,12,18,0.55)"; e.currentTarget.style.color = is3DFullscreen ? "#f0c040" : "#c8cad4"; }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      {is3DFullscreen
+                        ? <><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></>
+                        : <><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>}
+                    </svg>
+                  </button>
                   <Viewer3D params={{ ...view3DParams,
                     ouvrages: (view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif])
                       ? [view3DParams.ouvrages[ouvrageActif]]
