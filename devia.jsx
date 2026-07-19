@@ -4489,7 +4489,8 @@ return out;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 16000,
+        max_tokens: 20000,
+        thinking: { type: "enabled", budget_tokens: 6000 },
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
       }),
