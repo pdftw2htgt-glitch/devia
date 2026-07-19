@@ -4678,7 +4678,15 @@ setLoadingProgress(5);
 const zoneInfo = getZone(commune, altitude);
 const { systemPrompt, catalogSource } = buildDeviaPrompt(finalParams);
 try {
-const userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
+let userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
+if (files && files.length > 0) {
+  try {
+    const fileBlocks = await buildFileBlocks(files);
+    if (fileBlocks.length > 0) {
+      userContent = [...fileBlocks, { type: "text", text: userContent }];
+    }
+  } catch (e) { console.warn("[DEVIA] Jointure fichiers:", e); }
+}
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   setResult({ ...parsed, _catalogSource: catalogSource });
@@ -5052,6 +5060,9 @@ const loadProjectDetails = (project) => {
     }
     let desc = parts.join(", ");
     if (prompt.trim()) desc += ". " + prompt.trim();
+    if (files && files.length > 0) {
+      desc += ". UN PLAN EST JOINT A CE MESSAGE : analyse-le en DETAIL et chiffre CHAQUE element visible ou cote sur le plan (formes, decrochements, longueurs, ouvertures, debords, niveaux, specificites) meme s'ils ne sont pas mentionnes ci-dessus. Le plan fait FOI en cas de difference avec les valeurs du formulaire.";
+    }
     params.description = desc;
     handleGenerate(params);
   };
@@ -5559,8 +5570,23 @@ return (
                   </div>
                 )}
                 {analyseFichier === "ok" && (
-                  <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 8, color: "#4ade80", fontSize: 12 }}>
-                    Champs pre-remplis depuis le plan - verifie les valeurs avant de generer.
+                  <div style={{ marginTop: 8, padding: "10px 12px", background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 8 }}>
+                    <div style={{ color: "#4ade80", fontSize: 12, marginBottom: 8 }}>
+                      Plan analyse, champs pre-remplis. {!commune.trim() ? "Renseigne la commune puis genere." : "Tout est pret."}
+                    </div>
+                    <button type="button"
+                      disabled={loading || !formType || !formLongueur || !commune.trim()}
+                      onClick={handleSubmit}
+                      style={{
+                        width: "100%", padding: "10px 14px", borderRadius: 9,
+                        cursor: (loading || !formType || !formLongueur || !commune.trim()) ? "not-allowed" : "pointer",
+                        background: (loading || !formType || !formLongueur || !commune.trim()) ? "rgba(255,255,255,0.03)" : "rgba(240,192,64,0.14)",
+                        border: "1px solid " + ((loading || !formType || !formLongueur || !commune.trim()) ? "rgba(255,255,255,0.08)" : "rgba(240,192,64,0.55)"),
+                        color: (loading || !formType || !formLongueur || !commune.trim()) ? "#545870" : "#f0c040",
+                        fontSize: 13, fontWeight: 700
+                      }}>
+                      Generer le devis depuis ce plan
+                    </button>
                   </div>
                 )}
                 {analyseFichier === "erreur" && (
