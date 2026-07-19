@@ -3751,9 +3751,12 @@ const fileInputRef = useRef(null);
       if (blocks.length === 0) { setAnalyseFichier(""); return; }
       const sysAnalyse = "Tu analyses des plans/photos de projets de charpente bois. Reponds UNIQUEMENT avec un objet JSON, sans markdown : " +
         '{"type":"traditionnelle|fermette|monopente|carport|hangar|appentis|4_pans|terrasse|etage|balcon|garde_corps|null",' +
-        '"longueur":num_ou_null,"largeur":num_ou_null,"hauteur":num_ou_null,"pente":num_ou_null,' +
+        '"longueur":num_ou_null,"largeur":num_ou_null,' +
+        '"hauteur_murs":num_ou_null,"hauteur_faitage":num_ou_null,"pente":num_ou_null,' +
         '"couverture":"tuile_terre|tuile_beton|ardoise|bac_acier|zinc|shingle|fibrociment|null",' +
         '"murs":"ossature_bois|null","notes":"resume 1 phrase de ce que montre le plan"}. ' +
+        "REGLES DE LECTURE DES HAUTEURS (tres important) : hauteur_murs = hauteur a l'egout / sabliere / sous la toiture (le haut des murs verticaux). hauteur_faitage = hauteur TOTALE du batiment au sommet du toit. " +
+        "Une cote unique prise au point le plus haut du batiment est presque toujours la hauteur au FAITAGE, pas la hauteur des murs. Ne confonds JAMAIS les deux : si le plan ne montre qu'une hauteur totale, remplis hauteur_faitage et laisse hauteur_murs a null. " +
         "Mets null quand l'info n'est pas lisible sur le document. Les dimensions en metres.";
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -3774,7 +3777,18 @@ const fileInputRef = useRef(null);
       if (j.type) setFormType(j.type);
       if (j.longueur) setFormLongueur(String(j.longueur));
       if (j.largeur) setFormLargeur(String(j.largeur));
-      if (j.hauteur) setFormHauteur(String(j.hauteur));
+      // Hauteur : priorite aux murs ; sinon conversion depuis le faitage (H_murs = H_faitage - fleche du toit)
+      if (j.hauteur_murs) {
+        setFormHauteur(String(j.hauteur_murs));
+      } else if (j.hauteur_faitage && j.largeur && j.pente) {
+        const t2 = ["monopente", "appentis", "carport"].includes(j.type) ? 1 : 2; // 1 pan = largeur entiere, 2 pans = demi-largeur
+        const fleche = (j.largeur / t2) * Math.tan((j.pente * Math.PI) / 180);
+        const hMurs = Math.round((j.hauteur_faitage - fleche) * 100) / 100;
+        if (hMurs > 0.5) setFormHauteur(String(hMurs));
+      } else if (j.hauteur_faitage) {
+        // Sans largeur/pente on ne peut pas convertir : on note l'info dans les precisions
+        setPrompt(prev => (prev ? prev + ". " : "") + "Hauteur au faitage relevee sur le plan : " + j.hauteur_faitage + " m (hauteur des murs a preciser)");
+      }
       if (j.pente) setFormPente(String(j.pente));
       if (j.couverture) setFormCouverture(j.couverture);
       if (j.murs === "ossature_bois") setFormMurs("ossature_bois");
