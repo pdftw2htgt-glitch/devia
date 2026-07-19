@@ -48,6 +48,9 @@ const EC5_COUV_POIDS = {
 };
 // --- CONSTANTES DESCENTE DE CHARGE (A VALIDER PROF) ---
 const EC5_POIDS_CHARPENTE = 0.15; // kN/m2 (A VALIDER)
+const SOLAIRE_POIDS = 25 * 0.0098;  // 25 kg/m2 (panneau + structure, cours) -> kN/m2
+// Panneau standard ~500 Wc, 1.95 x 1.13 m
+const SOLAIRE_KWC = { "3": { nb: 6, surface: 13.2 }, "6": { nb: 12, surface: 26.4 }, "9": { nb: 18, surface: 39.7 } };
 const EC5_MU_NEIGE = 0.8;         // coef forme toiture (A VALIDER, depend pente)
 const EC5_Q_TOITURE = 0.0;        // kN/m2 exploitation toiture (A VALIDER)
 const EC5_G_TO_KN = 0.0098;       // kg/m2 -> kN/m2
@@ -63,7 +66,12 @@ function ec5Mu1(pente) {
 // Descente de charge G/Q/S (kN/m2). Neige conforme cours : s = mu1*(sk+dS)*cos(pente)
 function ec5DescenteCharge(couverture, sk, pente, dS) {
   const poidsCouv = (EC5_COUV_POIDS[couverture] || 45) * EC5_G_TO_KN;
-  const G = poidsCouv + EC5_POIDS_CHARPENTE;
+  let G = poidsCouv + EC5_POIDS_CHARPENTE;
+  // Panneaux solaires en surimposition : +25 kg/m2 sur la zone equipee.
+  // Prudence structurelle : la charge est appliquee pleinement (les pieces sous panneaux la subissent en entier).
+  if (arguments.length > 4 && arguments[4]) {
+    G += SOLAIRE_POIDS;
+  }
   const mu1 = ec5Mu1(pente);
   const skTot = (sk || 0.45) + (dS || 0); // sk brut + correction altitude (cours)
   const sHoriz = mu1 * skTot;             // Ce = Ct = 1
@@ -129,7 +137,7 @@ function dimensionnerPiece(typePiece, charge) {
 // ============================================================
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
-  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0);
+  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire));
   const ENTRAXE_FERMES = 3.5;
   const PORTEE_MAX = 8;
   const result = {};
@@ -3374,6 +3382,7 @@ const [formEssence, setFormEssence] = useState("");
 const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
 const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
+const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
 const [formHauteur, setFormHauteur] = useState("");
@@ -4799,6 +4808,7 @@ if (files && files.length > 0) {
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
+  if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   setResult({ ...parsed, _catalogSource: catalogSource });
   if (parsed.projet) {
     const p = parsed.projet;
@@ -4809,7 +4819,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
-        murs: finalParams.murs || undefined
+        murs: finalParams.murs || undefined,
+        solaire: finalParams.solaire || undefined
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -4915,6 +4926,7 @@ const loadProjectDetails = (project) => {
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: project.devis_data._murs || undefined,
+        solaire: project.devis_data._solaire || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
       });
     }
@@ -5132,6 +5144,7 @@ const loadProjectDetails = (project) => {
     const params = {
       type: formType || undefined,
       murs: formMurs || undefined,
+      solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
       essence: formEssence || undefined,
       finition: formFinition || undefined,
@@ -5156,6 +5169,10 @@ const loadProjectDetails = (project) => {
       parts.push(essTxt);
     }
     if (formCombles && !isSansToit) parts.push(LABELS_COMB[formCombles] || formCombles);
+    if (formSolaire && !isSansToit) {
+      const sol = SOLAIRE_KWC[formSolaire];
+      parts.push("INSTALLATION SOLAIRE " + formSolaire + " kWc en SURIMPOSITION sur un pan (" + sol.nb + " panneaux, " + sol.surface + " m2, charge structurelle 25 kg/m2) : chiffrer les panneaux photovoltaiques, rails de fixation, pattes d'ancrage sur chevrons, visserie etancheite, pose et mise en service. VERIFIER le renforcement eventuel de la charpente sous la zone equipee");
+    }
     if (formMurs === "ossature_bois" && !isSansToit) {
       parts.push("MURS A OSSATURE BOIS (lisses basse et haute, montants 45x145 entraxe 60cm, entretoises, panneaux OSB de contreventement, pare-pluie) : CHIFFRER les murs ossature bois en plus de la charpente (postes bois ossature, OSB, visserie, pare-pluie)");
     }
@@ -5607,6 +5624,23 @@ return (
                   ))}
                 </div>
               </div>
+              {/* Panneaux solaires */}
+              <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","monopente","4_pans","hangar"].includes(typeEffectif) ? undefined : "none" }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Panneaux solaires (surimposition)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { val: "", label: "Aucun" },
+                    { val: "3", label: "3 kWc (6 pan.)" },
+                    { val: "6", label: "6 kWc (12 pan.)" },
+                    { val: "9", label: "9 kWc (18 pan.)" }
+                  ].map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormSolaire(opt.val)}
+                      style={{ background: formSolaire === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formSolaire === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formSolaire === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {/* Precisions libres */}
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Precisions <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span></label>
@@ -5919,6 +5953,7 @@ return (
                     setFormGroupe("");
                     setFormSousType("");
                     setFormMurs("");
+                    setFormSolaire("");
                     setFormStructures([]);
                   }}>Nouveau</button>
                   <button style={btnPrimary} onClick={() => generatePDF(result, params, zoneInfo, nomProjet, view3DParams)}>
