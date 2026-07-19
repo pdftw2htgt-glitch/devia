@@ -3486,6 +3486,7 @@ const [commune, setCommune] = useState("");
 const [altitude, setAltitude] = useState("200");
 const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne pas ecraser) / false = auto-remplie
 const [files, setFiles] = useState([]);
+const [analyseFichier, setAnalyseFichier] = useState(""); // "" | "encours" | "ok" | "erreur"
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -3718,6 +3719,72 @@ const [paramsSaving, setParamsSaving] = useState(false);
 const [paramsSavedAt, setParamsSavedAt] = useState(null);
 const paramsSaveTimerRef = useRef(null);
 const fileInputRef = useRef(null);
+
+  // Lit un File en base64 (sans le prefixe data:)
+  const fileToBase64 = (file) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(",")[1]);
+    r.onerror = () => rej(new Error("Lecture fichier impossible"));
+    r.readAsDataURL(file);
+  });
+
+  // Construit les blocs multimodaux Anthropic pour une liste de File
+  const buildFileBlocks = async (fileList) => {
+    const blocks = [];
+    for (const f of fileList) {
+      const b64 = await fileToBase64(f);
+      if (f.type === "application/pdf") {
+        blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } });
+      } else if (f.type.startsWith("image/")) {
+        blocks.push({ type: "image", source: { type: "base64", media_type: f.type, data: b64 } });
+      }
+    }
+    return blocks;
+  };
+
+  // Analyse du plan : extrait les caracteristiques et pre-remplit le formulaire
+  const analyserFichiers = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    setAnalyseFichier("encours");
+    try {
+      const blocks = await buildFileBlocks(fileList);
+      if (blocks.length === 0) { setAnalyseFichier(""); return; }
+      const sysAnalyse = "Tu analyses des plans/photos de projets de charpente bois. Reponds UNIQUEMENT avec un objet JSON, sans markdown : " +
+        '{"type":"traditionnelle|fermette|monopente|carport|hangar|appentis|4_pans|terrasse|etage|balcon|garde_corps|null",' +
+        '"longueur":num_ou_null,"largeur":num_ou_null,"hauteur":num_ou_null,"pente":num_ou_null,' +
+        '"couverture":"tuile_terre|tuile_beton|ardoise|bac_acier|zinc|shingle|fibrociment|null",' +
+        '"murs":"ossature_bois|null","notes":"resume 1 phrase de ce que montre le plan"}. ' +
+        "Mets null quand l'info n'est pas lisible sur le document. Les dimensions en metres.";
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-5",
+          max_tokens: 800,
+          system: sysAnalyse,
+          messages: [{ role: "user", content: [...blocks, { type: "text", text: "Analyse ce document et extrais les caracteristiques du projet." }] }],
+        }),
+      });
+      const data = await response.json();
+      const tb = (data.content && Array.isArray(data.content)) ? data.content.find(b => b && b.type === "text" && b.text) : null;
+      const txt = (tb && tb.text) ? tb.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
+      const m = txt.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("analyse illisible");
+      const j = JSON.parse(m[0]);
+      if (j.type) setFormType(j.type);
+      if (j.longueur) setFormLongueur(String(j.longueur));
+      if (j.largeur) setFormLargeur(String(j.largeur));
+      if (j.hauteur) setFormHauteur(String(j.hauteur));
+      if (j.pente) setFormPente(String(j.pente));
+      if (j.couverture) setFormCouverture(j.couverture);
+      if (j.murs === "ossature_bois") setFormMurs("ossature_bois");
+      if (j.notes) setPrompt(prev => prev ? prev : ("D'apres le plan : " + j.notes));
+      setAnalyseFichier("ok");
+    } catch (e) {
+      console.warn("[DEVIA] Analyse fichier:", e);
+      setAnalyseFichier("erreur");
+    }
+  };
 
 // Charger les params depuis Supabase au demarrage
 useEffect(() => {
@@ -5478,8 +5545,29 @@ return (
                   )}
                 </div>
                 <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf"
-                  onChange={e => setFiles(prev => [...prev, ...Array.from(e.target.files || [])].slice(0, 5))}
+                  onChange={e => {
+                    const nouveaux = Array.from(e.target.files || []);
+                    setFiles(prev => [...prev, ...nouveaux].slice(0, 5));
+                    if (nouveaux.length > 0) analyserFichiers(nouveaux);
+                    e.target.value = "";
+                  }}
                   style={{ display: "none" }} />
+                {analyseFichier === "encours" && (
+                  <div style={{ marginTop: 8, color: "#f0c040", fontSize: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ display: "inline-block", width: 11, height: 11, border: "2px solid rgba(240,192,64,0.3)", borderTopColor: "#f0c040", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}></span>
+                    Analyse du plan en cours...
+                  </div>
+                )}
+                {analyseFichier === "ok" && (
+                  <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: 8, color: "#4ade80", fontSize: 12 }}>
+                    Champs pre-remplis depuis le plan - verifie les valeurs avant de generer.
+                  </div>
+                )}
+                {analyseFichier === "erreur" && (
+                  <div style={{ marginTop: 8, color: "#e05252", fontSize: 12 }}>
+                    Analyse du plan impossible - remplis les champs manuellement (le fichier sera quand meme joint au devis).
+                  </div>
+                )}
               </div>
               {error && (
                 <div style={{ background: "#ef444420", border: "1px solid #ef4444", borderRadius: 8, padding: 12, marginBottom: 16, color: "#ef4444", fontSize: 14 }}>
