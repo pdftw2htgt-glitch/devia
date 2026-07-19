@@ -3384,6 +3384,26 @@ const [formStructures, setFormStructures] = useState([]); // liste des ouvrages 
 const [formCustomError, setFormCustomError] = useState(""); // erreur de coherence multi-ouvrages
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [nomProjet, setNomProjet] = useState("");
+const [is3DFullscreen, setIs3DFullscreen] = useState(false);
+const viewer3DContainerRef = useRef(null);
+useEffect(() => {
+  const onFsChange = () => setIs3DFullscreen(!!document.fullscreenElement);
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
+  return () => {
+    document.removeEventListener("fullscreenchange", onFsChange);
+    document.removeEventListener("webkitfullscreenchange", onFsChange);
+  };
+}, []);
+const toggle3DFullscreen = () => {
+  const el = viewer3DContainerRef.current;
+  if (!el) return;
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  }
+};
 const [commune, setCommune] = useState("");
   const [typeTravaux, setTypeTravaux] = useState("neuf");
   const [addressData, setAddressData] = useState(null); // lat/lng/nom officiel pour modif #6
@@ -6179,6 +6199,22 @@ return (
                     }}>
                     Exporter IFC
                   </button>
+                  <button onClick={toggle3DFullscreen} title={is3DFullscreen ? "Quitter le plein ecran (Echap)" : "Plein ecran"}
+                    style={{
+                      padding: "7px 12px", borderRadius: 8, cursor: "pointer",
+                      fontSize: 13, fontWeight: 600,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: is3DFullscreen ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)",
+                      color: is3DFullscreen ? "#f0c040" : "#9ca0b8",
+                      transition: "all 0.12s", display: "inline-flex", alignItems: "center", gap: 6
+                    }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      {is3DFullscreen
+                        ? <><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></>
+                        : <><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>}
+                    </svg>
+                    {is3DFullscreen ? "Quitter" : "Plein ecran"}
+                  </button>
                   {[{ id: "mini", label: "Section mini" }, { id: "conseillee", label: "Section conseillee" }].map(m => (
                     <button key={m.id} onClick={() => setSectionMode(m.id)}
                       style={{
@@ -6193,7 +6229,7 @@ return (
                     </button>
                   ))}
                 </div>
-                <div style={{ ...cardStyle, height: 420, padding: 0, overflow: "hidden" }}>
+                <div ref={viewer3DContainerRef} style={{ ...cardStyle, height: is3DFullscreen ? "100vh" : 420, padding: 0, overflow: "hidden", background: is3DFullscreen ? "#0a0c12" : cardStyle.background }}>
                   <Viewer3D params={{ ...view3DParams,
                     ouvrages: (view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif])
                       ? [view3DParams.ouvrages[ouvrageActif]]
