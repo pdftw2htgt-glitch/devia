@@ -4774,6 +4774,7 @@ if (files && files.length > 0) {
 }
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
+  if (finalParams.murs) parsed._murs = finalParams.murs;
   setResult({ ...parsed, _catalogSource: catalogSource });
   if (parsed.projet) {
     const p = parsed.projet;
@@ -4889,6 +4890,7 @@ const loadProjectDetails = (project) => {
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
+        murs: project.devis_data._murs || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
       });
     }
