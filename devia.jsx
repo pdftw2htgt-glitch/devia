@@ -4490,7 +4490,8 @@ return out;
       body: JSON.stringify({
         model: "claude-sonnet-5",
         max_tokens: 20000,
-        thinking: { type: "enabled", budget_tokens: 6000 },
+        thinking: { type: "adaptive" },
+        output_config: { effort: "medium" },
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
       }),
