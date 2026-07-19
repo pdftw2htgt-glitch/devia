@@ -925,6 +925,47 @@ setPiece("Chevron");
     r2.position.set(0, yR, -zR);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
+
+    // ===== PANNEAUX SOLAIRES (surimposition sur le pan Z+) =====
+    if (params.solaire && SOLAIRE_KWC[params.solaire]) {
+      const nbPanneaux = SOLAIRE_KWC[params.solaire].nb;
+      const panL = 1.95, panW = 1.13, panEp = 0.045;   // panneau 500Wc paysage le long du rampant
+      const margeBord = 0.35;                            // marge peripherique sur le pan
+      const dPerpSol = dPerpCouv + 0.10;                 // rails ~10cm au-dessus de la couverture
+      const panMat = new THREE.MeshStandardMaterial({ color: 0x101a2e, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide });
+      const cadreMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.6, metalness: 0.7 });
+      // calepinage : colonnes le long de L (panneau en portrait vu du pan : panW le long de L, panL le long du rampant)
+      const nbColMax = Math.floor((L - 2 * margeBord) / (panW + 0.05));
+      const nbRangMax = Math.floor((pl - 2 * margeBord) / (panL + 0.05));
+      if (nbColMax > 0 && nbRangMax > 0) {
+        const nbCol = Math.min(nbColMax, Math.ceil(Math.sqrt(nbPanneaux * (L / pl))));
+        const nbRang = Math.ceil(nbPanneaux / nbCol);
+        let poses = 0;
+        for (let r = 0; r < nbRang && poses < nbPanneaux; r++) {
+          for (let c = 0; c < nbCol && poses < nbPanneaux; c++) {
+            const nbColCetteRangee = Math.min(nbCol, nbPanneaux - r * nbCol);
+            const x = -(nbColCetteRangee - 1) * (panW + 0.05) / 2 + c * (panW + 0.05);
+            if (c >= nbColCetteRangee) continue;
+            // position le long du rampant : depuis le bas du pan (egout) vers le haut
+            const sRamp = margeBord + panL/2 + r * (panL + 0.05);
+            if (sRamp + panL/2 > pl - margeBord) continue;
+            // conversion rampant -> monde : bas du pan a (Ht, lg/2), direction montante (cos vers +y, -sin vers z=0)
+            const yP2 = Ht + sRamp * Math.sin(ang) + dPerpSol * cosA;
+            const zP2 = lg/2 - sRamp * Math.cos(ang) + dPerpSol * sinA;
+            const pan = new THREE.Mesh(new THREE.BoxGeometry(panW, panEp, panL), panMat);
+            pan.position.set(x, yP2, zP2);
+            pan.rotation.x = ang;
+            pan.castShadow = true;
+            scene.add(pan);
+            const cadre = new THREE.Mesh(new THREE.BoxGeometry(panW + 0.03, panEp * 0.6, panL + 0.03), cadreMat);
+            cadre.position.set(x, yP2 - panEp * 0.35, zP2);
+            cadre.rotation.x = ang;
+            scene.add(cadre);
+            poses++;
+          }
+        }
+      }
+    }
   };
 
   // ============================================================
