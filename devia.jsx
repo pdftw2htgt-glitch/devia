@@ -19,17 +19,19 @@ const EC5_FLECHE_ADM = { courant:{winst:300,wnetfin:200}, agricole:{winst:200,wn
 
 // Sections standard FR (b x h mm)
 const EC5_SECTIONS = [
-  // Sections SCIERIE FRANCAISE classique (charpente traditionnelle)
-  // Chevrons
-  [60,80],[80,80],[60,100],[80,100],
+  // Sections SCIERIE FRANCAISE - gamme continue (sans trous, toutes commerciales)
+  // Chevrons / petites pieces
+  [60,80],[80,80],[60,100],[80,100],[63,150],[75,150],
+  // Intermediaires (le trou 100->200 comble)
+  [63,175],[75,175],[63,200],[75,200],
   // Pannes / madriers
-  [80,200],[100,200],[80,220],[100,220],[100,240],[120,240],
-  // Fortes pannes / arbaletriers
-  [120,260],[140,280],[150,300],
-  // Grosses fermes
-  [200,300],
-  // Carrees (poteaux, poincons, sablieres, contrefiches)
-  [100,100],[120,120],[140,140],[150,150],[160,160],[200,200],
+  [80,200],[100,200],[80,220],[100,220],[75,225],[100,225],
+  // Fortes pannes
+  [100,240],[120,240],[100,250],[120,260],
+  // Arbaletriers / grosses portees
+  [140,280],[150,300],[160,320],[200,300],
+  // Carrees (poteaux, poincons, contrefiches) - gamme continue
+  [80,80],[100,100],[120,120],[140,140],[150,150],[160,160],[175,175],[200,200],
 ];
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
