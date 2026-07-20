@@ -33,6 +33,14 @@ const EC5_SECTIONS = [
   // Carrees (poteaux, poincons, contrefiches) - gamme continue
   [80,80],[100,100],[120,120],[140,140],[150,150],[160,160],[175,175],[200,200],
 ];
+// Sections HABITUELLES MONTAGNE (Haute-Savoie, table Mathis) - activees quand dS > 0.
+// Regle : la regionale est testee a l'EC5 ; si elle passe -> conseillee ; sinon le calcul gagne.
+const SECTIONS_REGIONALES_MONTAGNE = {
+  Chevron: [80, 100],
+  Panne: [120, 240], "Panne faitiere": [120, 240], Sabliere: [120, 240], Muraillere: [120, 240],
+  Arbaletrier: [160, 160], Entrait: [160, 160], Contrefiche: [160, 160],
+  Poincon: [180, 180], Poteau: [150, 150],
+};
 const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
@@ -128,7 +136,20 @@ function dimensionnerPiece(typePiece, charge) {
   }
   if (!candidats.length) return null;
   const mini = [...candidats].sort((a,b)=> a.aire-b.aire || ordreClasse[a.classe]-ordreClasse[b.classe])[0];
-  const conseillee = [...candidats].sort((a,b)=> Math.abs(a.tauxMax-70)-Math.abs(b.tauxMax-70))[0];
+  let conseillee = [...candidats].sort((a,b)=> Math.abs(a.tauxMax-70)-Math.abs(b.tauxMax-70))[0];
+  // SECTION REGIONALE (3e argument) : si l'habitude locale passe le calcul, elle devient la conseillee
+  const regionale = arguments.length > 2 ? arguments[2] : null;
+  if (regionale) {
+    const [rb, rh] = regionale;
+    for (const classe of ["C18","C24","C30"]) {
+      const rTest = ec5VerifierFlexion({ ...charge, b: rb, h: rh, classe });
+      if (rTest.tauxMax <= 100) {
+        // jamais plus petite que le mini calcule (securite conservee par construction du test)
+        conseillee = { b: rb, h: rh, classe, ...rTest, aire: rb * rh, regionale: true };
+        break;
+      }
+    }
+  }
   return { mini, conseillee };
 }
 
@@ -197,9 +218,19 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       altitude: (params && Number(params.altitude)) || 0,
       console: g.nom === "Solive balcon",
     };
-    const dim = dimensionnerPiece(g.nom, charge);
+    const enMontagne = !!(params && Number(params.dS) > 0);
+    const sectionRegionale = enMontagne ? (SECTIONS_REGIONALES_MONTAGNE[g.nom] || null) : null;
+    const dim = dimensionnerPiece(g.nom, charge, sectionRegionale);
     if (dim) result[g.nom] = dim;
   });
+  // HARMONISATION : le poteau s'aligne sur la largeur de la sabliere (lignes continues)
+  if (result["Poteau"] && result["Sabliere"]) {
+    const wSab = result["Sabliere"].conseillee.b;
+    ["mini", "conseillee"].forEach(mode => {
+      const pot = result["Poteau"][mode];
+      if (pot && pot.b < wSab) { pot.b = wSab; pot.h = wSab; }
+    });
+  }
   return result;
 }
 
