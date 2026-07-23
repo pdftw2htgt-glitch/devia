@@ -5277,7 +5277,7 @@ const zoneInfo = commune ? getZone(commune, altitude) : null;
 // sont definis dynamiquement DANS DeviaMain selon themeMode (voir themes plus haut)
 
 return (
-<div style={{ minHeight: "100vh", background: t.bgRoot, color: t.textPrimary, fontFamily: "Inter, sans-serif", transition: "background 0.3s, color 0.3s" }}>
+<div style={{ minHeight: "100vh", background: t.bgRoot, color: t.textPrimary, fontFamily: "Inter, sans-serif", transition: "background 0.3s, color 0.3s" , overflowX: "hidden"}}>
 <style>{`
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.005em; }
