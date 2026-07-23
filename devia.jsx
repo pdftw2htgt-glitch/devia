@@ -6719,7 +6719,7 @@ return (
             <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Generez votre premier devis depuis l&apos;onglet Devis et il apparaitra ici.</div>
           </div>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 10, maxWidth: 760, margin: "0 auto", width: "100%" }}>
             {projects.filter(p => {
               // Filtre par groupe
               if (selectedGroupe !== "all" && p.groupe_id !== selectedGroupe) return false;
