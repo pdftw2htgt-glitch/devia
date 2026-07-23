@@ -6774,6 +6774,8 @@ return (
                 padding: 18,
                 transition: "all 0.18s",
                 gap: 14,
+                minWidth: 0,
+                maxWidth: "100%",
                 position: "relative",
                 zIndex: (openProjectGroupDropdown === p.id || openProjectMenuId === p.id) ? 50 : 1
               }}
