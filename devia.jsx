@@ -48,7 +48,7 @@ const EC5_LARGEUR_MINI = {
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
-  "Lien de faitage":0, Liteau:0, Echantignole:0, Defaut:60,
+  "Lien de faitage":0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
 
@@ -1480,6 +1480,23 @@ setPiece("Panne");
     // ===== LISSE DE RIVE (en bout de consoles) =====
     setPiece("Lisse de rive");
     addBox(L, soH, 0.06, 0, ySolive, muB + lg + 0.03, woodMat);
+
+    // ===== CONSOLES TRIANGULAIRES (montant mural + jambe de force) =====
+    setPiece("Console balcon");
+    const cSec = 0.08;                                    // section 8x8
+    const zAppui = muB + lg * 0.8;                        // appui jambe a 80% du porte-a-faux
+    const yDessousSolive = ySolive - soH / 2;
+    const yBasJambe = Math.max(yDessousSolive - (zAppui - cSec / 2), 0.2);
+    const entraxeSol = (L - soB) / (nbSolives - 1);
+    const stepConsole = Math.max(1, Math.round(1.5 / Math.max(entraxeSol, 0.1)));
+    for (let i = 0; i < nbSolives; i++) {
+      if (i % stepConsole !== 0 && i !== nbSolives - 1) continue;
+      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
+      // Montant vertical contre le mur, du dessous de solive au pied de jambe
+      addBox(cSec, yDessousSolive - yBasJambe, cSec, x, (yDessousSolive + yBasJambe) / 2, cSec / 2, woodMat);
+      // Jambe de force oblique, du pied du montant vers le dessous de solive
+      addBeam(x, yBasJambe, cSec / 2, x, yDessousSolive, zAppui, cSec, woodMat);
+    }
 
     // ===== LAMES DE PLANCHER =====
     setPiece("Lame de terrasse");
