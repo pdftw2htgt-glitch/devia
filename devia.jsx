@@ -1481,21 +1481,24 @@ setPiece("Panne");
     setPiece("Lisse de rive");
     addBox(L, soH, 0.06, 0, ySolive, muB + lg + 0.03, woodMat);
 
-    // ===== CONSOLES TRIANGULAIRES (montant mural + jambe de force) =====
+    // ===== CONSOLES 3 PIECES (bras + montant + jambe de force) =====
     setPiece("Console balcon");
     const cSec = 0.08;                                    // section 8x8
-    const zAppui = muB + lg * 0.8;                        // appui jambe a 80% du porte-a-faux
-    const yDessousSolive = ySolive - soH / 2;
-    const yBasJambe = Math.max(yDessousSolive - (zAppui - cSec / 2), 0.2);
+    const brasLg = Math.min(0.8, lg * 0.7);               // bras horizontal compact
+    const hMont = brasLg;                                 // triangle a 45 : montant = bras
+    const yBras = ySolive - soH / 2 - cSec / 2;           // bras plaque sous les solives
+    const yTeteMont = yBras - cSec / 2;                   // tete du montant sous le bras
     const entraxeSol = (L - soB) / (nbSolives - 1);
     const stepConsole = Math.max(1, Math.round(1.5 / Math.max(entraxeSol, 0.1)));
     for (let i = 0; i < nbSolives; i++) {
       if (i % stepConsole !== 0 && i !== nbSolives - 1) continue;
       const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
-      // Montant vertical contre le mur, du dessous de solive au pied de jambe
-      addBox(cSec, yDessousSolive - yBasJambe, cSec, x, (yDessousSolive + yBasJambe) / 2, cSec / 2, woodMat);
-      // Jambe de force oblique, du pied du montant vers le dessous de solive
-      addBeam(x, yBasJambe, cSec / 2, x, yDessousSolive, zAppui, cSec, woodMat);
+      // 1. Bras horizontal sous la solive, du mur vers l exterieur
+      addBox(cSec, cSec, brasLg, x, yBras, brasLg / 2, woodMat);
+      // 2. Montant vertical contre le mur, sous le bras
+      addBox(cSec, hMont, cSec, x, yTeteMont - hMont / 2, cSec / 2, woodMat);
+      // 3. Jambe de force du pied du montant vers le bout du bras
+      addBeam(x, yTeteMont - hMont + cSec / 2, cSec / 2, x, yBras, brasLg - cSec / 2, cSec, woodMat);
     }
 
     // ===== LAMES DE PLANCHER =====
