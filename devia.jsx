@@ -1481,21 +1481,42 @@ setPiece("Panne");
     setPiece("Lisse de rive");
     addBox(L, soH, 0.06, 0, ySolive, muB + lg + 0.03, woodMat);
 
-    // ===== CONSOLES 3 PIECES (bras + montant + jambe de force) =====
+    // ===== CONSOLES 3 PIECES CALCULEES (bras + montant + jambe de force) =====
+    // Statique validee Mathis (24/07/2026) :
+    // - bras = lg/2 : la jambe reprend la solive a mi porte-a-faux -> moment
+    //   d encastrement residuel ~ q.L2/8 au lieu de q.L2/2 (divise par ~4)
+    // - montant = bras -> jambe a 45 vrai (effort equilibre, angle du charpentier)
+    // - charges EN 1991-1-1 : G platelage 0.5 kN/m2, Q balcon 3.5 kN/m2 (cat. A)
+    //   qELU = 1.35G + 1.5Q ; V par console = qELU x entraxe consoles x profondeur
+    // - jambe a 45 en compression : N = V.rac(2) ; verif sigma <= kc.fc0d
+    //   C24 : fc0d = 21 x 0.9 / 1.3 = 14.5 MPa ; kc = min(1, (55/lambda)^2)
+    //   (approx courbe flambement EC5 C24 - a valider M. Gojon, radar flambement)
+    // - section retenue : premiere de la gamme qui passe, plancher esthetique 10x10
     setPiece("Console balcon");
-    const cSec = 0.08;                                    // section 8x8
-    const brasLg = Math.min(0.8, lg * 0.7);               // bras horizontal compact
-    const hMont = brasLg;                                 // triangle a 45 : montant = bras
-    const yBras = ySolive - soH / 2 - cSec / 2;           // bras plaque sous les solives
-    const yTeteMont = yBras - cSec / 2;                   // tete du montant sous le bras
+    const brasLg = lg / 2;                                // appui a mi porte-a-faux
+    const hMont = brasLg;                                 // triangle a 45 vrai
     const entraxeSol = (L - soB) / (nbSolives - 1);
     const stepConsole = Math.max(1, Math.round(1.5 / Math.max(entraxeSol, 0.1)));
+    const qELUc = 1.35 * 0.5 + 1.5 * 3.5;                 // kN/m2
+    const Vc = qELUc * (stepConsole * entraxeSol) * lg;   // kN repris par console
+    const Nc = Vc * Math.SQRT2;                           // kN compression jambe a 45
+    const lJambe = brasLg * Math.SQRT2;                   // m
+    let cSec = 0.15;
+    for (const b of [0.08, 0.10, 0.12, 0.15]) {
+      const lambda = (lJambe * Math.sqrt(12)) / b;        // elancement
+      const kc = Math.min(1, (55 / lambda) * (55 / lambda));
+      const sigma = (Nc * 1e-3) / (b * b);                // MPa
+      if (sigma <= kc * 14.5) { cSec = b; break; }
+    }
+    cSec = Math.max(cSec, 0.10);                          // plancher esthetique 10x10
+    const yBras = ySolive - soH / 2 - cSec / 2;           // bras plaque sous les solives
+    const yTeteMont = yBras - cSec / 2;                   // tete du montant sous le bras
     for (let i = 0; i < nbSolives; i++) {
       if (i % stepConsole !== 0 && i !== nbSolives - 1) continue;
       const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
       // 1. Bras horizontal sous la solive, du mur vers l exterieur
       addBox(cSec, cSec, brasLg, x, yBras, brasLg / 2, woodMat);
-      // 2. Montant vertical contre le mur, sous le bras
+      // 2. Montant vertical plaque sur la face du mur, sous le bras
       addBox(cSec, hMont, cSec, x, yTeteMont - hMont / 2, cSec / 2, woodMat);
       // 3. Jambe de force du pied du montant vers le bout du bras
       addBeam(x, yTeteMont - hMont + cSec / 2, cSec / 2, x, yBras, brasLg - cSec / 2, cSec, woodMat);
@@ -2031,7 +2052,7 @@ function capture3DViews(view3DParams) {
       const grp = new THREE.Group();
       buildScene3D(grp, { ...view3DParams, ...o }, { ...pdfOpts, couverture: o.couverture || view3DParams.couverture, sansMurAncrage: true });
       grp.position.x = posRangee.get(porteur) || 0;
-      grp.position.z = (porteur.largeur || 6) / 2;
+      grp.position.z = (porteur.largeur || 6) / 2 + 0.1; // face exterieure du mur (ep 0.2)
       scene.add(grp);
     });
     yCentre = yMax;
@@ -3015,7 +3036,8 @@ function Viewer3D({ params, onMetre }) {
         } else {
           // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
           grp.position.x = px;
-          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) : 0);
+          // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
+          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) : 0.1);
         }
       });
       if (onMetreRef.current && metresAll.length) {
