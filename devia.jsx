@@ -1416,15 +1416,39 @@ setPiece("Echantignole");
     }
     // Chevrons poses SUR les pannes d aplomb (offset perpendiculaire - pattern trad)
     const dPerpChevH = arHH/2 + (ph + eEchH) * cosAH + chH/2;
-    // Rallonge vers le faitage : l offset perpendiculaire ecarte les tetes de l axe,
-    // on prolonge de dPerp x tan(pente) pour que les deux pans se rejoignent (bas inchange)
-    const ralH = dPerpChevH * tanAH;
-    const plChev = pl + ralH;
-    const yChev = Ht + hf/2 + dPerpChevH * cosAH + (ralH/2) * sinAH;
-    const zChev = lg/4 + dPerpChevH * sinAH - (ralH/2) * cosAH;
+    // Chevron = prisme a COUPES VERTICALES (pattern trad) : onglet au faitage (z=0),
+    // coupe d aplomb a l egout. Rampant du pan : y(z) = Ht + hf - z x tan(ang)
+    const addChevronOngletH = (x, signZ) => {
+      const dv = (dPerpChevH - chH/2) / cosAH;
+      const dvH = chH / cosAH;
+      const yLigneH = (z) => Ht + hf - z * tanAH;
+      const zE = lg/2;
+      const yB0 = yLigneH(0) + dv,  yH0 = yB0 + dvH;
+      const yBE = yLigneH(zE) + dv, yHE = yBE + dvH;
+      const x1 = x - chB/2, x2 = x + chB/2;
+      const s = signZ;
+      const pos = [];
+      const quad = (a, b, c, d) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); };
+      const A1=[x1,yB0,0], B1=[x1,yH0,0], C1=[x1,yHE,s*zE], D1=[x1,yBE,s*zE];
+      const A2=[x2,yB0,0], B2=[x2,yH0,0], C2=[x2,yHE,s*zE], D2=[x2,yBE,s*zE];
+      quad(A1,B1,C1,D1); quad(A2,D2,C2,B2);
+      quad(B1,B2,C2,C1);
+      quad(A1,D1,D2,A2);
+      quad(A1,A2,B2,B1);
+      quad(D1,C1,C2,D2);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, woodMat);
+      m.castShadow = true;
+      scene.add(m);
+      logPiece(chB, chH, zE / cosAH, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
+    };
+    // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
+    fermeXsH.forEach((fx) => chevronXsH.push(fx));
     chevronXsH.forEach((x) => {
-      addBox(chB, chH, plChev, x, yChev, zChev, woodMat, [ang, 0, 0]);
-      addBox(chB, chH, plChev, x, yChev, -zChev, woodMat, [-ang, 0, 0]);
+      addChevronOngletH(x, 1);
+      addChevronOngletH(x, -1);
     });
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
