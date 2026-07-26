@@ -1324,6 +1324,20 @@ setPiece("Ferme");
       setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.15, 0.15);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
+
+      // Liens de faitage (echarpes ~45deg du poincon vers la sous-face de la faitiere)
+      // Contreventement longitudinal : 2 liens par ferme intermediaire, 1 vers l interieur en pignon
+      setPiece("Lien de faitage");
+      const lienSecH = 0.07;
+      const lienPorteeH = Math.min(0.7, L / (2 * nbFermes) - 0.1);
+      if (lienPorteeH > 0.25) {
+        const yHautLienH = yFait - 0.10;
+        const yBasLienH = yHautLienH - lienPorteeH;
+        const premiereFermeH = (i === 0);
+        const derniereFermeH = (i === nbFermes);
+        if (derniereFermeH === false) addBeam(x, yBasLienH, 0, x + lienPorteeH, yHautLienH, 0, lienSecH, woodMat);
+        if (premiereFermeH === false) addBeam(x, yBasLienH, 0, x - lienPorteeH, yHautLienH, 0, lienSecH, woodMat);
+      }
       // Contrefiches (jambes de force, point-a-point)
       const cfBaseY = Ht + hf * 0.15;
       const cfT = 0.55;
