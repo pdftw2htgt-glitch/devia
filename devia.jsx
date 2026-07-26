@@ -158,6 +158,62 @@ function dimensionnerPiece(typePiece, charge) {
 // Retourne { "Panne": {mini:{b,h,classe,tauxMax}, conseillee:{...}}, ... }
 // !!! Hypotheses portee/entraxe/charge A VALIDER PROF !!!
 // ============================================================
+// Harmonise les sections des designations du devis avec le tableau Calcul.
+// Construit la 3D en silence (groupe temporaire, jamais affiche), calcule les
+// sections via le moteur EC5 (memes sk/dS que le viewer -> resultat identique
+// au tableau), puis reecrit les sections dans les designations par mot-cle.
+// Best effort : en cas d erreur, le devis sort inchange.
+function harmoniserSectionsDevis(parsed, sk, dS) {
+  try {
+    const pj = (parsed && parsed.projet) || {};
+    const paramsCalc = {
+      type_projet: pj.type_projet || "charpente_trad",
+      longueur: Number(pj.longueur) || 8,
+      largeur: Number(pj.largeur) || 6,
+      hauteur: Number(pj.hauteur) || 3,
+      pente: Number(pj.pente) || 35,
+      couverture: pj.couverture || "tuile_terre",
+      dS: dS || 0,
+      solaire: Boolean(parsed && parsed._solaire),
+    };
+    const tmp = new THREE.Group();
+    const pre = buildScene3D(tmp, paramsCalc, { couverture: paramsCalc.couverture, mode: "technique" });
+    const agg = agregerMetre(pre.metre, pre.densiteBois || 450);
+    const secs = calculerSectionsCharpente(agg, paramsCalc, sk);
+    tmp.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+    // Mots-cles -> nom de piece du moteur (les plus specifiques d abord)
+    const MAP = [
+      ["panne faitiere", "Panne faitiere"], ["faitiere", "Panne faitiere"],
+      ["poutre porteuse", "Poutre porteuse"], ["porteuse", "Porteuse"],
+      ["sabliere", "Sabliere"], ["muraillere", "Muraillere"],
+      ["arbaletrier", "Arbaletrier"], ["entrait", "Entrait"],
+      ["contrefiche", "Contrefiche"], ["poincon", "Poincon"],
+      ["chevron", "Chevron"], ["empannon", "Empannon"],
+      ["aretier", "Aretier"], ["panne", "Panne"],
+      ["solive", "Solive"], ["poteau", "Poteau"],
+    ];
+    const strip = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    (parsed.postes || []).forEach((p) => {
+      const d = strip(p.designation);
+      for (const paire of MAP) {
+        const kw = paire[0], nom = paire[1];
+        if (d.includes(kw) && secs[nom] && secs[nom].conseillee) {
+          const c = secs[nom].conseillee;
+          const lib = c.b + "x" + c.h + " mm";
+          const reTest = /\d{2,3}\s*[xX\u00d7]\s*\d{2,3}(\s*mm)?/;
+          if (reTest.test(p.designation || "")) {
+            p.designation = (p.designation || "").replace(/\d{2,3}\s*[xX\u00d7]\s*\d{2,3}(\s*mm)?/g, lib);
+          } else {
+            p.designation = (p.designation || "") + " - section " + lib;
+          }
+          break;
+        }
+      }
+    });
+  } catch (e) { console.warn("[DEVIA] Harmonisation sections:", e); }
+  return parsed;
+}
+
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
   const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire));
@@ -4925,6 +4981,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
+  // Harmonisation : sections des designations = tableau Calcul (conseillees)
+  harmoniserSectionsDevis(parsed, zoneInfo ? zoneInfo.sk : 0.45, zoneInfo ? zoneInfo.dS : 0);
   setResult({ ...parsed, _catalogSource: catalogSource });
   if (parsed.projet) {
     const p = parsed.projet;
