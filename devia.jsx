@@ -3064,6 +3064,8 @@ function Viewer3D({ params, onMetre }) {
           grp.position.z = 0;
         } else {
           // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
+          // Appentis : demi-tour pour presenter le cote haut (muraillere) au mur
+          if (o.type_projet === "appentis") grp.rotation.y = Math.PI;
           grp.position.x = px;
           // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
           grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) + 0.1 : 0.1);
