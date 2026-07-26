@@ -2836,6 +2836,8 @@ const ASSEMBLAGES = {
 };
 
 function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }) {
+  // Moteur unique de sections : exactement le meme calcul que la 3D et le devis
+  const secsRef = calculerSectionsCharpente(data, { ...params, dS: (zoneInfo && zoneInfo.dS) || 0 }, zoneInfo ? zoneInfo.sk : 0.45);
   if (!data || !data.groupes || data.groupes.length === 0) {
     return null;
   }
@@ -2886,52 +2888,16 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
                   <td style={{ ...td, textAlign: "right" }}>{fmt(g.volume, 3)}</td>
                   <td style={{ ...td, textAlign: "right", color: "#f0c040" }}>{fmt(g.poids, 0)}</td>
                   <td style={{ ...td, textAlign: "right", fontSize: 12 }}>{(() => {
-                    const sk = zoneInfo ? zoneInfo.sk : 0.45;
-                    const ch = ec5DescenteCharge(params.couverture || "tuile_terre", sk, params.pente || 35, (zoneInfo && zoneInfo.dS) || 0);
-                    // --- CAS POTEAU : compression + flambement (pas flexion) ---
-                    if (g.nom === "Poteau") {
-                      const Lbat = (params && params.longueur) || 8;
-                      const lgBat = (params && params.largeur) || 6;
-                      const Hbat = (params && params.hauteur) || 3;
-                      const nbPot = g.nb || 4;
-                      const Npot = ec5ChargePoteau(Lbat, lgBat, ch.G, ch.S, nbPot);
-                      let dimP = null;
-                      for (const cl of ["C18","C24","C30"]) { dimP = dimensionnerPoteau(Npot, Hbat, cl); if (dimP) break; }
-                      if (!dimP) return <span style={{ color: "#545870" }}>-</span>;
-                      return <span style={{ color: "#60a5fa", fontWeight: 700 }}>{dimP.cote}x{dimP.cote} {dimP.classe}</span>;
-                    }
-                    // --- Portee de calcul realiste selon le type de piece (plafond 8m) ---
-                    // Pannes/sablieres : reposent sur les fermes -> portee = entre-axe fermes (~3.5m)
-                    // Chevrons/fermes/arbaletriers : longueur reelle
-                    const ENTRAXE_FERMES = 3.5; // m (cours : fermes tous les ~3.5m)
-                    const PORTEE_MAX = 8;        // plafond securite
-                    let porteeCalc;
-                    if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
-                      porteeCalc = ENTRAXE_FERMES; // appuis sur chaque ferme
-                    } else {
-                      porteeCalc = g.longueurUnitMax; // chevrons, fermes, arbaletriers : longueur reelle
-                    }
-                    porteeCalc = Math.min(porteeCalc, PORTEE_MAX);
-                    const charge = {
-                      portee: porteeCalc,
-                      entraxe: (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
-                             : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
-                             : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
-                             : 1.0,
-                      G: ch.G, Q: ch.Q, S: ch.S,
-                      classeService: 2,
-      typeBatiment: ((params && params.type_projet) === "hangar") ? "agricole" : "courant",
-      dureeVariable: "court",
-      altitude: (params && Number(params.altitude)) || 0,
-                    };
-                    const dim = dimensionnerPiece(g.nom, charge);
-                    if (!dim) return <span style={{ color: "#545870" }}>-</span>;
+                    // Moteur unique : memes sections que la 3D et le devis (calculerSectionsCharpente)
+                    const dim = secsRef[g.nom];
+                    if (dim === undefined || dim.mini === undefined || dim.conseillee === undefined) return <span style={{ color: "#545870" }}>-</span>;
                     const miniSel = sectionMode === "mini";
+                    const consSel = miniSel ? false : true;
                     return (
                       <span>
                         <span style={{ color: miniSel ? "#60a5fa" : "#7a7d92", fontWeight: miniSel ? 700 : 400 }}>{dim.mini.b}x{dim.mini.h} {dim.mini.classe}</span>
                         <span style={{ color: "#545870" }}> / </span>
-                        <span style={{ color: !miniSel ? "#60a5fa" : "#7a7d92", fontWeight: !miniSel ? 700 : 400 }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
+                        <span style={{ color: consSel ? "#60a5fa" : "#7a7d92", fontWeight: consSel ? 700 : 400 }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
                       </span>
                     );
                   })()}</td>
