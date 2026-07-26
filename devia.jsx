@@ -1416,11 +1416,15 @@ setPiece("Echantignole");
     }
     // Chevrons poses SUR les pannes d aplomb (offset perpendiculaire - pattern trad)
     const dPerpChevH = arHH/2 + (ph + eEchH) * cosAH + chH/2;
-    const yChev = Ht + hf/2 + dPerpChevH * cosAH;
-    const zChev = lg/4 + dPerpChevH * sinAH;
+    // Rallonge vers le faitage : l offset perpendiculaire ecarte les tetes de l axe,
+    // on prolonge de dPerp x tan(pente) pour que les deux pans se rejoignent (bas inchange)
+    const ralH = dPerpChevH * tanAH;
+    const plChev = pl + ralH;
+    const yChev = Ht + hf/2 + dPerpChevH * cosAH + (ralH/2) * sinAH;
+    const zChev = lg/4 + dPerpChevH * sinAH - (ralH/2) * cosAH;
     chevronXsH.forEach((x) => {
-      addBox(chB, chH, pl, x, yChev, zChev, woodMat, [ang, 0, 0]);
-      addBox(chB, chH, pl, x, yChev, -zChev, woodMat, [-ang, 0, 0]);
+      addBox(chB, chH, plChev, x, yChev, zChev, woodMat, [ang, 0, 0]);
+      addBox(chB, chH, plChev, x, yChev, -zChev, woodMat, [-ang, 0, 0]);
     });
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
