@@ -1484,43 +1484,56 @@ setPiece("Echantignole");
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
 
-    // ===== PANNEAUX SOLAIRES (surimposition sur le pan Z+ - pattern trad) =====
+    // ===== PANNEAUX SOLAIRES (orientation auto, debordement sur le 2e pan) =====
     if (params.solaire && SOLAIRE_KWC[params.solaire]) {
       const nbPanneaux = SOLAIRE_KWC[params.solaire].nb;
-      const panL = 1.95, panW = 1.13, panEp = 0.045;   // panneau 500Wc, panL le long du rampant
-      const margeBord = 0.35;                            // marge peripherique sur le pan
+      const panEp = 0.045;
+      const margeBord = 0.35;
       const dPerpSolH = dPerp + 0.10;                    // rails ~10cm au-dessus de la couverture
       const panMat = new THREE.MeshStandardMaterial({ color: 0x101a2e, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide });
       const cadreMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.6, metalness: 0.7 });
+      // Orientation auto : portrait (1.13 le long de L) ou paysage (1.95 le long de L),
+      // on retient celle qui pose le plus de panneaux par pan
+      const capacitePan = (w, l) => {
+        const cMax = Math.floor((L - 2 * margeBord) / (w + 0.05));
+        const rMax = Math.floor((pl - 2 * margeBord - l) / (l + 0.05)) + 1;
+        if (cMax < 1 || rMax < 1) return 0;
+        return cMax * rMax;
+      };
+      const paysage = capacitePan(1.95, 1.13) > capacitePan(1.13, 1.95);
+      const panW = paysage ? 1.95 : 1.13;                // le long de L
+      const panL = paysage ? 1.13 : 1.95;                // le long du rampant
       const nbColMax = Math.floor((L - 2 * margeBord) / (panW + 0.05));
-      const nbRangMax = Math.floor((pl - 2 * margeBord) / (panL + 0.05));
-      if (nbColMax > 0 && nbRangMax > 0) {
-        const nbCol = Math.min(nbColMax, Math.ceil(Math.sqrt(nbPanneaux * (L / pl))));
-        const nbRang = Math.ceil(nbPanneaux / nbCol);
-        let poses = 0;
-        for (let r = 0; r < nbRang && poses < nbPanneaux; r++) {
-          for (let c = 0; c < nbCol && poses < nbPanneaux; c++) {
-            const nbColCetteRangee = Math.min(nbCol, nbPanneaux - r * nbCol);
-            const x = -(nbColCetteRangee - 1) * (panW + 0.05) / 2 + c * (panW + 0.05);
-            if (c >= nbColCetteRangee) continue;
-            const sRamp = margeBord + panL/2 + r * (panL + 0.05);
-            if (sRamp + panL/2 > pl - margeBord) continue;
-            // conversion rampant -> monde : egout a (Ht, lg/2), montee vers le faitage
+      let restants = nbPanneaux;
+      const poserSurPan = (signZ) => {
+        if (nbColMax < 1) return;
+        const s = signZ;
+        let r = 0;
+        while (restants > 0) {
+          const sRamp = margeBord + panL/2 + r * (panL + 0.05);
+          if (sRamp + panL/2 > pl - margeBord) break;
+          const nbCetteRangee = Math.min(nbColMax, restants);
+          for (let c = 0; c < nbCetteRangee; c++) {
+            const x = -(nbCetteRangee - 1) * (panW + 0.05) / 2 + c * (panW + 0.05);
             const yP2 = Ht + sRamp * sinAH + dPerpSolH * cosAH;
-            const zP2 = lg/2 - sRamp * cosAH + dPerpSolH * sinAH;
+            const zP2 = s * (lg/2 - sRamp * cosAH + dPerpSolH * sinAH);
             const pan = new THREE.Mesh(new THREE.BoxGeometry(panW, panEp, panL), panMat);
             pan.position.set(x, yP2, zP2);
-            pan.rotation.x = ang;
+            pan.rotation.x = s * ang;
             pan.castShadow = true;
             scene.add(pan);
             const cadre = new THREE.Mesh(new THREE.BoxGeometry(panW + 0.03, panEp * 0.6, panL + 0.03), cadreMat);
             cadre.position.set(x, yP2 - panEp * 0.35, zP2);
-            cadre.rotation.x = ang;
+            cadre.rotation.x = s * ang;
             scene.add(cadre);
-            poses++;
+            restants--;
           }
+          r++;
         }
-      }
+      };
+      poserSurPan(1);
+      poserSurPan(-1);
+      if (restants > 0) console.warn("[DEVIA] Solaire hangar : " + restants + " panneau(x) non poses (pans satures)");
     }
   };
 
