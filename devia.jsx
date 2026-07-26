@@ -4804,6 +4804,9 @@ return out;
         const { parsed, data } = await callDeviaIA(systemPrompt, fp.description);
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
+        // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
+        const ziH = getZone(commune, altitude);
+        harmoniserSectionsDevis(parsed, ziH ? ziH.sk : 0.45, ziH ? ziH.dS : 0);
         devisParOuvrage.push(parsed);
       }
 
