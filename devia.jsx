@@ -3053,18 +3053,20 @@ function Viewer3D({ params, onMetre }) {
         if (o.type_projet === "monopente") {
           // Garage accole : cote haut (Z+ local) tourne contre le pignon X+ du porteur, pente vers l'exterieur
           grp.rotation.y = -Math.PI / 2;
-          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 4) / 2;
+          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 4) / 2 + 0.1;
           grp.position.z = 0;
         } else if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
           // PORCHE : adosse au pignon avant (x = +L/2 du porteur), centre sur la porte
           grp.rotation.y = -Math.PI / 2; // son cote haut (Z+) tourne vers le pignon (X+)
-          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2;
+          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2 + 0.1;
           grp.position.z = 0;
         } else {
           // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
           grp.position.x = px;
           // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
-          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) : 0.1);
+          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) + 0.1 : 0.1);
         }
       });
       if (onMetreRef.current && metresAll.length) {
