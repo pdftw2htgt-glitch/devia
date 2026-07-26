@@ -183,21 +183,26 @@ function harmoniserSectionsDevis(parsed, sk, dS) {
     tmp.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
     // Mots-cles -> nom de piece du moteur (les plus specifiques d abord)
     const MAP = [
-      ["panne faitiere", "Panne faitiere"], ["faitiere", "Panne faitiere"],
-      ["poutre porteuse", "Poutre porteuse"], ["porteuse", "Porteuse"],
-      ["sabliere", "Sabliere"], ["muraillere", "Muraillere"],
-      ["arbaletrier", "Arbaletrier"], ["entrait", "Entrait"],
-      ["contrefiche", "Contrefiche"], ["poincon", "Poincon"],
-      ["chevron", "Chevron"], ["empannon", "Empannon"],
-      ["aretier", "Aretier"], ["panne", "Panne"],
-      ["solive", "Solive"], ["poteau", "Poteau"],
+      ["panne faitiere", ["Panne faitiere"]], ["faitiere", ["Panne faitiere"]],
+      ["poutre porteuse", ["Poutre porteuse"]], ["porteuse", ["Porteuse", "Poutre porteuse"]],
+      ["sabliere", ["Sabliere"]], ["muraillere", ["Muraillere"]],
+      ["arbaletrier", ["Arbaletrier"]], ["entrait", ["Entrait"]],
+      ["contrefiche", ["Contrefiche"]], ["poincon", ["Poincon"]],
+      ["chevron", ["Chevron"]], ["empannon", ["Empannon", "Empannon de croupe"]],
+      ["aretier", ["Aretier"]], ["panne", ["Panne"]],
+      ["solive", ["Solive", "Solive balcon"]], ["poteau", ["Poteau"]],
     ];
     const strip = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     (parsed.postes || []).forEach((p) => {
       const d = strip(p.designation);
       for (const paire of MAP) {
-        const kw = paire[0], nom = paire[1];
-        if (d.includes(kw) && secs[nom] && secs[nom].conseillee) {
+        const kw = paire[0];
+        if (d.includes(kw) === false) continue;
+        let nom = null;
+        for (const cand of paire[1]) {
+          if (secs[cand] && secs[cand].conseillee) { nom = cand; break; }
+        }
+        if (nom) {
           const c = secs[nom].conseillee;
           const lib = c.b + "x" + c.h + " mm";
           const reTest = /\d{2,3}\s*[xX\u00d7]\s*\d{2,3}(\s*mm)?/;
