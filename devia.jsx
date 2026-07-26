@@ -1429,12 +1429,14 @@ setPiece("Echantignole");
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
-    const hangarRoofMat = makeRoofMaterial(couv, L, pl);
-    const rg = new THREE.PlaneGeometry(L + 0.8, pl);
-    // pan au-dessus des chevrons recales (pannes d aplomb + echantignoles)
     const dPerp = dPerpChevH + chH/2 + 0.04;
-    const dY = dPerp * Math.cos(ang);
-    const dZ = dPerp * Math.sin(ang);
+    // Toit prolonge jusqu au faitage (meme compensation que les chevrons A2)
+    const ralT = dPerp * tanAH;
+    const plToit = pl + ralT;
+    const hangarRoofMat = makeRoofMaterial(couv, L, plToit);
+    const rg = new THREE.PlaneGeometry(L + 0.8, plToit);
+    const dY = dPerp * Math.cos(ang) + (ralT/2) * sinAH;
+    const dZ = dPerp * Math.sin(ang) - (ralT/2) * cosAH;
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
     r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
     r1.rotation.x = ang - Math.PI/2;
