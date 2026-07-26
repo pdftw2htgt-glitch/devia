@@ -1484,30 +1484,17 @@ setPiece("Echantignole");
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
 
-    // ===== PANNEAUX SOLAIRES (orientation auto, debordement sur le 2e pan) =====
+    // ===== PANNEAUX SOLAIRES (pan Z+, portrait, marges strictes - le surplus n est pas pose) =====
     if (params.solaire && SOLAIRE_KWC[params.solaire]) {
       const nbPanneaux = SOLAIRE_KWC[params.solaire].nb;
-      const panEp = 0.045;
-      const margeBord = 0.35;
+      const panL = 1.95, panW = 1.13, panEp = 0.045;   // portrait : panL le long du rampant (comme la trad)
+      const margeBord = 0.35;                            // marge peripherique reglementaire de pose
       const dPerpSolH = dPerp + 0.10;                    // rails ~10cm au-dessus de la couverture
       const panMat = new THREE.MeshStandardMaterial({ color: 0x101a2e, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide });
       const cadreMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.6, metalness: 0.7 });
-      // Orientation auto : portrait (1.13 le long de L) ou paysage (1.95 le long de L),
-      // on retient celle qui pose le plus de panneaux par pan
-      const capacitePan = (w, l) => {
-        const cMax = Math.floor((L - 2 * margeBord) / (w + 0.05));
-        const rMax = Math.floor((pl - 2 * margeBord - l) / (l + 0.05)) + 1;
-        if (cMax < 1 || rMax < 1) return 0;
-        return cMax * rMax;
-      };
-      const paysage = capacitePan(1.95, 1.13) > capacitePan(1.13, 1.95);
-      const panW = paysage ? 1.95 : 1.13;                // le long de L
-      const panL = paysage ? 1.13 : 1.95;                // le long du rampant
       const nbColMax = Math.floor((L - 2 * margeBord) / (panW + 0.05));
       let restants = nbPanneaux;
-      const poserSurPan = (signZ) => {
-        if (nbColMax < 1) return;
-        const s = signZ;
+      if (nbColMax > 0) {
         let r = 0;
         while (restants > 0) {
           const sRamp = margeBord + panL/2 + r * (panL + 0.05);
@@ -1516,24 +1503,22 @@ setPiece("Echantignole");
           for (let c = 0; c < nbCetteRangee; c++) {
             const x = -(nbCetteRangee - 1) * (panW + 0.05) / 2 + c * (panW + 0.05);
             const yP2 = Ht + sRamp * sinAH + dPerpSolH * cosAH;
-            const zP2 = s * (lg/2 - sRamp * cosAH + dPerpSolH * sinAH);
+            const zP2 = lg/2 - sRamp * cosAH + dPerpSolH * sinAH;
             const pan = new THREE.Mesh(new THREE.BoxGeometry(panW, panEp, panL), panMat);
             pan.position.set(x, yP2, zP2);
-            pan.rotation.x = s * ang;
+            pan.rotation.x = ang;
             pan.castShadow = true;
             scene.add(pan);
             const cadre = new THREE.Mesh(new THREE.BoxGeometry(panW + 0.03, panEp * 0.6, panL + 0.03), cadreMat);
             cadre.position.set(x, yP2 - panEp * 0.35, zP2);
-            cadre.rotation.x = s * ang;
+            cadre.rotation.x = ang;
             scene.add(cadre);
             restants--;
           }
           r++;
         }
-      };
-      poserSurPan(1);
-      poserSurPan(-1);
-      if (restants > 0) console.warn("[DEVIA] Solaire hangar : " + restants + " panneau(x) non poses (pans satures)");
+      }
+      if (restants > 0) console.warn("[DEVIA] Solaire hangar : " + restants + " panneau(x) non poses - marges de pose respectees, agrandir la structure ou reduire les kWc");
     }
   };
 
