@@ -1335,19 +1335,71 @@ setPiece("Ferme");
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);
     }
 
-setPiece("Panne");
-    // ===== PANNE FAITIERE + INTERMEDIAIRES =====
+setPiece("Panne faitiere");
+    // ===== PANNE FAITIERE =====
     const [pfw, pfh] = sec("Panne faitiere", 0.16, 0.16);
     addBox(L + 0.5, pfw, pfh, 0, yFait, 0, woodMat);
+
+    // ===== PANNES D APLOMB (droites, calees par echantignoles - pattern trad) =====
+    setPiece("Panne");
+    const [arBH, arHH] = sec("Arbaletrier", 0.16, 0.16);
+    const cosAH = Math.cos(ang), sinAH = Math.sin(ang), tanAH = Math.tan(ang);
     const nbPannesParPan = 2;
     const [pw, ph] = sec("Panne", 0.12, 0.12);
+    const eEchH = 0.03;
+    const pannesInfoH = [];
     for (let p = 1; p <= nbPannesParPan; p++) {
       const t = p / (nbPannesParPan + 1);
-      const yPanne = Ht + hf * t;
-      const zPanne = (lg/2) * (1 - t);
-      addBox(L + 0.4, pw, ph, 0, yPanne, zPanne, woodMat);
-      addBox(L + 0.4, pw, ph, 0, yPanne, -zPanne, woodMat);
+      const yRefH = Ht + hf * t + (arHH/2) * cosAH;
+      const zRefH = (lg/2) * (1 - t) + (arHH/2) * sinAH;
+      const yPH = yRefH + (pw/2) * tanAH + eEchH + ph/2;
+      pannesInfoH.push({ zRefH, yRefH });
+      addBox(L + 0.4, ph, pw, 0, yPH, zRefH, woodMat);
+      addBox(L + 0.4, ph, pw, 0, yPH, -zRefH, woodMat);
     }
+
+setPiece("Echantignole");
+    // ===== ECHANTIGNOLES (dessus horizontal, base sur rampant, talon aval - pattern trad) =====
+    const addEchantignoleH = (fx, zRef, yRef, signZ) => {
+      const eB2 = arBH;
+      const eEch2 = 0.03;
+      const tT = 0.05;
+      const hT = 0.06;
+      const x1 = fx - eB2/2, x2 = fx + eB2/2;
+      const yTop = yRef + (pw/2) * tanAH + eEch2;
+      const z1 = zRef - pw/2 - eEch2 / tanAH;
+      const z2 = zRef + pw/2;
+      const z3 = z2 + tT;
+      const yD = yTop - (z3 - z1) * tanAH;
+      const s = signZ;
+      const A = [0, yTop, s * z1], G = [0, yTop, s * z2], F = [0, yTop + hT, s * z2], E = [0, yTop + hT, s * z3], D = [0, yD, s * z3];
+      const mk = (p, xx) => [xx, p[1], p[2]];
+      const pos = [];
+      const tri = (p, q, r) => { pos.push(p[0],p[1],p[2], q[0],q[1],q[2], r[0],r[1],r[2]); };
+      const quad = (a, b, c, d) => { tri(a, b, c); tri(a, c, d); };
+      const A1=mk(A,x1), G1=mk(G,x1), F1=mk(F,x1), E1=mk(E,x1), D1=mk(D,x1);
+      const A2=mk(A,x2), G2=mk(G,x2), F2=mk(F,x2), E2=mk(E,x2), D2=mk(D,x2);
+      tri(A1,G1,F1); tri(A1,F1,E1); tri(A1,E1,D1);
+      tri(A2,F2,G2); tri(A2,E2,F2); tri(A2,D2,E2);
+      quad(A1,A2,G2,G1);
+      quad(G1,G2,F2,F1);
+      quad(F1,F2,E2,E1);
+      quad(E1,E2,D2,D1);
+      quad(D1,D2,A2,A1);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, woodMat);
+      m.castShadow = true;
+      scene.add(m);
+      logPiece(eB2, pw * tanAH + hT, pw + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
+    };
+    pannesInfoH.forEach((pi) => {
+      fermeXsH.forEach((fx) => {
+        addEchantignoleH(fx, pi.zRefH, pi.yRefH, 1);
+        addEchantignoleH(fx, pi.zRefH, pi.yRefH, -1);
+      });
+    });
 
     setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
@@ -1362,17 +1414,21 @@ setPiece("Panne");
         chevronXsH.push(x0 + (j / (nbInter + 1)) * travee);
       }
     }
+    // Chevrons poses SUR les pannes d aplomb (offset perpendiculaire - pattern trad)
+    const dPerpChevH = arHH/2 + (ph + eEchH) * cosAH + chH/2;
+    const yChev = Ht + hf/2 + dPerpChevH * cosAH;
+    const zChev = lg/4 + dPerpChevH * sinAH;
     chevronXsH.forEach((x) => {
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, lg/4, woodMat, [ang, 0, 0]);
-      addBox(chB, chH, pl, x, Ht + hf/2 + 0.08, -lg/4, woodMat, [-ang, 0, 0]);
+      addBox(chB, chH, pl, x, yChev, zChev, woodMat, [ang, 0, 0]);
+      addBox(chB, chH, pl, x, yChev, -zChev, woodMat, [-ang, 0, 0]);
     });
 
     // ===== COUVERTURE (2 pans) - texture tuile en realiste, transparent en technique =====
     const couv = getCouverture(opts && opts.couverture);
     const hangarRoofMat = makeRoofMaterial(couv, L, pl);
     const rg = new THREE.PlaneGeometry(L + 0.8, pl);
-    // pan pose pile sur le rampant (du bas au faitage), petit decalage perpendiculaire au-dessus des chevrons
-    const dPerp = 0.06;
+    // pan au-dessus des chevrons recales (pannes d aplomb + echantignoles)
+    const dPerp = dPerpChevH + chH/2 + 0.04;
     const dY = dPerp * Math.cos(ang);
     const dZ = dPerp * Math.sin(ang);
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
