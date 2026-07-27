@@ -280,6 +280,33 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       return;
     }
 
+    // --- CAS SPECIAL CONTREFICHE : compression + flambement (hypotheses validees Mathis 26/07) ---
+    // Appui intermediaire de l arbaletrier : modele poutre continue 2 travees -> 5/8 de W
+    // W = qELU x entraxe fermes x lg/2 ; contrefiche a 45 deg : N = (5/8 W) x rac(2)
+    // Flambement : k = 1.0, longueur reelle de la contrefiche
+    if (g.nom === "Contrefiche") {
+      const qELUc2 = 1.35*ch.G + 1.5*ch.Q + (ch.S > 0 ? 0.5*ch.S : 0);
+      const Wc = qELUc2 * ENTRAXE_FERMES * (lgBat / 2);
+      const Ncf = ((5/8) * Wc * Math.SQRT2) * 1000;
+      const lFlambC = Math.max(0.5, g.longueurUnitMax);
+      let dimCf = null;
+      for (const cl of ["C18","C24","C30"]) {
+        dimCf = dimensionnerPoteau(Ncf, lFlambC, cl);
+        if (dimCf) break;
+      }
+      if (dimCf) {
+        const secMiniC = { b: dimCf.cote, h: dimCf.cote, classe: dimCf.classe, tauxMax: dimCf.taux };
+        let secConsC = secMiniC;
+        const regC = (Number(params && params.dS) > 0) ? (SECTIONS_REGIONALES_MONTAGNE[g.nom] || null) : null;
+        if (regC) {
+          const vr2 = ec5VerifCompressionCarre(Ncf, lFlambC, regC[0]);
+          if (vr2) secConsC = { b: vr2.cote, h: vr2.cote, classe: vr2.classe, tauxMax: vr2.taux, regionale: true };
+        }
+        result[g.nom] = { mini: secMiniC, conseillee: secConsC, flambement: { lambda: dimCf.lambda, kc: dimCf.kc, N: Math.round(Ncf) } };
+      }
+      return;
+    }
+
     // portee realiste selon type
     let porteeCalc;
     if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
