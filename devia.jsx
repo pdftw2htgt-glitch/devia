@@ -1796,8 +1796,7 @@ setPiece("Echantignole");
     // - charges EN 1991-1-1 : G platelage 0.5 kN/m2, Q balcon 3.5 kN/m2 (cat. A)
     //   qELU = 1.35G + 1.5Q ; V par console = qELU x entraxe consoles x profondeur
     // - jambe a 45 en compression : N = V.rac(2) ; verif sigma <= kc.fc0d
-    //   C24 : fc0d = 21 x 0.9 / 1.3 = 14.5 MPa ; kc = min(1, (55/lambda)^2)
-    //   (approx courbe flambement EC5 C24 - a valider M. Gojon, radar flambement)
+    //   C24 : fc0d = 21 x 0.9 / 1.3 = 14.5 MPa ; kc = table EC5 du cours (ec5GetKc)
     // - section retenue : premiere de la gamme qui passe, plancher esthetique 10x10
     setPiece("Console balcon");
     const brasLg = lg / 2;                                // appui a mi porte-a-faux
@@ -1811,7 +1810,7 @@ setPiece("Echantignole");
     let cSec = 0.15;
     for (const b of [0.08, 0.10, 0.12, 0.15]) {
       const lambda = (lJambe * Math.sqrt(12)) / b;        // elancement
-      const kc = Math.min(1, (55 / lambda) * (55 / lambda));
+      const kc = ec5GetKc("C24", lambda);
       const sigma = (Nc * 1e-3) / (b * b);                // MPa
       if (sigma <= kc * 14.5) { cSec = b; break; }
     }
