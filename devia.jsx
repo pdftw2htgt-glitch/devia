@@ -1273,6 +1273,45 @@ setPiece("Liteau");
     roof.position.set(0, yCentre + 0.20, 0);  // plus haut a cause des liteaux
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
+
+    // ===== PANNEAUX SOLAIRES (pan unique, portrait, marges strictes - le surplus n est pas pose) =====
+    if (params.solaire && SOLAIRE_KWC[params.solaire]) {
+      const nbPanneaux = SOLAIRE_KWC[params.solaire].nb;
+      const panL = 1.95, panW = 1.13, panEp = 0.045;   // portrait : panL le long du rampant
+      const margeBord = 0.35;                            // marge peripherique reglementaire de pose
+      const cosAM = Math.cos(ang), sinAM = Math.sin(ang);
+      const dPerpSolM = 0.20 * cosAM + 0.10;             // rails ~10cm au-dessus de la couverture
+      const panMat = new THREE.MeshStandardMaterial({ color: 0x101a2e, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide });
+      const cadreMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 0.6, metalness: 0.7 });
+      const nbColMax = Math.floor((L - 2 * margeBord) / (panW + 0.05));
+      let restants = nbPanneaux;
+      if (nbColMax > 0) {
+        let r = 0;
+        while (restants > 0) {
+          const sRamp = margeBord + panL/2 + r * (panL + 0.05);
+          if (sRamp + panL/2 > longueurChevron - margeBord) break;
+          const nbCetteRangee = Math.min(nbColMax, restants);
+          for (let c = 0; c < nbCetteRangee; c++) {
+            const x = -(nbCetteRangee - 1) * (panW + 0.05) / 2 + c * (panW + 0.05);
+            // conversion rampant -> monde : bas du pan a (Hbas, -lg/2), montee vers Z+
+            const yP2 = Hbas + sRamp * sinAM + dPerpSolM * cosAM;
+            const zP2 = -lg/2 + sRamp * cosAM - dPerpSolM * sinAM;
+            const pan = new THREE.Mesh(new THREE.BoxGeometry(panW, panEp, panL), panMat);
+            pan.position.set(x, yP2, zP2);
+            pan.rotation.x = -ang;
+            pan.castShadow = true;
+            scene.add(pan);
+            const cadre = new THREE.Mesh(new THREE.BoxGeometry(panW + 0.03, panEp * 0.6, panL + 0.03), cadreMat);
+            cadre.position.set(x, yP2 - panEp * 0.35, zP2);
+            cadre.rotation.x = -ang;
+            scene.add(cadre);
+            restants--;
+          }
+          r++;
+        }
+      }
+      if (restants > 0) console.warn("[DEVIA] Solaire monopente : " + restants + " panneau(x) non poses - marges de pose respectees, agrandir la structure ou reduire les kWc");
+    }
   };
 
   // ============================================================
