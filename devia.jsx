@@ -252,6 +252,34 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       return;
     }
 
+    // --- CAS SPECIAL POINCON : compression + flambement (hypotheses validees Mathis 26/07) ---
+    // N = charge faitiere (qELU x entraxe fermes x bande 1.5m) + demi poids propre entrait suspendu
+    // Flambement : k = 1.0 (articule-articule), longueur = hauteur reelle du poincon
+    // Combinaison ELU identique au moteur flexion : 1.35G + 1.5Q + 0.5S
+    if (g.nom === "Poincon") {
+      const qELUp = 1.35*ch.G + 1.5*ch.Q + (ch.S > 0 ? 0.5*ch.S : 0);
+      const gEntrait = metreAgrege.groupes.find((gr) => gr.nom === "Entrait");
+      const demiEntraitKN = gEntrait ? ((gEntrait.poids / Math.max(1, gEntrait.nombre)) / 2) * 0.00981 : 0;
+      const Np = (qELUp * ENTRAXE_FERMES * 1.5 + demiEntraitKN) * 1000;
+      const lFlamb = Math.max(0.5, g.longueurUnitMax);
+      let dimPoinc = null;
+      for (const cl of ["C18","C24","C30"]) {
+        dimPoinc = dimensionnerPoteau(Np, lFlamb, cl);
+        if (dimPoinc) break;
+      }
+      if (dimPoinc) {
+        const secMini = { b: dimPoinc.cote, h: dimPoinc.cote, classe: dimPoinc.classe, tauxMax: dimPoinc.taux };
+        let secCons = secMini;
+        const regP = (Number(params && params.dS) > 0) ? (SECTIONS_REGIONALES_MONTAGNE[g.nom] || null) : null;
+        if (regP) {
+          const vr = ec5VerifCompressionCarre(Np, lFlamb, regP[0]);
+          if (vr) secCons = { b: vr.cote, h: vr.cote, classe: vr.classe, tauxMax: vr.taux, regionale: true };
+        }
+        result[g.nom] = { mini: secMini, conseillee: secCons, flambement: { lambda: dimPoinc.lambda, kc: dimPoinc.kc, N: Math.round(Np) } };
+      }
+      return;
+    }
+
     // portee realiste selon type
     let porteeCalc;
     if (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") {
@@ -352,6 +380,21 @@ function dimensionnerPoteau(N, hauteur, classe) {
     const sigmaAdm = kc*fc0d;
     const sigma = N/S;
     const taux = sigma/sigmaAdm*100;
+    if (taux <= 100) return { cote, lambda, kc, taux, classe: cl };
+  }
+  return null;
+}
+
+// Verification compression + flambement d une section carree donnee (cote en mm, N en Newtons)
+function ec5VerifCompressionCarre(N, longueurM, cote) {
+  for (const cl of ["C18","C24","C30"]) {
+    const S = cote*cote;
+    const Imin = cote*Math.pow(cote,3)/12;
+    const iGyr = Math.sqrt(Imin/S);
+    const lambda = (longueurM*1000) / iGyr;
+    const kc = ec5GetKc(cl, lambda);
+    const fc0d = EC5_FC0K[cl]*EC5_KMOD_PERM/EC5_GAMMA_M;
+    const taux = (N/S)/(kc*fc0d)*100;
     if (taux <= 100) return { cote, lambda, kc, taux, classe: cl };
   }
   return null;
