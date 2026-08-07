@@ -4223,6 +4223,8 @@ const fileInputRef = useRef(null);
         body: JSON.stringify({
           model: "claude-sonnet-5",
           max_tokens: 12000,
+          thinking: { type: "adaptive" },
+          output_config: { effort: "low" },
           system: sysAnalyse,
           messages: [{ role: "user", content: [...blocks, { type: "text", text: "Analyse ce document et extrais les caracteristiques du projet." }] }],
         }),
