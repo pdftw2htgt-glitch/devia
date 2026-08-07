@@ -4194,7 +4194,7 @@ const fileInputRef = useRef(null);
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-5",
-          max_tokens: 4000,
+          max_tokens: 12000,
           thinking: { type: "adaptive" },
           output_config: { effort: "low" },
           system: sysAnalyse,
@@ -4202,6 +4202,8 @@ const fileInputRef = useRef(null);
         }),
       });
       const data = await response.json();
+      if (data && data.error) throw new Error("API analyse : " + (data.error.message || JSON.stringify(data.error)));
+      if (data && data.stop_reason === "max_tokens") console.warn("[DEVIA] Analyse : reponse tronquee (max_tokens atteint)");
       const tb = (data.content && Array.isArray(data.content)) ? data.content.find(b => b && b.type === "text" && b.text) : null;
       const txt = (tb && tb.text) ? tb.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
       const m = txt.match(/\{[\s\S]*\}/);
