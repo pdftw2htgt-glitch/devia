@@ -3908,6 +3908,7 @@ const [altitude, setAltitude] = useState("200");
 const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne pas ecraser) / false = auto-remplie
 const [files, setFiles] = useState([]);
 const [analyseFichier, setAnalyseFichier] = useState(""); // "" | "encours" | "ok" | "erreur"
+const [analyseErreur, setAnalyseErreur] = useState(""); // detail technique du dernier echec d'analyse
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -4167,6 +4168,7 @@ const fileInputRef = useRef(null);
   const analyserFichiers = async (fileList) => {
     if (!fileList || fileList.length === 0) return;
     setAnalyseFichier("encours");
+    setAnalyseErreur("");
     try {
       const blocks = await buildFileBlocks(fileList);
       if (blocks.length === 0) { setAnalyseFichier(""); return; }
@@ -4201,7 +4203,10 @@ const fileInputRef = useRef(null);
           messages: [{ role: "user", content: [...blocks, { type: "text", text: "Analyse ce document et extrais les caracteristiques du projet." }] }],
         }),
       });
-      const data = await response.json();
+      const brut = await response.text();
+      if (response.ok === false) throw new Error("HTTP " + response.status + " : " + brut.slice(0, 200));
+      let data = null;
+      try { data = JSON.parse(brut); } catch (pe) { throw new Error("Reponse serveur illisible : " + brut.slice(0, 200)); }
       if (data && data.error) throw new Error("API analyse : " + (data.error.message || JSON.stringify(data.error)));
       if (data && data.stop_reason === "max_tokens") console.warn("[DEVIA] Analyse : reponse tronquee (max_tokens atteint)");
       const tb = (data.content && Array.isArray(data.content)) ? data.content.find(b => b && b.type === "text" && b.text) : null;
@@ -4309,6 +4314,7 @@ const fileInputRef = useRef(null);
       setAnalyseFichier("ok");
     } catch (e) {
       console.warn("[DEVIA] Analyse fichier:", e);
+      setAnalyseErreur(e && e.message ? String(e.message) : "erreur inconnue");
       setAnalyseFichier("erreur");
     }
   };
@@ -6171,6 +6177,7 @@ return (
                 {analyseFichier === "erreur" && (
                   <div style={{ marginTop: 8, color: "#e05252", fontSize: 12 }}>
                     Analyse du plan impossible - remplis les champs manuellement (le fichier sera quand meme joint au devis).
+                    {analyseErreur ? <div style={{ marginTop: 4, color: "#b8bccc", fontSize: 11 }}>Detail technique : {analyseErreur}</div> : null}
                   </div>
                 )}
               </div>
