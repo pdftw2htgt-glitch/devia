@@ -4179,13 +4179,15 @@ const fileInputRef = useRef(null);
         '"murs":"ossature_bois|null",' +
         '"commune":"ville_ou_adresse_du_chantier_ou_null","combles":"perdus|amenageables|habitables|null",' +
         '"essence":"sapin|epicea|douglas|chene|meleze|null",' +
-        '"nom_projet":"nom_court_du_projet_ou_null","notes":"resume 1 phrase de ce que montre le plan"}. ' +
+        '"nom_projet":"nom_court_du_projet_ou_null","notes":"resume 1 phrase de ce que montre le plan",' +
+        '"ouvrages":null_ou_[{"type":"meme_liste_que_le_champ_type","longueur":num,"largeur":num,"hauteur_murs":num_ou_null,"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null","couverture":"meme_liste_que_couverture_ou_null","desc":"role et position du volume en une phrase"}]}. ' +
         "COMMUNE : cherche dans le cartouche du plan (adresse du chantier, ville du maitre d'ouvrage, lieu-dit) - recopie ville et code postal si lisibles. " +
         "NOM_PROJET : compose un nom court et parlant, ex 'Charpente 2 pans - Annecy' ou le nom du client si visible au cartouche. " +
         "COMBLES : si le plan montre un amenagement sous toiture (chambres, plancher, fenetres de toit) mets amenageables/habitables, si la charpente est encombree (fermettes en W) mets perdus. " +
         "REGLE PENTE (tres important) : recopie la valeur de pente TELLE QU'ECRITE sur le plan dans pente_valeur, et indique l'unite dans pente_unite : 'pourcent' si le plan ecrit % (ex: 50%), 'degres' si le plan ecrit deg ou un petit rond (ex: 35). En France les plans notent souvent la pente en POURCENTAGE : ne convertis JAMAIS toi-meme, recopie la valeur brute avec son unite. " +
         "REGLES DE LECTURE DES HAUTEURS (tres important) : hauteur_murs = hauteur a l'egout / sabliere / sous la toiture (le haut des murs verticaux). hauteur_faitage = hauteur TOTALE du batiment au sommet du toit. " +
         "Une cote unique prise au point le plus haut du batiment est presque toujours la hauteur au FAITAGE, pas la hauteur des murs. Ne confonds JAMAIS les deux : si le plan ne montre qu'une hauteur totale, remplis hauteur_faitage et laisse hauteur_murs a null. " +
+        "REGLE DECOMPOSITION (tres important) : si l'emprise du batiment n'est PAS un simple rectangle (plusieurs volumes accoles, plan en L ou en T, maison plus garage, corps principal plus extension ou liaison), remplis EN PLUS le champ ouvrages : un element par volume rectangulaire simple, chacun avec son type choisi dans la meme liste que le champ type, ses dimensions lues sur le plan, et une desc d'une phrase donnant son role et sa position par rapport au premier volume (ex : garage accole au pignon ouest du corps principal). Le PREMIER element du tableau = le volume principal (le plus grand ou le plus haut). Ne cree un element que pour les volumes qui portent une charpente ou une structure bois a chiffrer : ignore les terrasses dallees et les piscines. Si le batiment est un simple rectangle, mets ouvrages a null et remplis seulement les champs simples. " +
         "Mets null quand l'info n'est pas lisible sur le document. Les dimensions en metres.";
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -4205,6 +4207,39 @@ const fileInputRef = useRef(null);
       const m = txt.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("analyse illisible");
       const j = JSON.parse(m[0]);
+      // DECOMPOSITION : plan complexe -> liste d'ouvrages -> mode multi pre-rempli
+      const TYPES_DECOMP = ["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps"];
+      const LT_DECOMP = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+      const decomp = Array.isArray(j.ouvrages)
+        ? j.ouvrages.filter(o => o && TYPES_DECOMP.includes(o.type) && o.longueur > 0 && o.largeur > 0)
+        : [];
+      if (decomp.length >= 2) {
+        const structs = decomp.map(o => {
+          const pDeg = o.pente_valeur
+            ? (o.pente_unite === "pourcent" ? Math.round(Math.atan(o.pente_valeur / 100) * 180 / Math.PI * 10) / 10 : o.pente_valeur)
+            : undefined;
+          const sansToit = ["terrasse", "etage", "balcon", "garde_corps"].includes(o.type);
+          const p2 = [LT_DECOMP[o.type] || o.type, o.longueur + "x" + o.largeur + "m"];
+          if (o.hauteur_murs) p2.push("hauteur " + o.hauteur_murs + "m");
+          if (pDeg && sansToit === false) p2.push("pente " + pDeg + " degres");
+          if (o.desc) p2.push(String(o.desc));
+          return {
+            type: o.type,
+            longueur: o.longueur, largeur: o.largeur,
+            hauteur: o.hauteur_murs || undefined,
+            pente: (pDeg && sansToit === false) ? pDeg : undefined,
+            couverture: (sansToit === false && o.couverture) || undefined,
+            desc: p2.join(", "),
+          };
+        });
+        console.log("[DEVIA] Decomposition plan : " + structs.length + " ouvrages detectes");
+        setFormType("custom");
+        setFormStructures(structs);
+        // Neutralise les champs mono-ouvrage : le code existant ci-dessous s'ignore alors tout seul
+        j.type = null; j.longueur = null; j.largeur = null;
+        j.hauteur_murs = null; j.hauteur_faitage = null;
+        j.pente_valeur = null; j.pente = null; j.combles = null; j.murs = null;
+      }
       if (j.type) setFormType(j.type);
       if (j.longueur) setFormLongueur(String(j.longueur));
       if (j.largeur) setFormLargeur(String(j.largeur));
