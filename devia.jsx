@@ -3909,6 +3909,7 @@ const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne p
 const [files, setFiles] = useState([]);
 const [analyseFichier, setAnalyseFichier] = useState(""); // "" | "encours" | "ok" | "erreur"
 const [analyseErreur, setAnalyseErreur] = useState(""); // detail technique du dernier echec d'analyse
+const [analyseResume, setAnalyseResume] = useState(""); // resume visible de la decomposition detectee
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -4192,6 +4193,7 @@ const fileInputRef = useRef(null);
     if (!fileList || fileList.length === 0) return;
     setAnalyseFichier("encours");
     setAnalyseErreur("");
+    setAnalyseResume("");
     try {
       const blocks = await buildFileBlocks(fileList);
       if (blocks.length === 0) { setAnalyseFichier(""); return; }
@@ -4221,8 +4223,7 @@ const fileInputRef = useRef(null);
         body: JSON.stringify({
           model: "claude-sonnet-5",
           max_tokens: 12000,
-          thinking: { type: "adaptive" },
-          output_config: { effort: "low" },
+          temperature: 0,
           system: sysAnalyse,
           messages: [{ role: "user", content: [...blocks, { type: "text", text: "Analyse ce document et extrais les caracteristiques du projet." }] }],
         }),
@@ -4266,6 +4267,7 @@ const fileInputRef = useRef(null);
         });
         console.log("[DEVIA] Decomposition plan : " + structs.length + " ouvrages detectes");
         console.log("[DEVIA] Positions extraites : " + structs.map((s, k) => "V" + (k + 1) + (s.pos ? " contre V" + s.pos.contre + " cote " + s.pos.cote + " decalage " + s.pos.decalage + "m faitage " + s.pos.faitage : " libre")).join(" | "));
+        setAnalyseResume(structs.map((s, k) => "V" + (k + 1) + " " + (LT_DECOMP[s.type] || s.type) + " " + s.longueur + "x" + s.largeur + "m" + (s.pos ? " - contre V" + s.pos.contre + ", " + String(s.pos.cote).replace("_", " ") + (s.pos.decalage ? ", decalage " + s.pos.decalage + "m" : "") : "")).join(" | "));
         setFormType("custom");
         setFormStructures(structs);
         // Neutralise les champs mono-ouvrage : le code existant ci-dessous s'ignore alors tout seul
@@ -6207,6 +6209,11 @@ return (
                     {analyseErreur ? <div style={{ marginTop: 4, color: "#b8bccc", fontSize: 11 }}>Detail technique : {analyseErreur}</div> : null}
                   </div>
                 )}
+                {analyseResume ? (
+                  <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.25)", borderRadius: 8, color: "#d8b95a", fontSize: 11.5, lineHeight: 1.5 }}>
+                    Decomposition du plan : {analyseResume}
+                  </div>
+                ) : null}
               </div>
               {error && (
                 <div style={{ background: "#ef444420", border: "1px solid #ef4444", borderRadius: 8, padding: 12, marginBottom: 16, color: "#ef4444", fontSize: 14 }}>
