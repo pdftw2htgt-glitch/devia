@@ -4236,7 +4236,7 @@ const fileInputRef = useRef(null);
       const tb = (data.content && Array.isArray(data.content)) ? data.content.find(b => b && b.type === "text" && b.text) : null;
       const txt = (tb && tb.text) ? tb.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
       const m = txt.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error("analyse illisible");
+      if (!m) throw new Error("analyse illisible - stop_reason " + ((data && data.stop_reason) || "aucun") + " - debut de reponse : " + (txt ? txt.slice(0, 180) : "reponse vide"));
       const j = JSON.parse(m[0]);
       // DECOMPOSITION : plan complexe -> liste d'ouvrages -> mode multi pre-rempli
       const TYPES_DECOMP = ["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps"];
