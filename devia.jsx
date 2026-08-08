@@ -4217,6 +4217,25 @@ const fileInputRef = useRef(null);
         "REGLE DECOMPOSITION (tres important) : si l'emprise du batiment n'est PAS un simple rectangle (plusieurs volumes accoles, plan en L ou en T, maison plus garage, corps principal plus extension ou liaison), remplis EN PLUS le champ ouvrages : un element par volume rectangulaire simple, chacun avec son type choisi dans la meme liste que le champ type, ses dimensions lues sur le plan, et une desc d'une phrase donnant son role et sa position par rapport au premier volume (ex : garage accole au pignon ouest du corps principal). Le PREMIER element du tableau = le volume principal (le plus grand ou le plus haut). Ne cree un element que pour les volumes qui portent une charpente ou une structure bois a chiffrer : ignore les terrasses dallees et les piscines. AIGUILLAGE DES TYPES (tres important) : choisis le type d'apres la CONSTRUCTION reelle, pas d'apres l'usage. Un garage FERME (murs, portes) couvert en 2 pans = type traditionnelle, desc precisant garage ferme - le type carport est reserve aux abris OUVERTS sur poteaux, sans murs. Un volume d'habitation secondaire en 2 pans = type traditionnelle aussi. Un sas ou une liaison a TOIT PLAT = type etage (solivage bois porteur), desc precisant toit plat. Un seul pan incline adosse a un mur = type appentis. Recopie pour CHAQUE volume sa pente et sa couverture telles que donnees par le plan (elles peuvent differer d'un volume a l'autre). POSITIONS (tres important) : pour chaque volume secondaire, renseigne son accolement : contre = numero du volume de reference dans le tableau (1 = volume principal), cote = ou il se colle vu du volume de reference (pignon_gauche et pignon_droit = les petits cotes, gouttereau_avant et gouttereau_arriere = les longs cotes), decalage_m = glissement en metres du centre du volume le long de ce mur par rapport au centre du mur (0 = centre), faitage = sens de son faitage par rapport a celui du volume de reference. Lis ces informations sur le plan de masse ou le plan de toitures. Le volume principal a contre, cote, decalage_m et faitage a null. Si deux volumes sont relies par une liaison (sas), chaine les accolements : la liaison contre le volume principal, le volume suivant contre la liaison. Si le batiment est un simple rectangle, mets ouvrages a null et remplis seulement les champs simples. " +
         "REGLE COTES (tres important) : recopie les cotes ECRITES sur le plan (plan de masse, plan de toitures, coupes) - ne mesure jamais a l'oeil, n'estime jamais, n'arrondis jamais. Cherche la cote ecrite la plus proche de chaque volume avant de conclure. Si une dimension n'est vraiment pas cotee, mets null plutot que d'inventer. Deux analyses du meme plan doivent donner exactement les memes chiffres. " +
         "Mets null quand l'info n'est pas lisible sur le document. Les dimensions en metres.";
+      // CACHE D'ANALYSE : empreinte des fichiers + version du prompt
+      const bufs = [];
+      for (const f of fileList) bufs.push(new Uint8Array(await f.arrayBuffer()));
+      const totalOctets = bufs.reduce((a, b) => a + b.length, 0);
+      const concat = new Uint8Array(totalOctets);
+      { let off = 0; for (const b of bufs) { concat.set(b, off); off += b.length; } }
+      const dig = await crypto.subtle.digest("SHA-256", concat);
+      const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
+      let vh = 5381;
+      for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
+      const versionPrompt = vh.toString(36);
+      let jCache = null;
+      const { data: { user: uCache } } = await supabase.auth.getUser();
+      if (uCache) {
+        const { data: ligneCache } = await supabase.from("analyses_plans").select("resultat").eq("empreinte", empreinte).eq("version", versionPrompt).limit(1).maybeSingle();
+        if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
+      }
+      let j = null;
+      if (jCache === null) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4239,7 +4258,17 @@ const fileInputRef = useRef(null);
       const txt = (tb && tb.text) ? tb.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
       const m = txt.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("analyse illisible - stop_reason " + ((data && data.stop_reason) || "aucun") + " - debut de reponse : " + (txt ? txt.slice(0, 180) : "reponse vide"));
-      const j = JSON.parse(m[0]);
+      j = JSON.parse(m[0]);
+      if (uCache) {
+        try {
+          await supabase.from("analyses_plans").upsert({ user_id: uCache.id, empreinte: empreinte, version: versionPrompt, resultat: j }, { onConflict: "user_id,empreinte,version" });
+          console.log("[DEVIA] Analyse mise en cache (" + empreinte.slice(0, 8) + ", v" + versionPrompt + ")");
+        } catch (eCache) { console.warn("[DEVIA] Cache analyse : stockage impossible", eCache); }
+      }
+      } else {
+        j = jCache;
+        console.log("[DEVIA] Analyse servie par le cache (" + empreinte.slice(0, 8) + ")");
+      }
       // DECOMPOSITION : plan complexe -> liste d'ouvrages -> mode multi pre-rempli
       const TYPES_DECOMP = ["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps"];
       const LT_DECOMP = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
