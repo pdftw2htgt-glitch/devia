@@ -1716,6 +1716,46 @@ setPiece("Echantignole");
     addBox(epRive, hRive, lg, -L/2 - epRive/2, yRive, 0, woodMat);
   };
 
+  const drawSasLiaison = () => {
+    // Sas de liaison a toit plat : murailleres plaquees aux pignons (appui sur les
+    // volumes voisins accoles), solives entre elles, platelage, parois de fermeture
+    const [soB, soH] = sec("Solive", 0.08, 0.20);
+    const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
+    const hToit = Math.max(Ht, 2.2);
+    const yMur = hToit - ppH / 2;
+    const ySolive = hToit - soH / 2;
+    const xMur = L / 2 - ppB / 2;
+
+    // ===== 2 MURAILLERES (sens largeur, aux extremites X = pignons d'appui) =====
+    setPiece("Muraillere");
+    addBox(ppB, ppH, lg, xMur, yMur, 0, woodMat);
+    addBox(ppB, ppH, lg, -xMur, yMur, 0, woodMat);
+
+    // ===== SOLIVES (portee entre les murailleres, entraxe ~50 cm) =====
+    setPiece("Solive");
+    const portee = L - 2 * ppB;
+    const nbSolives = Math.max(2, Math.round(lg / 0.5) + 1);
+    for (let i = 0; i < nbSolives; i++) {
+      const z = -lg/2 + soB/2 + (i / (nbSolives - 1)) * (lg - soB);
+      addBox(portee, soH, soB, 0, ySolive, z, woodMat);
+    }
+
+    // ===== PLATELAGE TOIT PLAT (visuel) =====
+    const platMat = new THREE.MeshStandardMaterial({ color: 0x8a8f9c, roughness: 0.9, transparent: true, opacity: 0.55 });
+    const plat = new THREE.Mesh(new THREE.BoxGeometry(L, 0.04, lg), platMat);
+    plat.position.set(0, hToit + 0.02, 0);
+    scene.add(plat);
+
+    // ===== PAROIS DE FERMETURE (gouttereaux - vitrage/menuiserie hors lot charpente) =====
+    const paroiMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9, transparent: true, opacity: 0.3 });
+    const hParoi = hToit - ppH;
+    for (const s of [-1, 1]) {
+      const paroi = new THREE.Mesh(new THREE.BoxGeometry(L, hParoi, 0.08), paroiMat);
+      paroi.position.set(0, hParoi / 2, s * (lg / 2 - 0.04));
+      scene.add(paroi);
+    }
+  };
+
   const drawEtage = () => {
     // Etage sur solivage type Cadwork : solives ENTRE les murailleres, dessus affleurant
     // Poteaux peripheriques (entraxe max 3m) -> murailleres en rive -> solives a fleur entre les deux
@@ -2236,6 +2276,8 @@ setPiece("Empannon de croupe");
     draw4Pans();
   } else if (typeProjet === "terrasse") {
     drawTerrasse();
+  } else if (typeProjet === "sas_liaison") {
+    drawSasLiaison();
   } else if (typeProjet === "etage") {
     drawEtage();
   } else if (typeProjet === "balcon") {
@@ -4259,7 +4301,7 @@ const fileInputRef = useRef(null);
       const blocks = await buildFileBlocks(fileList);
       if (blocks.length === 0) { setAnalyseFichier(""); return; }
       const sysAnalyse = "Tu analyses des plans/photos de projets de charpente bois. Reponds UNIQUEMENT avec un objet JSON, sans markdown : " +
-        '{"type":"traditionnelle|fermette|monopente|carport|hangar|appentis|4_pans|terrasse|etage|balcon|garde_corps|null",' +
+        '{"type":"traditionnelle|fermette|monopente|carport|hangar|appentis|4_pans|terrasse|etage|balcon|garde_corps|sas|null",' +
         '"longueur":num_ou_null,"largeur":num_ou_null,' +
         '"hauteur_murs":num_ou_null,"hauteur_faitage":num_ou_null,' +
         '"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null",' +
@@ -4275,7 +4317,7 @@ const fileInputRef = useRef(null);
         "REGLE PENTE (tres important) : recopie la valeur de pente TELLE QU'ECRITE sur le plan dans pente_valeur, et indique l'unite dans pente_unite : 'pourcent' si le plan ecrit % (ex: 50%), 'degres' si le plan ecrit deg ou un petit rond (ex: 35). En France les plans notent souvent la pente en POURCENTAGE : ne convertis JAMAIS toi-meme, recopie la valeur brute avec son unite. " +
         "REGLES DE LECTURE DES HAUTEURS (tres important) : hauteur_murs = hauteur a l'egout / sabliere / sous la toiture (le haut des murs verticaux). hauteur_faitage = hauteur TOTALE du batiment au sommet du toit. " +
         "Une cote unique prise au point le plus haut du batiment est presque toujours la hauteur au FAITAGE, pas la hauteur des murs. Ne confonds JAMAIS les deux : si le plan ne montre qu'une hauteur totale, remplis hauteur_faitage et laisse hauteur_murs a null. " +
-        "REGLE DECOMPOSITION (tres important) : si l'emprise du batiment n'est PAS un simple rectangle (plusieurs volumes accoles, plan en L ou en T, maison plus garage, corps principal plus extension ou liaison), remplis EN PLUS le champ ouvrages : un element par volume rectangulaire simple, chacun avec son type choisi dans la meme liste que le champ type, ses dimensions lues sur le plan, et une desc d'une phrase donnant son role et sa position par rapport au premier volume (ex : garage accole au pignon ouest du corps principal). Le PREMIER element du tableau = le volume principal (le plus grand ou le plus haut). Ne cree un element que pour les volumes qui portent une charpente ou une structure bois a chiffrer : ignore les terrasses dallees et les piscines. AIGUILLAGE DES TYPES (tres important) : choisis le type d'apres la CONSTRUCTION reelle, pas d'apres l'usage. Un garage FERME (murs, portes) couvert en 2 pans = type traditionnelle, desc precisant garage ferme - le type carport est reserve aux abris OUVERTS sur poteaux, sans murs. Un volume d'habitation secondaire en 2 pans = type traditionnelle aussi. Un sas ou une liaison a TOIT PLAT = type etage (solivage bois porteur), desc precisant toit plat. Un seul pan incline adosse a un mur = type appentis. Recopie pour CHAQUE volume sa pente et sa couverture telles que donnees par le plan (elles peuvent differer d'un volume a l'autre). POSITIONS (tres important) : pour chaque volume secondaire, renseigne son accolement : contre = numero du volume de reference dans le tableau (1 = volume principal), cote = ou il se colle vu du volume de reference (pignon_gauche et pignon_droit = les petits cotes, gouttereau_avant et gouttereau_arriere = les longs cotes), decalage_m = glissement en metres du centre du volume le long de ce mur par rapport au centre du mur (0 = centre), faitage = sens de son faitage par rapport a celui du volume de reference. Lis ces informations sur le plan de masse ou le plan de toitures. Le volume principal a contre, cote, decalage_m et faitage a null. Si deux volumes sont relies par une liaison (sas), chaine les accolements : la liaison contre le volume principal, le volume suivant contre la liaison. REGLE D'ALIGNEMENT : quand trois volumes s'enchainent en ligne sur le plan de masse (principal, liaison, second volume), le second volume s'accole a la liaison sur le cote OPPOSE a celui ou la liaison touche le principal - la chaine continue dans la meme direction (ex : liaison contre V1 pignon_gauche, donc V3 contre V2 pignon_gauche aussi). Un gouttereau ne se choisit que si le plan de masse montre clairement le volume sur le long cote. Pour choisir un cote, compare les positions des emprises sur le plan de masse. VERIFICATION FINALE : reconstruis mentalement la disposition a partir de tes contre, cote et decalage, compare-la au plan de masse, et corrige avant de repondre si ca ne correspond pas. Si le batiment est un simple rectangle, mets ouvrages a null et remplis seulement les champs simples. " +
+        "REGLE DECOMPOSITION (tres important) : si l'emprise du batiment n'est PAS un simple rectangle (plusieurs volumes accoles, plan en L ou en T, maison plus garage, corps principal plus extension ou liaison), remplis EN PLUS le champ ouvrages : un element par volume rectangulaire simple, chacun avec son type choisi dans la meme liste que le champ type, ses dimensions lues sur le plan, et une desc d'une phrase donnant son role et sa position par rapport au premier volume (ex : garage accole au pignon ouest du corps principal). Le PREMIER element du tableau = le volume principal (le plus grand ou le plus haut). Ne cree un element que pour les volumes qui portent une charpente ou une structure bois a chiffrer : ignore les terrasses dallees et les piscines. AIGUILLAGE DES TYPES (tres important) : choisis le type d'apres la CONSTRUCTION reelle, pas d'apres l'usage. Un garage FERME (murs, portes) couvert en 2 pans = type traditionnelle, desc precisant garage ferme - le type carport est reserve aux abris OUVERTS sur poteaux, sans murs. Un volume d'habitation secondaire en 2 pans = type traditionnelle aussi. Un sas ou une liaison a TOIT PLAT = type sas (liaison fermee, solivage porteur entre les deux volumes voisins) ; pour un sas, hauteur_murs = hauteur du toit plat lue sur les coupes. Un seul pan incline adosse a un mur = type appentis. Recopie pour CHAQUE volume sa pente et sa couverture telles que donnees par le plan (elles peuvent differer d'un volume a l'autre). POSITIONS (tres important) : pour chaque volume secondaire, renseigne son accolement : contre = numero du volume de reference dans le tableau (1 = volume principal), cote = ou il se colle vu du volume de reference (pignon_gauche et pignon_droit = les petits cotes, gouttereau_avant et gouttereau_arriere = les longs cotes), decalage_m = glissement en metres du centre du volume le long de ce mur par rapport au centre du mur (0 = centre), faitage = sens de son faitage par rapport a celui du volume de reference. Lis ces informations sur le plan de masse ou le plan de toitures. Le volume principal a contre, cote, decalage_m et faitage a null. Si deux volumes sont relies par une liaison (sas), chaine les accolements : la liaison contre le volume principal, le volume suivant contre la liaison. REGLE D'ALIGNEMENT : quand trois volumes s'enchainent en ligne sur le plan de masse (principal, liaison, second volume), le second volume s'accole a la liaison sur le cote OPPOSE a celui ou la liaison touche le principal - la chaine continue dans la meme direction (ex : liaison contre V1 pignon_gauche, donc V3 contre V2 pignon_gauche aussi). Un gouttereau ne se choisit que si le plan de masse montre clairement le volume sur le long cote. Pour choisir un cote, compare les positions des emprises sur le plan de masse. VERIFICATION FINALE : reconstruis mentalement la disposition a partir de tes contre, cote et decalage, compare-la au plan de masse, et corrige avant de repondre si ca ne correspond pas. Si le batiment est un simple rectangle, mets ouvrages a null et remplis seulement les champs simples. " +
         "REGLE COTES (tres important) : recopie les cotes ECRITES sur le plan (plan de masse, plan de toitures, coupes) - ne mesure jamais a l'oeil, n'estime jamais, n'arrondis jamais. Cherche la cote ecrite la plus proche de chaque volume avant de conclure. Si une dimension n'est vraiment pas cotee, mets null plutot que d'inventer. Deux analyses du meme plan doivent donner exactement les memes chiffres. " +
         "Mets null quand l'info n'est pas lisible sur le document. Les dimensions en metres.";
       // CACHE D'ANALYSE : empreinte des fichiers + version du prompt
@@ -4331,8 +4373,8 @@ const fileInputRef = useRef(null);
         console.log("[DEVIA] Analyse servie par le cache (" + empreinte.slice(0, 8) + ")");
       }
       // DECOMPOSITION : plan complexe -> liste d'ouvrages -> mode multi pre-rempli
-      const TYPES_DECOMP = ["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps"];
-      const LT_DECOMP = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+      const TYPES_DECOMP = ["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps", "sas"];
+      const LT_DECOMP = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe", sas: "sas de liaison a toit plat" };
       const decomp = Array.isArray(j.ouvrages)
         ? j.ouvrages.filter(o => o && TYPES_DECOMP.includes(o.type) && o.longueur > 0 && o.largeur > 0)
         : [];
@@ -4341,7 +4383,7 @@ const fileInputRef = useRef(null);
           const pDeg = o.pente_valeur
             ? (o.pente_unite === "pourcent" ? Math.round(Math.atan(o.pente_valeur / 100) * 180 / Math.PI * 10) / 10 : o.pente_valeur)
             : undefined;
-          const sansToit = ["terrasse", "etage", "balcon", "garde_corps"].includes(o.type);
+          const sansToit = ["terrasse", "etage", "balcon", "garde_corps", "sas"].includes(o.type);
           const p2 = [LT_DECOMP[o.type] || o.type, o.longueur + "x" + o.largeur + "m"];
           if (o.hauteur_murs) p2.push("hauteur " + o.hauteur_murs + "m");
           if (pDeg && sansToit === false) p2.push("pente " + pDeg + " degres");
@@ -5262,7 +5304,7 @@ return out;
         _catalogSource: catalogSourceGlobal,
       };
 
-      const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon" };
+      const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, murs: s.murs,
@@ -5684,7 +5726,7 @@ const loadProjectDetails = (project) => {
   };
 
   // Libelles lisibles pour construire un prompt propre a partir du formulaire structure
-  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe" };
+  const LABELS_TYPE = { fermette: "fermette industrielle", traditionnelle: "charpente traditionnelle", lamelle: "lamelle-colle", metalique: "charpente metallique", monopente: "monopente", carport: "carport abri voiture", terrasse: "terrasse bois exterieure", etage: "plancher d'etage sur solivage bois", balcon: "balcon bois en porte-a-faux", garde_corps: "garde-corps bois (rambarde)", hangar: "hangar agricole", appentis: "appentis accole a un mur", "4_pans": "toit 4 pans avec croupe", sas: "sas de liaison a toit plat" };
   const LABELS_COUV = { tuile_terre: "tuile terre cuite", tuile_beton: "tuile beton", ardoise: "ardoise", bac_acier: "bac acier" };
   const LABELS_ESS = { sapin: "sapin/epicea", pin: "pin maritime", douglas: "douglas", chene: "chene" };
   const LABELS_COMB = { perdus: "combles perdus", amenageables: "combles amenageables", amenages: "combles amenages" };
