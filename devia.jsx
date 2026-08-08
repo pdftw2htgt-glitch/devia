@@ -3260,8 +3260,10 @@ function Viewer3D({ params, onMetre }) {
       const idxPorteur = params.ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
       const rangee = [];
       const ancres = [];
+      const accoles = [];
       params.ouvrages.forEach((o, i) => {
         if (idxPorteur < 0 || i === idxPorteur) { rangee.push(o); return; }
+        if (o.pos && o.pos.contre) { accoles.push(o); return; }
         const porteur = params.ouvrages[idxPorteur];
         const balconAncrable = o.type_projet === "balcon"
           && ((o.hauteur || 2.5) + 2.0 <= (porteur.hauteur || 3));
@@ -3315,6 +3317,52 @@ function Viewer3D({ params, onMetre }) {
           // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
           grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) + 0.1 : 0.1);
         }
+      });
+
+      // ===== ACCOLES : places selon les positions extraites du plan =====
+      const places = new Map();
+      rangee.forEach((o) => { places.set(o, { x: posRangee.get(o) || 0, z: 0, rot: 0 }); });
+      const demiEmprise = (o, rot) => {
+        const quart = Math.abs(Math.round(rot / (Math.PI / 2))) % 2;
+        if (quart === 1) return { hx: (o.largeur || 6) / 2, hz: (o.longueur || 8) / 2 };
+        return { hx: (o.longueur || 8) / 2, hz: (o.largeur || 6) / 2 };
+      };
+      let attente = accoles.slice();
+      let tours = 0;
+      while (attente.length > 0 && tours < 10) {
+        tours += 1;
+        const encore = [];
+        attente.forEach((o) => {
+          const ref = params.ouvrages[(o.pos.contre || 1) - 1];
+          const pRef = places.get(ref);
+          if (pRef === undefined || ref === o) { encore.push(o); return; }
+          const rot = (o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot;
+          const dR = demiEmprise(ref, pRef.rot);
+          const dA = demiEmprise(o, rot);
+          const dec = o.pos.decalage || 0;
+          let px = pRef.x, pz = pRef.z;
+          if (o.pos.cote === "pignon_droit") { px = pRef.x + dR.hx + dA.hx + 0.2; pz = pRef.z + dec; }
+          else if (o.pos.cote === "pignon_gauche") { px = pRef.x - dR.hx - dA.hx - 0.2; pz = pRef.z + dec; }
+          else if (o.pos.cote === "gouttereau_avant") { px = pRef.x + dec; pz = pRef.z + dR.hz + dA.hz + 0.2; }
+          else { px = pRef.x + dec; pz = pRef.z - dR.hz - dA.hz - 0.2; }
+          const grp = buildOuvrage(o, null);
+          grp.rotation.y = rot;
+          grp.position.x = px;
+          grp.position.z = pz;
+          places.set(o, { x: px, z: pz, rot: rot });
+          console.log("[DEVIA] Accolage : " + (o.type_projet || "ouvrage") + " contre V" + o.pos.contre + " cote " + o.pos.cote + " a x=" + px.toFixed(2) + " z=" + pz.toFixed(2));
+        });
+        attente = encore;
+      }
+      attente.forEach((o) => {
+        // Reference introuvable : placement de secours en bout de rangee
+        let maxX = 0;
+        places.forEach((p, oo) => { const d = demiEmprise(oo, p.rot); if (p.x + d.hx > maxX) maxX = p.x + d.hx; });
+        const dA = demiEmprise(o, 0);
+        const grp = buildOuvrage(o, null);
+        grp.position.x = maxX + 2.0 + dA.hx;
+        places.set(o, { x: maxX + 2.0 + dA.hx, z: 0, rot: 0 });
+        console.warn("[DEVIA] Accolage : reference introuvable, ouvrage place en bout de rangee");
       });
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
