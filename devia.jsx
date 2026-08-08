@@ -3230,6 +3230,7 @@ function Viewer3D({ params, onMetre }) {
       // ===== MODE MULTI-OUVRAGES : un THREE.Group par ouvrage, cote a cote le long de X =====
       const gap = 2.0;
       const metresAll = [];
+      const groupes = [];
       let densiteRef = 450;
       // Helper : preBuild EC5 + build final d'un ouvrage dans un groupe
       const buildOuvrage = (o, extraOpts) => {
@@ -3249,6 +3250,7 @@ function Viewer3D({ params, onMetre }) {
           ...(extraOpts || {}),
         });
         scene.add(grp);
+        groupes.push(grp);
         metresAll.push(...res.metre);
         densiteRef = res.densiteBois || 450;
         return grp;
@@ -3364,6 +3366,17 @@ function Viewer3D({ params, onMetre }) {
         places.set(o, { x: maxX + 2.0 + dA.hx, z: 0, rot: 0 });
         console.warn("[DEVIA] Accolage : reference introuvable, ouvrage place en bout de rangee");
       });
+
+      // Recentrage de l'ensemble sur l'origine (sol et camera)
+      if (groupes.length > 1) {
+        const boite = new THREE.Box3();
+        groupes.forEach((g) => { boite.expandByObject(g); });
+        if (boite.isEmpty() === false) {
+          const centre = new THREE.Vector3();
+          boite.getCenter(centre);
+          groupes.forEach((g) => { g.position.x -= centre.x; g.position.z -= centre.z; });
+        }
+      }
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
       }
@@ -3394,7 +3407,7 @@ function Viewer3D({ params, onMetre }) {
 
         // SOL (commun à tous les types)
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 30),
+      new THREE.PlaneGeometry(120, 120),
       new THREE.MeshStandardMaterial({ color: 0x1a1f2e, roughness: 0.95, metalness: 0.0 })
     );
     ground.rotation.x = -Math.PI/2;
