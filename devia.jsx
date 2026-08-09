@@ -5135,6 +5135,7 @@ return out;
 "'4_pans' (toit en croupe a 4 pentes, maison pavillon, toit avec aretiers), " +
 "'terrasse' (terrasse bois exterieure, plancher exterieur sur plots ou poteaux, deck, SANS toit), " +
 "'etage' (plancher d'etage interieur, solivage, mezzanine, plancher bois porteur dans un batiment), " +
+"'sas_liaison' (sas de liaison a TOIT PLAT entre deux batiments accoles : genere UNIQUEMENT 2 murailleres fixees aux murs voisins, des solives entre elles entraxe 50 cm, panneau de toiture et etancheite, visserie et fixations - PAS de pannes, PAS de chevrons, PAS de fermes, PAS de couverture tuiles), " +
 "'balcon' (balcon bois en porte-a-faux fixe a une facade, avancee exterieure en console), " +
 "'garde_corps' (garde-corps seul, rambarde, balustrade bois, remplacement de garde-corps existant), " +
 "'abri' (abri jardin, abri petit volume), " +
@@ -5167,7 +5168,7 @@ return out;
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
 '"type":"' + (fp.type || "traditionnelle") + '","couverture":"' + (fp.couverture || "tuile_terre") + '",' +
 '"essence":"' + (fp.essence || "sapin") + '","combles":"' + (fp.combles || "perdus") + '",' +
-'"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_4_pans_OU_abri_OU_autre"},' +
+'"type_projet":"carport_OU_charpente_trad_OU_monopente_OU_hangar_OU_appentis_OU_4_pans_OU_abri_OU_sas_liaison_OU_autre"},' +
 '"postes":[{"categorie":"Charpente","designation":"Exemple","unite":"ml","quantite":10,"prixUnitaireHT":45,"totalHT":450}],' +
 '"totaux":{"totalHT":12000,"tva":2400,"totalTTC":14400},"temps_fabrication_h":24,"temps_pose_h":16,"notes":["Note 1"]}. ' +
 "Genere 12 a 18 postes realistes avec prix marche francais 2024. " +
@@ -5309,7 +5310,7 @@ return out;
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, murs: s.murs,
         pos: s.pos || undefined,
-        type_projet: (devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad",
+        type_projet: s.type === "sas" ? "sas_liaison" : ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad"),
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
       setResult(fusion);
