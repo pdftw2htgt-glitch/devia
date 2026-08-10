@@ -4336,7 +4336,7 @@ const fileInputRef = useRef(null);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v3";
+      const versionPrompt = vh.toString(36) + "-p3v4";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4344,12 +4344,12 @@ const fileInputRef = useRef(null);
         if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
       }
       let j = null;
-      const appelAnalyse = async (sysTxt, contenu, effortNiveau) => {
+      const appelAnalyse = async (sysTxt, contenu, effortNiveau, modele) => {
         const rep = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-sonnet-5",
+            model: modele || "claude-sonnet-5",
             max_tokens: 20000,
             thinking: { type: "adaptive" },
             output_config: { effort: effortNiveau },
@@ -4379,7 +4379,7 @@ const fileInputRef = useRef(null);
       const geo = await appelAnalyse(
         "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
-        "high");
+        "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
       const hauts = await appelAnalyse(
@@ -5215,12 +5215,12 @@ return out;
     return { systemPrompt, catalogSource };
   };
 
-  const callDeviaIA = async (systemPrompt, userContent) => {
+  const callDeviaIA = async (systemPrompt, userContent, modele) => {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
+        model: modele || "claude-sonnet-5",
         max_tokens: 20000,
         thinking: { type: "adaptive" },
         output_config: { effort: "medium" },
@@ -5293,7 +5293,7 @@ return out;
         };
         const { systemPrompt, catalogSource } = buildDeviaPrompt(fp);
         catalogSourceGlobal = catalogSource;
-        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description);
+        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description, "claude-opus-5");
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
         // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
