@@ -4336,7 +4336,7 @@ const fileInputRef = useRef(null);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36);
+      const versionPrompt = vh.toString(36) + "-p3v1";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4344,29 +4344,54 @@ const fileInputRef = useRef(null);
         if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
       }
       let j = null;
+      const appelAnalyse = async (sysTxt, contenu, effortNiveau) => {
+        const rep = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-5",
+            max_tokens: 12000,
+            thinking: { type: "adaptive" },
+            output_config: { effort: effortNiveau },
+            system: sysTxt,
+            messages: [{ role: "user", content: contenu }],
+          }),
+        });
+        const brut2 = await rep.text();
+        if (rep.ok === false) throw new Error("HTTP " + rep.status + " : " + brut2.slice(0, 200));
+        let dat = null;
+        try { dat = JSON.parse(brut2); } catch (pe) { throw new Error("Reponse serveur illisible : " + brut2.slice(0, 200)); }
+        if (dat && dat.error) throw new Error("API analyse : " + (dat.error.message || JSON.stringify(dat.error)));
+        if (dat && dat.stop_reason === "max_tokens") console.warn("[DEVIA] Analyse : reponse tronquee (max_tokens)");
+        const tb2 = (dat.content && Array.isArray(dat.content)) ? dat.content.find(b => b && b.type === "text" && b.text) : null;
+        return (tb2 && tb2.text) ? tb2.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
+      };
       if (jCache === null) {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-5",
-          max_tokens: 12000,
-          thinking: { type: "adaptive" },
-          output_config: { effort: "medium" },
-          system: sysAnalyse,
-          messages: [{ role: "user", content: [...blocks, { type: "text", text: "Analyse ce document et extrais les caracteristiques du projet." }] }],
-        }),
-      });
-      const brut = await response.text();
-      if (response.ok === false) throw new Error("HTTP " + response.status + " : " + brut.slice(0, 200));
-      let data = null;
-      try { data = JSON.parse(brut); } catch (pe) { throw new Error("Reponse serveur illisible : " + brut.slice(0, 200)); }
-      if (data && data.error) throw new Error("API analyse : " + (data.error.message || JSON.stringify(data.error)));
-      if (data && data.stop_reason === "max_tokens") console.warn("[DEVIA] Analyse : reponse tronquee (max_tokens atteint)");
-      const tb = (data.content && Array.isArray(data.content)) ? data.content.find(b => b && b.type === "text" && b.text) : null;
-      const txt = (tb && tb.text) ? tb.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
-      const m = txt.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error("analyse illisible - stop_reason " + ((data && data.stop_reason) || "aucun") + " - debut de reponse : " + (txt ? txt.slice(0, 180) : "reponse vide"));
+      // PASSE 1 : inventaire des vues du dossier
+      const inv = await appelAnalyse(
+        "Tu inventories un dossier de permis de construire. Liste chaque page et le type de vue qu'elle contient (plan de situation, plan de masse, plan de toitures, coupes, facades, plan d'etage, notice, cartouche). Reponds en texte court, une ligne par page.",
+        [...blocks, { type: "text", text: "Inventorie les vues de ce dossier." }],
+        "medium");
+      console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
+      // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
+      const geo = await appelAnalyse(
+        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le decalage cote quand il existe. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
+        [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
+        "high");
+      console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
+      // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
+      const hauts = await appelAnalyse(
+        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv,
+        [...blocks, { type: "text", text: "Lis les hauteurs et les infos generales." }],
+        "medium");
+      console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
+      // PASSE 3 : synthese -> JSON final, uniquement depuis les lectures
+      const syn = await appelAnalyse(
+        sysAnalyse + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null.",
+        [{ type: "text", text: "LECTURE GEOMETRIE :\n" + geo + "\n\nLECTURE HAUTEURS ET INFOS :\n" + hauts }],
+        "medium");
+      const m = syn.match(/\{[\s\S]*\}/);
+      if (m === null) throw new Error("synthese illisible - debut : " + (syn ? syn.slice(0, 180) : "reponse vide"));
       j = JSON.parse(m[0]);
       if (uCache) {
         try {
