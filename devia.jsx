@@ -5293,7 +5293,7 @@ return out;
         };
         const { systemPrompt, catalogSource } = buildDeviaPrompt(fp);
         catalogSourceGlobal = catalogSource;
-        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description, "claude-opus-5");
+        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description);
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
         // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
