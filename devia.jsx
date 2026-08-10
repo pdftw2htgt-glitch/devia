@@ -4336,7 +4336,7 @@ const fileInputRef = useRef(null);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v1";
+      const versionPrompt = vh.toString(36) + "-p3v2";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4375,13 +4375,13 @@ const fileInputRef = useRef(null);
       console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
-        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le decalage cote quand il existe. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
+        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
         "high");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
       const hauts = await appelAnalyse(
-        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv,
+        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis les hauteurs et les infos generales." }],
         "medium");
       console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
