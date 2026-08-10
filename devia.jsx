@@ -4336,7 +4336,7 @@ const fileInputRef = useRef(null);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v2";
+      const versionPrompt = vh.toString(36) + "-p3v3";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4350,7 +4350,7 @@ const fileInputRef = useRef(null);
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "claude-sonnet-5",
-            max_tokens: 12000,
+            max_tokens: 20000,
             thinking: { type: "adaptive" },
             output_config: { effort: effortNiveau },
             system: sysTxt,
@@ -4364,7 +4364,9 @@ const fileInputRef = useRef(null);
         if (dat && dat.error) throw new Error("API analyse : " + (dat.error.message || JSON.stringify(dat.error)));
         if (dat && dat.stop_reason === "max_tokens") console.warn("[DEVIA] Analyse : reponse tronquee (max_tokens)");
         const tb2 = (dat.content && Array.isArray(dat.content)) ? dat.content.find(b => b && b.type === "text" && b.text) : null;
-        return (tb2 && tb2.text) ? tb2.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
+        const texteFinal = (tb2 && tb2.text) ? tb2.text.replace(/\x60\x60\x60json|\x60\x60\x60/g, "").trim() : "";
+        if (texteFinal === "") throw new Error("Passe d'analyse vide (stop_reason " + ((dat && dat.stop_reason) || "inconnu") + ") - relance l'analyse");
+        return texteFinal;
       };
       if (jCache === null) {
       // PASSE 1 : inventaire des vues du dossier
