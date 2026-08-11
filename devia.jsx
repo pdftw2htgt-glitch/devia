@@ -4383,7 +4383,7 @@ const fileInputRef = useRef(null);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v4";
+      const versionPrompt = vh.toString(36) + "-p3v5";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4436,7 +4436,7 @@ const fileInputRef = useRef(null);
       console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
       // PASSE 3 : synthese -> JSON final, uniquement depuis les lectures
       const syn = await appelAnalyse(
-        sysAnalyse + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null.",
+        sysAnalyse + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null. EXCEPTION OBLIGATOIRE : hauteur_murs du PREMIER volume (le principal) ne doit JAMAIS etre null - prends son egout dans la lecture hauteurs ; si la lecture ne donne que son faitage, convertis : egout = faitage moins (largeur divisee par 2) multipliee par tangente de la pente. Fais de meme pour chaque volume dont l'egout figure dans les lectures.",
         [{ type: "text", text: "LECTURE GEOMETRIE :\n" + geo + "\n\nLECTURE HAUTEURS ET INFOS :\n" + hauts }],
         "medium");
       const m = syn.match(/\{[\s\S]*\}/);
