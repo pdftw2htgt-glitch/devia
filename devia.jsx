@@ -669,6 +669,7 @@ function buildScene3D(scene, params, opts) {
 
   const drawMursBeton = (Lb, lgb, Hb) => {
     const ep = 0.2;
+    const sansFace = (opts && opts.sansMurFace) || "";
     setPiece("Divers");
     // ===== MULTI-NIVEAUX : murs > ~4m -> etages avec planchers et fenetres par niveau =====
     const nbNiveaux = Math.max(1, Math.round(Hb / 2.8));
@@ -704,8 +705,8 @@ function buildScene3D(scene, params, opts) {
           ouvAv.push(pf);
         }
       }
-      bandeX(lgb/2, yBase, hEtage, ouvAv);
-      bandeX(-lgb/2, yBase, hEtage, [{ cx: 0, w: 1.2, y0: y0F, y1: y1F }]);
+      sansFace === "gouttereau_avant" ? null : bandeX(lgb/2, yBase, hEtage, ouvAv);
+      sansFace === "gouttereau_arriere" ? null : bandeX(-lgb/2, yBase, hEtage, [{ cx: 0, w: 1.2, y0: y0F, y1: y1F }]);
     }
 
     // --- Pignons : porte au RDC (avant), plein au-dessus et a l'arriere ---
@@ -718,8 +719,8 @@ function buildScene3D(scene, params, opts) {
       addBox(ep, Hb, seg, xPos, Hb/2, (pw/2 + seg/2), betonMat);
       if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);
     };
-    murZ(Lb/2, true);
-    murZ(-Lb/2, false);
+    sansFace === "pignon_droit" ? null : murZ(Lb/2, true);
+    sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
 
     // --- PLANCHERS INTERMEDIAIRES (un par etage) ---
     for (let k = 1; k < nbNiveaux; k++) {
@@ -3389,7 +3390,18 @@ function Viewer3D({ params, onMetre }) {
           else if (o.pos.cote === "pignon_gauche") { px = pRef.x - dR.hx - dA.hx - 0.2; pz = pRef.z + dec; }
           else if (o.pos.cote === "gouttereau_avant") { px = pRef.x + dec; pz = pRef.z + dR.hz + dA.hz + 0.2; }
           else { px = pRef.x + dec; pz = pRef.z - dR.hz - dA.hz - 0.2; }
-          const grp = buildOuvrage(o, null);
+          // Mur de jonction : deux corps a murs accoles = le mur de contact de l'accole disparait
+          let extraMur = null;
+          if (AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
+            const FACES = ["pignon_droit", "gouttereau_avant", "pignon_gauche", "gouttereau_arriere"];
+            const versRef = { pignon_droit: 2, pignon_gauche: 0, gouttereau_avant: 3, gouttereau_arriere: 1 }[o.pos.cote];
+            if (versRef === 0 || versRef > 0) {
+              const q = ((Math.round(rot / (Math.PI / 2)) % 4) + 4) % 4;
+              extraMur = { sansMurFace: FACES[(versRef + q) % 4] };
+              console.log("[DEVIA] Jonction : mur " + extraMur.sansMurFace + " retire sur " + (o.type_projet || "ouvrage"));
+            }
+          }
+          const grp = buildOuvrage(o, extraMur);
           grp.rotation.y = rot;
           grp.position.x = px;
           grp.position.z = pz;
