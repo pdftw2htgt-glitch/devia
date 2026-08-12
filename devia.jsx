@@ -5425,7 +5425,7 @@ return out;
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, murs: s.murs,
         pos: s.pos || undefined,
-        type_projet: s.type === "sas" ? "sas_liaison" : ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || TYPE_TO_PROJET[s.type] || "charpente_trad"),
+        type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
       setResult(fusion);
