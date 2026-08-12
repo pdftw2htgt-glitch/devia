@@ -4095,6 +4095,7 @@ const [files, setFiles] = useState([]);
 const [analyseFichier, setAnalyseFichier] = useState(""); // "" | "encours" | "ok" | "erreur"
 const [analyseErreur, setAnalyseErreur] = useState(""); // detail technique du dernier echec d'analyse
 const [analyseResume, setAnalyseResume] = useState(""); // resume visible de la decomposition detectee
+const [analyseEmpreinte, setAnalyseEmpreinte] = useState(""); // empreinte du dernier fichier analyse
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -4416,6 +4417,7 @@ const fileInputRef = useRef(null);
       { let off = 0; for (const b of bufs) { concat.set(b, off); off += b.length; } }
       const dig = await crypto.subtle.digest("SHA-256", concat);
       const empreinte = Array.from(new Uint8Array(dig)).map(x => x.toString(16).padStart(2, "0")).join("");
+      setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
       const versionPrompt = vh.toString(36) + "-p3v5";
@@ -6461,6 +6463,14 @@ return (
                 {analyseResume ? (
                   <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.25)", borderRadius: 8, color: "#d8b95a", fontSize: 11.5, lineHeight: 1.5 }}>
                     Decomposition du plan : {analyseResume}
+                    <button type="button" onClick={async () => {
+                      try {
+                        if (analyseEmpreinte) await supabase.from("analyses_plans").delete().eq("empreinte", analyseEmpreinte);
+                      } catch (eDel) { console.warn("[DEVIA] Purge cache impossible", eDel); }
+                      analyserFichiers(files);
+                    }} style={{ marginTop: 6, padding: "4px 10px", borderRadius: 7, cursor: "pointer", background: "rgba(240,192,64,0.10)", border: "1px solid rgba(240,192,64,0.4)", color: "#f0c040", fontSize: 11, fontWeight: 600, display: "block" }}>
+                      Relancer l'analyse (relecture complete du plan)
+                    </button>
                   </div>
                 ) : null}
               </div>
