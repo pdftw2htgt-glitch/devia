@@ -3301,6 +3301,18 @@ function Viewer3D({ params, onMetre }) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     mountRef.current.appendChild(renderer.domElement);
+    // BOUSSOLE HUD : pastille en haut a droite, l'aiguille suit la camera (nord = -Z monde)
+    mountRef.current.style.position = "relative";
+    const hudBoussole = document.createElement("div");
+    hudBoussole.style.cssText = "position:absolute;top:10px;right:10px;width:54px;height:54px;border-radius:50%;background:rgba(10,12,20,0.72);border:1px solid rgba(240,192,64,0.45);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;";
+    const aiguilleBoussole = document.createElement("div");
+    aiguilleBoussole.style.cssText = "display:flex;flex-direction:column;align-items:center;color:#f0c040;font-family:Arial;font-weight:700;font-size:11px;line-height:1.1;transform-origin:center;";
+    aiguilleBoussole.textContent = "N";
+    const flecheBoussole = document.createElement("div");
+    flecheBoussole.style.cssText = "width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:10px solid #f0c040;margin-bottom:2px;";
+    aiguilleBoussole.prepend(flecheBoussole);
+    hudBoussole.appendChild(aiguilleBoussole);
+    mountRef.current.appendChild(hudBoussole);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
@@ -3557,31 +3569,6 @@ function Viewer3D({ params, onMetre }) {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // BOUSSOLE permanente : fleche doree pointee plein NORD (nord = -Z)
-    const xBou = -((params.longueur || 10) / 2) - 4;
-    const bouMat = new THREE.MeshStandardMaterial({ color: 0xf0c040, roughness: 0.6 });
-    const bouTige = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 8), bouMat);
-    bouTige.rotation.x = Math.PI / 2;
-    bouTige.position.set(xBou, 0.08, -0.1);
-    scene.add(bouTige);
-    const bouPointe = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 12), bouMat);
-    bouPointe.rotation.x = -Math.PI / 2;
-    bouPointe.position.set(xBou, 0.08, -1.55);
-    scene.add(bouPointe);
-    const bouCan = document.createElement("canvas");
-    bouCan.width = 64;
-    bouCan.height = 64;
-    const bouCtx = bouCan.getContext("2d");
-    bouCtx.fillStyle = "#f0c040";
-    bouCtx.font = "bold 46px Arial";
-    bouCtx.textAlign = "center";
-    bouCtx.textBaseline = "middle";
-    bouCtx.fillText("N", 32, 34);
-    const bouSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(bouCan), transparent: true, depthTest: false }));
-    bouSpr.scale.set(1.1, 1.1, 1);
-    bouSpr.position.set(xBou, 0.9, -2.4);
-    scene.add(bouSpr);
-
     // ============================================================
     // CAMERA INTERACTIVE (OrbitControls)
     // ============================================================
@@ -3642,6 +3629,8 @@ function Viewer3D({ params, onMetre }) {
     const animate = () => {
       animId = requestAnimationFrame(animate);
       controls.update();
+      const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+      aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
       renderer.render(scene, camera);
     };
     animate();
@@ -3664,6 +3653,7 @@ function Viewer3D({ params, onMetre }) {
       controls.dispose();
       cancelAnimationFrame(animId);
       renderer.dispose();
+      hudBoussole.remove();
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
         mountRef.current.removeChild(renderer.domElement);
     };
