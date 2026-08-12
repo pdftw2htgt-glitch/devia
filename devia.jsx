@@ -4393,7 +4393,7 @@ const fileInputRef = useRef(null);
         '"commune":"ville_ou_adresse_du_chantier_ou_null","combles":"perdus|amenageables|habitables|null",' +
         '"essence":"sapin|epicea|douglas|chene|meleze|null",' +
         '"nom_projet":"nom_court_du_projet_ou_null","notes":"resume 1 phrase de ce que montre le plan",' +
-        '"ouvrages":null_ou_[{"type":"meme_liste_que_le_champ_type","longueur":num,"largeur":num,"hauteur_murs":num_ou_null,"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null","couverture":"meme_liste_que_couverture_ou_null","contre":num_ou_null,"cote":"pignon_gauche|pignon_droit|gouttereau_avant|gouttereau_arriere|null","decalage_m":num_ou_null,"faitage":"parallele|perpendiculaire|null","src":"vues sources des chiffres (ex plan toitures + coupe A)","desc":"role et position du volume en une phrase"}]}. ' +
+        '"ouvrages":null_ou_[{"type":"meme_liste_que_le_champ_type","longueur":num,"largeur":num,"hauteur_murs":num_ou_null,"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null","couverture":"meme_liste_que_couverture_ou_null","contre":num_ou_null,"cote":"pignon_gauche|pignon_droit|gouttereau_avant|gouttereau_arriere|null","facade":"nord|sud|est|ouest|null","alignement":"nord|sud|est|ouest|centre|null","decalage_m":num_ou_null,"faitage":"parallele|perpendiculaire|null","src":"vues sources des chiffres (ex plan toitures + coupe A)","desc":"role et position du volume en une phrase"}]}. ' +
         "COMMUNE : cherche dans le cartouche du plan (adresse du chantier, ville du maitre d'ouvrage, lieu-dit) - recopie ville et code postal si lisibles. " +
         "NOM_PROJET : compose un nom court et parlant, ex 'Charpente 2 pans - Annecy' ou le nom du client si visible au cartouche. " +
         "COMBLES : si le plan montre un amenagement sous toiture (chambres, plancher, fenetres de toit) mets amenageables/habitables, si la charpente est encombree (fermettes en W) mets perdus. " +
@@ -4420,7 +4420,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v5";
+      const versionPrompt = vh.toString(36) + "-p3v6";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4461,7 +4461,7 @@ const fileInputRef = useRef(null);
       console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
-        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
+        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
@@ -4511,13 +4511,13 @@ const fileInputRef = useRef(null);
             hauteur: o.hauteur_murs || undefined,
             pente: (pDeg && sansToit === false) ? pDeg : undefined,
             couverture: (sansToit === false && o.couverture) || undefined,
-            pos: (o.contre && o.cote) ? { contre: o.contre, cote: o.cote, decalage: (typeof o.decalage_m === "number" ? o.decalage_m : 0), faitage: o.faitage || "parallele" } : undefined,
+            pos: (o.contre && o.cote) ? { contre: o.contre, cote: o.cote, facade: o.facade || null, alignement: o.alignement || null, decalage: (typeof o.decalage_m === "number" ? o.decalage_m : 0), faitage: o.faitage || "parallele" } : undefined,
             desc: p2.join(", "),
           };
         });
         console.log("[DEVIA] Decomposition plan : " + structs.length + " ouvrages detectes");
         console.log("[DEVIA] Positions extraites : " + structs.map((s, k) => "V" + (k + 1) + (s.pos ? " contre V" + s.pos.contre + " cote " + s.pos.cote + " decalage " + s.pos.decalage + "m faitage " + s.pos.faitage : " libre")).join(" | "));
-        setAnalyseResume(structs.map((s, k) => "V" + (k + 1) + " " + (LT_DECOMP[s.type] || s.type) + " " + s.longueur + "x" + s.largeur + "m" + (s.hauteur ? " h" + s.hauteur + "m" : " h?") + (s.pos ? " - contre V" + s.pos.contre + ", " + String(s.pos.cote).replace("_", " ") + ", faitage " + (s.pos.faitage || "?") + ", decalage " + (s.pos.decalage || 0) + "m" : "")).join(" | "));
+        setAnalyseResume(structs.map((s, k) => "V" + (k + 1) + " " + (LT_DECOMP[s.type] || s.type) + " " + s.longueur + "x" + s.largeur + "m" + (s.hauteur ? " h" + s.hauteur + "m" : " h?") + (s.pos ? " - contre V" + s.pos.contre + ", " + (s.pos.facade ? "FACADE " + s.pos.facade + (s.pos.alignement ? " aligne " + s.pos.alignement : "") + ", " : "") + String(s.pos.cote).replace("_", " ") + ", faitage " + (s.pos.faitage || "?") + ", decalage " + (s.pos.decalage || 0) + "m" : "")).join(" | "));
         setFormType("custom");
         setFormStructures(structs);
         // Neutralise les champs mono-ouvrage : le code existant ci-dessous s'ignore alors tout seul
