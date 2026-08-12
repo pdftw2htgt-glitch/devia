@@ -3304,7 +3304,7 @@ function Viewer3D({ params, onMetre }) {
     // BOUSSOLE HUD : pastille en haut a droite, l'aiguille suit la camera (nord = -Z monde)
     mountRef.current.style.position = "relative";
     const hudBoussole = document.createElement("div");
-    hudBoussole.style.cssText = "position:absolute;top:10px;right:10px;width:54px;height:54px;border-radius:50%;background:rgba(10,12,20,0.72);border:1px solid rgba(240,192,64,0.45);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;";
+    hudBoussole.style.cssText = "position:absolute;bottom:14px;right:14px;width:58px;height:58px;border-radius:50%;background:rgba(10,12,20,0.72);border:1px solid rgba(240,192,64,0.45);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5;transform:perspective(160px) rotateX(48deg);transform-origin:center bottom;";
     const aiguilleBoussole = document.createElement("div");
     aiguilleBoussole.style.cssText = "display:flex;flex-direction:column;align-items:center;color:#f0c040;font-family:Arial;font-weight:700;font-size:11px;line-height:1.1;transform-origin:center;";
     aiguilleBoussole.textContent = "N";
