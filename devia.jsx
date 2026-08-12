@@ -3393,6 +3393,7 @@ function Viewer3D({ params, onMetre }) {
           ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: balconsAncres[0].hauteur || 2.5 } }
           : null;
         const grp = buildOuvrage(o, extra);
+        if (o.faitageCardinal === "nord_sud") grp.rotation.y = Math.PI / 2;
         grp.position.x = cursorX + (o.longueur || 8) / 2;
         posRangee.set(o, grp.position.x);
         cursorX += (o.longueur || 8);
@@ -3427,7 +3428,7 @@ function Viewer3D({ params, onMetre }) {
 
       // ===== ACCOLES : places selon les positions extraites du plan =====
       const places = new Map();
-      rangee.forEach((o) => { places.set(o, { x: posRangee.get(o) || 0, z: 0, rot: 0 }); });
+      rangee.forEach((o) => { places.set(o, { x: posRangee.get(o) || 0, z: 0, rot: o.faitageCardinal === "nord_sud" ? Math.PI / 2 : 0 }); });
       const demiEmprise = (o, rot) => {
         const quart = Math.abs(Math.round(rot / (Math.PI / 2))) % 2;
         if (quart === 1) return { hx: (o.largeur || 6) / 2, hz: (o.longueur || 8) / 2 };
@@ -3442,12 +3443,30 @@ function Viewer3D({ params, onMetre }) {
           const ref = params.ouvrages[(o.pos.contre || 1) - 1];
           const pRef = places.get(ref);
           if (pRef === undefined || ref === o) { encore.push(o); return; }
-          const rot = (o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot;
+          const rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
           const dR = demiEmprise(ref, pRef.rot);
           const dA = demiEmprise(o, rot);
           const dec = o.pos.decalage || 0;
           let px = pRef.x, pz = pRef.z;
-          if (o.pos.cote === "pignon_droit") { px = pRef.x + dR.hx + dA.hx + 0.2; pz = pRef.z + dec; }
+          if (o.pos.facade) {
+            // Placement CARDINAL : nord = -Z, sud = +Z, est = +X, ouest = -X
+            const fc = o.pos.facade;
+            if (fc === "est") px = pRef.x + dR.hx + dA.hx + 0.2;
+            else if (fc === "ouest") px = pRef.x - dR.hx - dA.hx - 0.2;
+            else if (fc === "sud") pz = pRef.z + dR.hz + dA.hz + 0.2;
+            else pz = pRef.z - dR.hz - dA.hz - 0.2;
+            const al = o.pos.alignement;
+            if (fc === "est" || fc === "ouest") {
+              if (al === "sud") pz = pRef.z + (dR.hz - dA.hz);
+              else if (al === "nord") pz = pRef.z - (dR.hz - dA.hz);
+              else pz = pRef.z + dec;
+            } else {
+              if (al === "est") px = pRef.x + (dR.hx - dA.hx);
+              else if (al === "ouest") px = pRef.x - (dR.hx - dA.hx);
+              else px = pRef.x + dec;
+            }
+          }
+          else if (o.pos.cote === "pignon_droit") { px = pRef.x + dR.hx + dA.hx + 0.2; pz = pRef.z + dec; }
           else if (o.pos.cote === "pignon_gauche") { px = pRef.x - dR.hx - dA.hx - 0.2; pz = pRef.z + dec; }
           else if (o.pos.cote === "gouttereau_avant") { px = pRef.x + dec; pz = pRef.z + dR.hz + dA.hz + 0.2; }
           else { px = pRef.x + dec; pz = pRef.z - dR.hz - dA.hz - 0.2; }
@@ -3455,7 +3474,7 @@ function Viewer3D({ params, onMetre }) {
           let extraMur = null;
           if (AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
             const FACES = ["pignon_droit", "gouttereau_avant", "pignon_gauche", "gouttereau_arriere"];
-            const versRef = { pignon_droit: 2, pignon_gauche: 0, gouttereau_avant: 3, gouttereau_arriere: 1 }[o.pos.cote];
+            const versRef = o.pos.facade ? ({ est: 2, ouest: 0, sud: 3, nord: 1 }[o.pos.facade]) : ({ pignon_droit: 2, pignon_gauche: 0, gouttereau_avant: 3, gouttereau_arriere: 1 }[o.pos.cote]);
             if (versRef === 0 || versRef > 0) {
               const q = ((Math.round(rot / (Math.PI / 2)) % 4) + 4) % 4;
               extraMur = { sansMurFace: FACES[(versRef + q) % 4] };
@@ -4393,7 +4412,7 @@ const fileInputRef = useRef(null);
         '"commune":"ville_ou_adresse_du_chantier_ou_null","combles":"perdus|amenageables|habitables|null",' +
         '"essence":"sapin|epicea|douglas|chene|meleze|null",' +
         '"nom_projet":"nom_court_du_projet_ou_null","notes":"resume 1 phrase de ce que montre le plan",' +
-        '"ouvrages":null_ou_[{"type":"meme_liste_que_le_champ_type","longueur":num,"largeur":num,"hauteur_murs":num_ou_null,"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null","couverture":"meme_liste_que_couverture_ou_null","contre":num_ou_null,"cote":"pignon_gauche|pignon_droit|gouttereau_avant|gouttereau_arriere|null","facade":"nord|sud|est|ouest|null","alignement":"nord|sud|est|ouest|centre|null","decalage_m":num_ou_null,"faitage":"parallele|perpendiculaire|null","src":"vues sources des chiffres (ex plan toitures + coupe A)","desc":"role et position du volume en une phrase"}]}. ' +
+        '"ouvrages":null_ou_[{"type":"meme_liste_que_le_champ_type","longueur":num,"largeur":num,"hauteur_murs":num_ou_null,"pente_valeur":num_ou_null,"pente_unite":"degres|pourcent|null","couverture":"meme_liste_que_couverture_ou_null","contre":num_ou_null,"cote":"pignon_gauche|pignon_droit|gouttereau_avant|gouttereau_arriere|null","facade":"nord|sud|est|ouest|null","alignement":"nord|sud|est|ouest|centre|null","faitage_cardinal":"est_ouest|nord_sud|null","decalage_m":num_ou_null,"faitage":"parallele|perpendiculaire|null","src":"vues sources des chiffres (ex plan toitures + coupe A)","desc":"role et position du volume en une phrase"}]}. ' +
         "COMMUNE : cherche dans le cartouche du plan (adresse du chantier, ville du maitre d'ouvrage, lieu-dit) - recopie ville et code postal si lisibles. " +
         "NOM_PROJET : compose un nom court et parlant, ex 'Charpente 2 pans - Annecy' ou le nom du client si visible au cartouche. " +
         "COMBLES : si le plan montre un amenagement sous toiture (chambres, plancher, fenetres de toit) mets amenageables/habitables, si la charpente est encombree (fermettes en W) mets perdus. " +
@@ -4420,7 +4439,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p3v6";
+      const versionPrompt = vh.toString(36) + "-p3v7";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -4461,7 +4480,7 @@ const fileInputRef = useRef(null);
       console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
-        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
+        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
@@ -4507,6 +4526,7 @@ const fileInputRef = useRef(null);
           if (o.desc) p2.push(String(o.desc));
           return {
             type: o.type,
+            faitageCardinal: o.faitage_cardinal || undefined,
             longueur: o.longueur, largeur: o.largeur,
             hauteur: o.hauteur_murs || undefined,
             pente: (pDeg && sansToit === false) ? pDeg : undefined,
@@ -5427,6 +5447,7 @@ return out;
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, murs: s.murs,
         pos: s.pos || undefined,
+        faitageCardinal: s.faitageCardinal || undefined,
         type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
