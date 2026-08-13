@@ -2635,6 +2635,10 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       doc.text("Pente : " + result.projet.pente + " deg", pageW / 2 + 5, yD);
       yD += 4;
     }
+    if (view3DParams && view3DParams.debord) {
+      doc.text("Depasse de toiture : " + Math.round(view3DParams.debord * 100) + " cm", pageW / 2 + 5, yD);
+      yD += 4;
+    }
   }
 
   y = Math.max(yG, yD) + 8;
