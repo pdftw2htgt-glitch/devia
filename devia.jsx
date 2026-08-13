@@ -438,6 +438,7 @@ function buildScene3D(scene, params, opts) {
   const lg = params.largeur || 6;
   const Ht = params.hauteur || 3;
   const pente = params.pente || 35;
+  const debord = Math.max(0, parseFloat(params.debord) || 0); // depasse de toiture (m), egouts + rives
   const typeProjet = params.type_projet || "charpente_trad";
 
   // Helper sections EC5 : si opts.sections[nom] existe, l'utilise (mm->m), sinon fallback
@@ -952,7 +953,7 @@ setPiece("Sabliere");
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
     const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
-    addBox(L + 0.4, pfH, pfB, 0, yFait, 0, woodMat);
+    addBox(L + 0.4 + 2 * debord, pfH, pfB, 0, yFait, 0, woodMat);
 
     // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
     // Toute la geometrie du pan derive de cette ligne par decalages perpendiculaires dPerp :
@@ -974,8 +975,8 @@ setPiece("Panne");
       const eEch = 0.03;                             // epaisseur mini de l'echantignole sous le coin amont
       const yP = yRef + (pnB/2) * tanA + eEch + pnH/2; // la panne repose SUR le dessus de la cale
       pannesInfo.push({ zRef, yRef });
-      addBox(L + 0.3, pnH, pnB, 0, yP, zRef, woodMat);   // pan Z+ (droite)
-      addBox(L + 0.3, pnH, pnB, 0, yP, -zRef, woodMat);  // pan Z- (droite)
+      addBox(L + 0.3 + 2 * debord, pnH, pnB, 0, yP, zRef, woodMat);   // pan Z+ (droite)
+      addBox(L + 0.3 + 2 * debord, pnH, pnB, 0, yP, -zRef, woodMat);  // pan Z- (droite)
     }
 
 setPiece("Echantignole");
@@ -1041,7 +1042,7 @@ setPiece("Chevron");
       const dv = (dPerpChevron - chH/2) / cosA;    // decalage VERTICAL du dessous (perp -> vertical)
       const dvH = chH / cosA;                       // epaisseur verticale du chevron
       const yLigne = (z) => Ht + hf - z * tanA;     // rampant de base (z >= 0)
-      const zE = lg/2;                              // egout (aplomb du mur)
+      const zE = lg/2 + debord;                     // egout (aplomb du mur + depasse)
       const yB0 = yLigne(0) + dv,  yH0 = yB0 + dvH;   // about faitage (z=0)
       const yBE = yLigne(zE) + dv, yHE = yBE + dvH;   // about egout (z=zE)
       const x1 = x - chB/2, x2 = x + chB/2;
@@ -1065,6 +1066,8 @@ setPiece("Chevron");
     };
     // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
     fermeXs.forEach((fx) => chevronXs.push(fx));
+    // Chevrons de rive : au bord du depasse de pignon (portes par les queues de panne)
+    if (debord > 0.05) { chevronXs.push(-(L/2 + debord - chB/2)); chevronXs.push(L/2 + debord - chB/2); }
     chevronXs.forEach((x) => {
       addChevronOnglet(x, 1);   // pan Z+
       addChevronOnglet(x, -1);  // pan Z-
@@ -1076,12 +1079,13 @@ setPiece("Chevron");
     const couv = getCouverture(opts && opts.couverture);
     const dPerpCouv = arH2/2 + (pnH + 0.03) * cosA + chH + 0.01;
     const ext = dPerpCouv * Math.tan(ang);
-    const plCouv = pl + ext;
-    const tradRoofMat = makeRoofMaterial(couv, L, plCouv);
-    const rg = new THREE.PlaneGeometry(L + 0.6, plCouv);
-    // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut le long du rampant
-    const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA;
-    const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA;
+    const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
+    const plCouv = pl + ext + extBas;
+    const tradRoofMat = makeRoofMaterial(couv, L + 2 * debord, plCouv);
+    const rg = new THREE.PlaneGeometry(L + 0.6 + 2 * debord, plCouv);
+    // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut + extBas/2 vers le bas
+    const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
+    const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
     const r1 = new THREE.Mesh(rg, tradRoofMat);
     r1.position.set(0, yR, zR);
     r1.rotation.x = ang - Math.PI/2;
@@ -3994,6 +3998,7 @@ const [formSousType, setFormSousType] = useState(""); // type de l'ouvrage en co
 const [formStructures, setFormStructures] = useState([]); // liste des ouvrages ajoutes (mode custom)
 const [formCustomError, setFormCustomError] = useState(""); // erreur de coherence multi-ouvrages
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
+const [formDebord, setFormDebord] = useState(""); // depasse de toiture en cm (vide = 0)
 const [nomProjet, setNomProjet] = useState("");
 const [is3DFullscreen, setIs3DFullscreen] = useState(false);
 const viewer3DContainerRef = useRef(null);
@@ -5516,6 +5521,7 @@ return out;
 "Commune=" + commune + ", Altitude=" + altitude + "m, Zone neige=" + zoneInfo.neige + " sk=" + (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + "kN/m2, Vent=" + zoneInfo.vent + " qb=" + zoneInfo.qb + "kN/m2. " +
 (fp.longueur ? "Dimensions=" + fp.longueur + "x" + fp.largeur + "m. " : "") +
 (fp.pente ? "Pente=" + fp.pente + "deg. " : "") +
+(fp.debord ? "DepasseToiture=" + fp.debord + "m (rallonge la couverture en egout et en rives). " : "") +
 "Reponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans backticks, sans texte avant ou apres. Format exact : " +
 '{"projet":{"description":"texte","commune":"' + commune + '","longueur":10,"largeur":8,"hauteur":3,"pente":35,"surface":80,' +
 '"type":"' + (fp.type || "traditionnelle") + '","couverture":"' + (fp.couverture || "tuile_terre") + '",' +
@@ -5660,7 +5666,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence, murs: s.murs,
+        couverture: s.couverture, essence: s.essence, murs: s.murs, debord: s.debord || undefined,
         pos: s.pos || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
         type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
@@ -5763,6 +5769,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
+  if (finalParams.debord) parsed._debord = finalParams.debord;
   // Harmonisation : sections des designations = tableau Calcul (conseillees)
   harmoniserSectionsDevis(parsed, zoneInfo ? zoneInfo.sk : 0.45, zoneInfo ? zoneInfo.dS : 0);
   setResult({ ...parsed, _catalogSource: catalogSource });
@@ -5776,7 +5783,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: finalParams.murs || undefined,
-        solaire: finalParams.solaire || undefined
+        solaire: finalParams.solaire || undefined,
+        debord: finalParams.debord || undefined
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -5883,6 +5891,7 @@ const loadProjectDetails = (project) => {
         couverture: p.couverture || "tuile_terre",
         murs: project.devis_data._murs || undefined,
         solaire: project.devis_data._solaire || undefined,
+        debord: project.devis_data._debord || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
       });
     }
@@ -6109,11 +6118,13 @@ const loadProjectDetails = (project) => {
       largeur: formLargeur ? parseFloat(formLargeur) : undefined,
       hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
       pente: formPente ? parseFloat(formPente) : undefined,
+      debord: formDebord ? parseFloat(formDebord) / 100 : undefined,
     };
     // Construit aussi une description textuelle propre (pour l'IA de generation)
     const parts = [];
     if (formType) parts.push(LABELS_TYPE[formType] || formType);
     if (formLongueur && formLargeur) parts.push(formLongueur + "x" + formLargeur + "m");
+    if (formDebord) parts.push("depasse de toiture " + formDebord + " cm");
     if (formHauteur) parts.push("hauteur " + formHauteur + "m");
     const isSansToit = ["terrasse","etage","balcon","garde_corps"].includes(formType);
     if (formPente && !isSansToit) parts.push("pente " + formPente + " degres");
@@ -6511,6 +6522,14 @@ return (
                     </div>
                   );
                 })()}
+              </div>
+              {/* Depasse de toiture */}
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
+                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
+                  <span style={{ color: "#545870", fontSize: 12 }}>cm (egouts et rives)</span>
+                </div>
               </div>
               {/* Couverture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
@@ -7315,7 +7334,7 @@ return (
                       ? [view3DParams.ouvrages[ouvrageActif]]
                       : view3DParams.ouvrages,
                     ...(view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif]
-                      ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture }
+                      ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture, debord: view3DParams.ouvrages[ouvrageActif].debord }
                       : {}),
                     mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
