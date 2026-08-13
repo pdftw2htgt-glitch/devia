@@ -2963,7 +2963,7 @@ return {
 // ============================================================
 // GENERATEUR IFC (ISO-10303-21 / IFC4) depuis le metre 3D
 // ============================================================
-// Note conventions axes : Three.js Y=haut -> IFC Z=haut. Conversion (x,y,z)->(x,z,y).
+// Note conventions axes : Three.js Y=haut -> IFC Z=haut. Conversion (x,y,z)->(x,-z,y) SANS miroir ; nord scene (-Z) -> +Y IFC.
 function genererIFC(metre, params) {
   const piecesBois = (metre || []).filter((p) => p.pos); // seulement pieces avec position
   let id = 0;
@@ -3031,72 +3031,42 @@ function genererIFC(metre, params) {
     const sy = Math.abs(p.dimsBrutes[1]);
     const sz = Math.abs(p.dimsBrutes[2]);
 
-    // helper : convertit un vecteur Three (x,y,z) -> IFC (x, z, y) et normalise
-    const toIfcDir = (vx, vy, vz) => {
-      // Three Y(haut) -> IFC Z ; Three Z -> IFC Y
-      let ix = vx, iy = vz, iz = vy;
-      const n = Math.sqrt(ix*ix + iy*iy + iz*iz) || 1;
-      ix /= n; iy /= n; iz /= n;
-      return "(" + ix.toFixed(6) + "," + iy.toFixed(6) + "," + iz.toFixed(6) + ")";
+    // --- Repere local COMPLET de la piece : axe long + roulis de section conserves ---
+    // Conversion Three (x,y,z) -> IFC (x,-z,y) : Y haut -> Z haut, nord scene (-Z) -> +Y IFC.
+    // (l'ancienne conversion (x,z,y) inversait la chiralite : batiment exporte en MIROIR)
+    const fmtDir = (v) => {
+      const nrm = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]) || 1;
+      return "(" + (v[0]/nrm).toFixed(6) + "," + (v[1]/nrm).toFixed(6) + "," + (v[2]/nrm).toFixed(6) + ")";
     };
-
-    // --- helper : rotation d'un vecteur par angles d'Euler Three (ordre XYZ) ---
-    const rotEuler = (v, rx, ry, rz) => {
-      let [x, y, z] = v;
-      // rotation X
-      let cy = Math.cos(rx), sy2 = Math.sin(rx);
-      [y, z] = [y * cy - z * sy2, y * sy2 + z * cy];
-      // rotation Y
-      let cyy = Math.cos(ry), syy = Math.sin(ry);
-      [x, z] = [x * cyy + z * syy, -x * syy + z * cyy];
-      // rotation Z
-      let cz = Math.cos(rz), sz2 = Math.sin(rz);
-      [x, y] = [x * cz - y * sz2, x * sz2 + y * cz];
-      return [x, y, z];
-    };
-
-    // --- Determiner l'axe long (longueur) et la section (w,h), + direction longue en repere THREE ---
-    let L, w, h;
-    let longVecThree; // direction de la longueur dans le repere Three
+    const toIfcVec = (v) => [v[0], -v[2], v[1]];
+    // Matrice de rotation de la piece (quaternion prioritaire, sinon euler XYZ Three, sinon identite)
+    const mRot = new THREE.Matrix4();
     if (p.quat) {
-      // Piece issue de addBeam : longueur selon Z LOCAL oriente par le quaternion (applique a (0,0,1))
-      const [qx, qy, qz, qw] = p.quat;
-      const vx = 2 * (qx*qz + qw*qy);
-      const vy = 2 * (qy*qz - qw*qx);
-      const vz = 1 - 2 * (qx*qx + qy*qy);
-      longVecThree = [vx, vy, vz];
-      const dimsSorted = [sx, sy, sz].sort((a,b) => b - a);
-      L = dimsSorted[0]; w = dimsSorted[1]; h = dimsSorted[2];
-    } else {
-      // Piece issue de addBox : axe long = plus grande dimension
-      let axeLong = 0, Lmax = sx;
-      if (sy > Lmax) { axeLong = 1; Lmax = sy; }
-      if (sz > Lmax) { axeLong = 2; Lmax = sz; }
-      L = Lmax;
-      let baseVec;
-      if (axeLong === 0) { w = sy; h = sz; baseVec = [1,0,0]; }
-      else if (axeLong === 1) { w = sx; h = sz; baseVec = [0,1,0]; }
-      else { w = sx; h = sy; baseVec = [0,0,1]; }
-      // appliquer la rotation Euler si presente (ex chevrons : [ang,0,0])
-      if (p.rot) {
-        longVecThree = rotEuler(baseVec, p.rot[0] || 0, p.rot[1] || 0, p.rot[2] || 0);
-      } else {
-        longVecThree = baseVec;
-      }
+      mRot.makeRotationFromQuaternion(new THREE.Quaternion(p.quat[0], p.quat[1], p.quat[2], p.quat[3]));
+    } else if (p.rot) {
+      mRot.makeRotationFromEuler(new THREE.Euler(p.rot[0] || 0, p.rot[1] || 0, p.rot[2] || 0, "XYZ"));
     }
-
-    // --- Position du centre, conversion Three(x,y,z) -> IFC(x,z,y) ---
-    const px = p.pos[0], py = p.pos[2], pz = p.pos[1];
-
-    // --- Axe Z local de la piece = direction de la longueur (en IFC) ---
-    const axisZ = toIfcDir(longVecThree[0], longVecThree[1], longVecThree[2]);
-    // axe X de reference : on choisit un vecteur non colineaire puis l'IFC orthogonalise
-    // si la longueur est ~verticale en IFC, on prend X=(1,0,0), sinon Z_ifc=(0,0,1) comme ref
-    let refX;
-    // composante verticale IFC de l'axe long :
-    const izComp = longVecThree[1]; // Three Y -> IFC Z
-    if (Math.abs(izComp) > 0.9) { refX = "(1.,0.,0.)"; }
-    else { refX = "(0.,0.,1.)"; }
+    const elm = mRot.elements; // colonne-major
+    const axesLoc = [
+      [elm[0], elm[1], elm[2]],   // axe X local exprime dans le repere Three
+      [elm[4], elm[5], elm[6]],   // axe Y local
+      [elm[8], elm[9], elm[10]],  // axe Z local
+    ];
+    // Axe long = plus grande dimension ; les 2 autres = la section
+    const dims3 = [sx, sy, sz];
+    let iLong = 0;
+    if (dims3[1] > dims3[iLong]) iLong = 1;
+    if (dims3[2] > dims3[iLong]) iLong = 2;
+    const iX = (iLong + 1) % 3;
+    const iY = (iLong + 2) % 3;
+    const L = dims3[iLong];
+    const w = dims3[iX];
+    const h = dims3[iY];
+    // Placement IFC : Z local = axe long REEL de la piece, X local = axe de section REEL (roulis conserve)
+    const axisZ = fmtDir(toIfcVec(axesLoc[iLong]));
+    const refX = fmtDir(toIfcVec(axesLoc[iX]));
+    // Position du centre, Three (x,y,z) -> IFC (x,-z,y)
+    const px = p.pos[0], py = -p.pos[2], pz = p.pos[1];
 
     // profil rectangulaire centre
     const profCtrPt = nextId(); E(profCtrPt, "IFCCARTESIANPOINT((0.,0.));");
@@ -3346,6 +3316,7 @@ function Viewer3D({ params, onMetre }) {
       // ===== MODE MULTI-OUVRAGES : un THREE.Group par ouvrage, cote a cote le long de X =====
       const gap = 2.0;
       const metresAll = [];
+      const proprietairePiece = []; // groupe d'origine de chaque piece (bake IFC)
       const groupes = [];
       let densiteRef = 450;
       // Helper : preBuild EC5 + build final d'un ouvrage dans un groupe
@@ -3367,7 +3338,9 @@ function Viewer3D({ params, onMetre }) {
         });
         scene.add(grp);
         groupes.push(grp);
+        const iDebutMetre = metresAll.length;
         metresAll.push(...res.metre);
+        for (let iP = iDebutMetre; iP < metresAll.length; iP++) proprietairePiece[iP] = grp;
         densiteRef = res.densiteBois || 450;
         return grp;
       };
@@ -3532,6 +3505,24 @@ function Viewer3D({ params, onMetre }) {
           groupes.forEach((g) => { g.position.x -= centre.x; g.position.z -= centre.z; });
         }
       }
+      // ===== BAKE IFC : coordonnees MONDE pour chaque piece du metre =====
+      // Applique la transformation finale du groupe (rotation cardinale + accolage + recentrage)
+      // a la position ET a l'orientation de chaque piece -> l'export IFC voit l'assemblage reel.
+      metresAll.forEach((p, iP) => {
+        const grpP = proprietairePiece[iP];
+        if (grpP === undefined || p.pos === null || p.pos === undefined) return;
+        grpP.updateMatrixWorld(true);
+        const vPos = new THREE.Vector3(p.pos[0], p.pos[1], p.pos[2]).applyMatrix4(grpP.matrixWorld);
+        p.pos = [vPos.x, vPos.y, vPos.z];
+        const qGrp = new THREE.Quaternion();
+        grpP.getWorldQuaternion(qGrp);
+        const qPiece = new THREE.Quaternion();
+        if (p.quat) qPiece.set(p.quat[0], p.quat[1], p.quat[2], p.quat[3]);
+        else if (p.rot) qPiece.setFromEuler(new THREE.Euler(p.rot[0] || 0, p.rot[1] || 0, p.rot[2] || 0, "XYZ"));
+        qGrp.multiply(qPiece);
+        p.quat = [qGrp.x, qGrp.y, qGrp.z, qGrp.w];
+        p.rot = null;
+      });
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
       }
