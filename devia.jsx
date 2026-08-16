@@ -2285,10 +2285,13 @@ setPiece("Empannon de croupe");
     if (hF <= hE + 0.05) return;
     const dR = (hF - hE) / Math.tan(pRad);
     const xw = s * L / 2;
-    const zBrut = (hF - hE) / Math.tan(aRad);
-    const zE = zBrut > lg / 2 ? lg / 2 : zBrut;
+    const refDeb = pen.debordRef || 0;
+    // La noue court jusqu'au bord du DEBORD de la reference, ou jusqu'a l'egout de l'aile (debord compris)
+    const zParRef = (hF - hE + refDeb * Math.tan(pRad)) / Math.tan(aRad);
+    const zParAile = lg / 2 + debord;
+    const zE = zParRef > zParAile ? zParAile : zParRef;
     const yPied = hF - zE * Math.tan(aRad);
-    const dPied = (yPied - hE) / Math.tan(pRad);
+    const dPied = (yPied - hE) / Math.tan(pRad);   // negatif = au-dela du mur, au-dessus du toit de l'aile
     setPiece("Noue");
     for (const sz of [-1, 1]) {
       addBeam(xw + s * dPied, yPied, sz * zE, xw + s * dR, hF, 0, 0.12, woodMat);
@@ -2300,10 +2303,12 @@ setPiece("Empannon de croupe");
     const couvPen = getCouverture(opts && opts.couverture);
     const esp = (couvPen && couvPen.espChevron) ? couvPen.espChevron : 0.5;
     const plage = (dR - dPied) > 0.01 ? (dR - dPied) : 0.01;
+    const dEmp0 = dPied > 0 ? dPied : 0;
+    const plageEmp = (dR - dEmp0) > 0.01 ? (dR - dEmp0) : 0.01;
     setPiece("Chevron");
-    const nEmp = Math.max(1, Math.floor(dR / esp));
+    const nEmp = Math.max(1, Math.floor(plageEmp / esp));
     for (let ie = 1; ie <= nEmp; ie++) {
-      const dE2 = dPied + (ie / (nEmp + 1)) * plage;
+      const dE2 = dEmp0 + (ie / (nEmp + 1)) * plageEmp;
       const zN = zE * (dR - dE2) / plage;
       const yN = hF - zN * Math.tan(aRad);
       const xE2 = xw + s * dE2;
@@ -2316,15 +2321,18 @@ setPiece("Empannon de croupe");
     const matPen = makeRoofMaterial(couvPen, dR, zE + 0.3);
     matPen.side = THREE.DoubleSide;
     const dec2 = 0.08;
+    const dPiedG = dPied > 0 ? dPied : 0;               // la greffe s'arrete au mur (au-dela : couverture de l'aile)
+    const zEG = zE * (dR - dPiedG) / plage;
+    const yPiedG = hF - zEG * Math.tan(aRad);
     for (const sz of [-1, 1]) {
       const g = new THREE.BufferGeometry();
       const pts = [
         xw, hF + dec2, 0,
         xw + s * dR, hF + dec2, 0,
-        xw + s * dPied, yPied + dec2, sz * zE,
+        xw + s * dPiedG, yPiedG + dec2, sz * zEG,
         xw, hF + dec2, 0,
-        xw + s * dPied, yPied + dec2, sz * zE,
-        xw, yPied + dec2, sz * zE,
+        xw + s * dPiedG, yPiedG + dec2, sz * zEG,
+        xw, yPiedG + dec2, sz * zEG,
       ];
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
       g.computeVertexNormals();
@@ -3481,13 +3489,21 @@ function Viewer3D({ params, onMetre }) {
               console.log("[DEVIA] Jonction : mur " + extraMur.sansMurFace + " retire sur " + (o.type_projet || "ouvrage"));
             }
           }
-          // Penetration de toiture : aile perpendiculaire plus basse contre un gouttereau -> noues
-          const coteG = o.pos.cote === "gouttereau_avant" || o.pos.cote === "gouttereau_arriere";
-          if (extraMur && coteG && o.pos.faitage === "perpendiculaire" && AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
+          // Penetration de toiture : aile perpendiculaire plus basse contre un GOUTTEREAU de la reference -> noues
+          const refFC = ref.faitageCardinal || "";
+          const oFC = o.faitageCardinal || "";
+          const fcPen = o.pos.facade || "";
+          const contactGoutt = (refFC === "nord_sud" && (fcPen === "est" || fcPen === "ouest"))
+            || (refFC === "est_ouest" && (fcPen === "sud" || fcPen === "nord"))
+            || (fcPen === "" && (o.pos.cote === "gouttereau_avant" || o.pos.cote === "gouttereau_arriere"));
+          const perpFaitages = (refFC === "nord_sud" && oFC === "est_ouest")
+            || (refFC === "est_ouest" && oFC === "nord_sud")
+            || ((refFC === "" || oFC === "") && o.pos.faitage === "perpendiculaire");
+          if (extraMur && contactGoutt && perpFaitages && AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
             const fAile = (o.hauteur || 3) + ((o.largeur || 6) / 2) * Math.tan(((o.pente || 35) * Math.PI) / 180);
             const fRef = (ref.hauteur || 3) + ((ref.largeur || 6) / 2) * Math.tan(((ref.pente || 35) * Math.PI) / 180);
             if (fAile < fRef) {
-              extraMur.penetration = { hEgoutRef: ref.hauteur || 3, penteRef: ref.pente || 35 };
+              extraMur.penetration = { hEgoutRef: ref.hauteur || 3, penteRef: ref.pente || 35, debordRef: ref.debord || 0 };
             }
           }
           const grp = buildOuvrage(o, extraMur);
