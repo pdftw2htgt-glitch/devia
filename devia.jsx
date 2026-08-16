@@ -888,6 +888,12 @@ function buildScene3D(scene, params, opts) {
     const ang = Math.atan(hf / (lg/2));                    // angle de pente
     const pl = (lg/2) / Math.cos(ang);                     // longueur d'un arbaletrier
     const yFait = Ht + hf;                                  // hauteur du faitage
+    // Debords de RIVE asymetriques : pas de depasse au pignon de CONTACT d'un volume accole
+    const smf = (opts && opts.sansMurFace) || "";
+    const debG = smf === "pignon_gauche" ? 0 : debord;   // rive x = -L/2
+    const debD = smf === "pignon_droit" ? 0 : debord;    // rive x = +L/2
+    const debLX = debG + debD;                            // allongement total en X
+    const debCX = (debD - debG) / 2;                      // recentrage X des pieces filantes
 
     // ===== MURS BETON (porte pignon + fenetres) =====
     if (params.murs === "ossature_bois") { drawMursOssature(L, lg, Ht); } else { drawMursBeton(L, lg, Ht); }
@@ -953,7 +959,7 @@ setPiece("Sabliere");
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
     const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
-    addBox(L + 0.4 + 2 * debord, pfH, pfB, 0, yFait, 0, woodMat);
+    addBox(L + 0.4 + debLX, pfH, pfB, debCX, yFait, 0, woodMat);
 
     // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
     // Toute la geometrie du pan derive de cette ligne par decalages perpendiculaires dPerp :
@@ -975,8 +981,8 @@ setPiece("Panne");
       const eEch = 0.03;                             // epaisseur mini de l'echantignole sous le coin amont
       const yP = yRef + (pnB/2) * tanA + eEch + pnH/2; // la panne repose SUR le dessus de la cale
       pannesInfo.push({ zRef, yRef });
-      addBox(L + 0.3 + 2 * debord, pnH, pnB, 0, yP, zRef, woodMat);   // pan Z+ (droite)
-      addBox(L + 0.3 + 2 * debord, pnH, pnB, 0, yP, -zRef, woodMat);  // pan Z- (droite)
+      addBox(L + 0.3 + debLX, pnH, pnB, debCX, yP, zRef, woodMat);   // pan Z+ (droite)
+      addBox(L + 0.3 + debLX, pnH, pnB, debCX, yP, -zRef, woodMat);  // pan Z- (droite)
     }
 
 setPiece("Echantignole");
@@ -1067,7 +1073,8 @@ setPiece("Chevron");
     // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
     fermeXs.forEach((fx) => chevronXs.push(fx));
     // Chevrons de rive : au bord du depasse de pignon (portes par les queues de panne)
-    if (debord > 0.05) { chevronXs.push(-(L/2 + debord - chB/2)); chevronXs.push(L/2 + debord - chB/2); }
+    if (debG > 0.05) chevronXs.push(-(L/2 + debG - chB/2));
+    if (debD > 0.05) chevronXs.push(L/2 + debD - chB/2);
     chevronXs.forEach((x) => {
       addChevronOnglet(x, 1);   // pan Z+
       addChevronOnglet(x, -1);  // pan Z-
@@ -1081,17 +1088,17 @@ setPiece("Chevron");
     const ext = dPerpCouv * Math.tan(ang);
     const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
     const plCouv = pl + ext + extBas;
-    const tradRoofMat = makeRoofMaterial(couv, L + 2 * debord, plCouv);
-    const rg = new THREE.PlaneGeometry(L + 0.6 + 2 * debord, plCouv);
+    const tradRoofMat = makeRoofMaterial(couv, L + debLX, plCouv);
+    const rg = new THREE.PlaneGeometry(L + 0.6 + debLX, plCouv);
     // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut + extBas/2 vers le bas
     const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
     const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(0, yR, zR);
+    r1.position.set(debCX, yR, zR);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(0, yR, -zR);
+    r2.position.set(debCX, yR, -zR);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
 
