@@ -894,6 +894,8 @@ function buildScene3D(scene, params, opts) {
     const debD = smf === "pignon_droit" ? 0 : debord;    // rive x = +L/2
     const debLX = debG + debD;                            // allongement total en X
     const debCX = (debD - debG) / 2;                      // recentrage X des pieces filantes
+    const rivG = smf === "pignon_gauche" ? 0 : 0.3;       // petit debord de rive de base, sauf cote contact
+    const rivD = smf === "pignon_droit" ? 0 : 0.3;
 
     // ===== MURS BETON (porte pignon + fenetres) =====
     if (params.murs === "ossature_bois") { drawMursOssature(L, lg, Ht); } else { drawMursBeton(L, lg, Ht); }
@@ -1095,16 +1097,16 @@ setPiece("Chevron");
     const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
     const plCouv = pl + ext + extBas;
     const tradRoofMat = makeRoofMaterial(couv, L + debLX, plCouv);
-    const rg = new THREE.PlaneGeometry(L + 0.6 + debLX, plCouv);
+    const rg = new THREE.PlaneGeometry(L + rivG + rivD + debLX, plCouv);
     // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut + extBas/2 vers le bas
     const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
     const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
     const r1 = new THREE.Mesh(rg, tradRoofMat);
-    r1.position.set(debCX, yR, zR);
+    r1.position.set(debCX + (rivD - rivG) / 2, yR, zR);
     r1.rotation.x = ang - Math.PI/2;
     scene.add(r1);
     const r2 = new THREE.Mesh(rg, tradRoofMat);
-    r2.position.set(debCX, yR, -zR);
+    r2.position.set(debCX + (rivD - rivG) / 2, yR, -zR);
     r2.rotation.x = -(ang - Math.PI/2);
     scene.add(r2);
 
@@ -2329,19 +2331,25 @@ setPiece("Empannon de croupe");
     // ===== N2 : couverture de la greffe (un pan taille en pointe de chaque cote) =====
     const matPen = makeRoofMaterial(couvPen, dR, zE + 0.3);
     matPen.side = THREE.DoubleSide;
-    const dec2 = 0.08;
-    const dPiedG = dPied > 0 ? dPied : 0;               // la greffe s'arrete au mur (au-dela : couverture de l'aile)
+    // Greffe COPLANAIRE a la couverture de l'aile : meme decalage perpendiculaire que le pan trad
+    const [arB3, arH3] = sec("Arbaletrier", 0.16, 0.16);
+    const [pnB3, pnH3] = sec("Panne", 0.12, 0.12);
+    const [chB3, chH3] = sec("Chevron", 0.07, 0.07);
+    const cosA3 = Math.cos(aRad), sinA3 = Math.sin(aRad);
+    const dPerp3 = arH3/2 + (pnH3 + 0.03) * cosA3 + chH3 + 0.01;
+    const hcr3 = dPerp3 / cosA3;                        // remontee au faitage : ferme le joint central
+    const dPiedG = dPied > 0 ? dPied : 0;               // la greffe demarre au mur (avant : couverture de l'aile)
     const zEG = zE * (dR - dPiedG) / plage;
     const yPiedG = hF - zEG * Math.tan(aRad);
     for (const sz of [-1, 1]) {
       const g = new THREE.BufferGeometry();
       const pts = [
-        xw, hF + dec2, 0,
-        xw + s * dR, hF + dec2, 0,
-        xw + s * dPiedG, yPiedG + dec2, sz * zEG,
-        xw, hF + dec2, 0,
-        xw + s * dPiedG, yPiedG + dec2, sz * zEG,
-        xw, yPiedG + dec2, sz * zEG,
+        xw, hF + hcr3, 0,
+        xw + s * dR, hF + hcr3, 0,
+        xw + s * dPiedG, yPiedG + dPerp3 * cosA3, sz * (zEG + dPerp3 * sinA3),
+        xw, hF + hcr3, 0,
+        xw + s * dPiedG, yPiedG + dPerp3 * cosA3, sz * (zEG + dPerp3 * sinA3),
+        xw, yPiedG + dPerp3 * cosA3, sz * (zEG + dPerp3 * sinA3),
       ];
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
       g.computeVertexNormals();
