@@ -2473,6 +2473,242 @@ purple: "#a78bfa", orange: "#f97316",
 // ================================================================
 // CAPTURE 3D - Genere 3 vues PNG en base64 pour le PDF
 // ================================================================
+// ================================================================
+// ASSEMBLAGE MULTI-OUVRAGES (fonction commune viewer / capture PDF)
+// construireOuvrage(o, extraOpts, decoupes) doit construire, ajouter a la
+// scene et renvoyer le THREE.Group de l'ouvrage. Retourne les groupes places.
+// ================================================================
+function assemblerOuvrages(listeOuvrages, construireOuvrage) {
+      const gap = 2.0;
+      const groupes = [];
+      const construire = (o, extraOpts) => {
+        const grp = construireOuvrage(o, extraOpts, decoupesParOuvrage.get(o) || null);
+        groupes.push(grp);
+        return grp;
+      };
+      // ===== ANCRAGE SEMANTIQUE : balcons/appentis ancres, monopente accolee =====
+      console.log("[DEVIA-DEBUG] types des ouvrages :", listeOuvrages.map(o => o.type_projet));
+      const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
+      const idxPorteur = listeOuvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
+      // ===== PRE-PASSE NOUES : decoupe du DEBORD de la reference au droit de chaque aile en penetration =====
+      const decoupesParOuvrage = new Map();
+      listeOuvrages.forEach((oP) => {
+        if (oP.pos === undefined || oP.pos === null) return;
+        const refP = listeOuvrages[(oP.pos.contre || 1) - 1];
+        if (refP === undefined || refP === oP) return;
+        const refFC2 = refP.faitageCardinal || "";
+        const oFC2 = oP.faitageCardinal || "";
+        const fc2 = oP.pos.facade || "";
+        const goutt2 = (refFC2 === "nord_sud" && (fc2 === "est" || fc2 === "ouest")) || (refFC2 === "est_ouest" && (fc2 === "sud" || fc2 === "nord"));
+        const perp2 = (refFC2 === "nord_sud" && oFC2 === "est_ouest") || (refFC2 === "est_ouest" && oFC2 === "nord_sud");
+        if (goutt2 === false || perp2 === false) return;
+        if (AVEC_MURS.includes(oP.type_projet) === false || AVEC_MURS.includes(refP.type_projet || "") === false) return;
+        const fA2 = (oP.hauteur || 3) + ((oP.largeur || 6) / 2) * Math.tan(((oP.pente || 35) * Math.PI) / 180);
+        const fR2 = (refP.hauteur || 3) + ((refP.largeur || 6) / 2) * Math.tan(((refP.pente || 35) * Math.PI) / 180);
+        if (fA2 >= fR2) return;
+        // Etendues le long du mur de contact (les faitages sont croises : aile = largeur, ref = longueur)
+        const aH2 = (oP.largeur || 6) / 2;
+        const rH2 = (refP.longueur || 8) / 2;
+        const al2 = oP.pos.alignement || "";
+        let cAxe = oP.pos.decalage || 0;
+        if (fc2 === "est" || fc2 === "ouest") {
+          if (al2 === "sud") cAxe = rH2 - aH2;
+          else if (al2 === "nord") cAxe = -(rH2 - aH2);
+        } else {
+          if (al2 === "est") cAxe = rH2 - aH2;
+          else if (al2 === "ouest") cAxe = -(rH2 - aH2);
+        }
+        let m0 = cAxe - aH2, m1 = cAxe + aH2;
+        if (m0 < -rH2) m0 = -rH2;
+        if (m1 > rH2) m1 = rH2;
+        // Axe monde -> X local de la reference (nord_sud : x local = -z monde)
+        const qR2 = refFC2 === "nord_sud" ? 1 : 0;
+        const a2 = qR2 === 1 ? -m1 : m0;
+        const b2 = qR2 === 1 ? -m0 : m1;
+        const face2 = qR2 === 1 ? (fc2 === "est" ? "gouttereau_avant" : "gouttereau_arriere") : (fc2 === "sud" ? "gouttereau_avant" : "gouttereau_arriere");
+        const tanP2 = Math.tan(((refP.pente || 35) * Math.PI) / 180);
+        const tanA2 = Math.tan(((oP.pente || 35) * Math.PI) / 180);
+        const hE2 = refP.hauteur || 3;
+        if (fA2 <= hE2 + 0.05) return;
+        const refDeb2 = refP.debord || 0;
+        const dR3 = (fA2 - hE2) / tanP2;
+        const zPR = (fA2 - hE2 + refDeb2 * tanP2) / tanA2;
+        const zPA = (oP.largeur || 6) / 2 + (oP.debord || 0);
+        const zN3 = zPR > zPA ? zPA : zPR;
+        const yP3 = fA2 - zN3 * tanA2;
+        const dP3 = (yP3 - hE2) / tanP2;
+        const liste2 = decoupesParOuvrage.get(refP) || [];
+        liste2.push({ face: face2, a: a2, b: b2, xApex: (a2 + b2) / 2, dApex: dR3, zNoue: zN3, dPied: dP3 });
+        decoupesParOuvrage.set(refP, liste2);
+        console.log("[DEVIA] Decoupe debord : " + face2 + " de x=" + a2.toFixed(2) + " a x=" + b2.toFixed(2) + " (penetration aile)");
+      });
+      const rangee = [];
+      const ancres = [];
+      const accoles = [];
+      listeOuvrages.forEach((o, i) => {
+        if (idxPorteur < 0 || i === idxPorteur) { rangee.push(o); return; }
+        if (o.pos && o.pos.contre) { accoles.push(o); return; }
+        const porteur = listeOuvrages[idxPorteur];
+        const balconAncrable = o.type_projet === "balcon"
+          && ((o.hauteur || 2.5) + 2.0 <= (porteur.hauteur || 3));
+        // Appentis : haut du rampant (Ht + lg*tan(pente)) sous le haut du mur porteur (-10cm)
+        const hautAppentis = (o.hauteur || 2.2) + (o.largeur || 2) * Math.tan(((o.pente || 15) * Math.PI) / 180);
+        const appentisAncrable = o.type_projet === "appentis"
+          && hautAppentis <= (porteur.hauteur || 3) - 0.1;
+        const monopenteAccolable = o.type_projet === "monopente";
+        if (balconAncrable || appentisAncrable || monopenteAccolable) ancres.push(o); else rangee.push(o);
+      });
+
+      // Rangee : cote a cote le long de X
+      const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
+      let cursorX = -totalW / 2;
+      const posRangee = new Map();
+      rangee.forEach((o, i) => {
+        if (i > 0) cursorX += gap;
+        const isPorteur = listeOuvrages.indexOf(o) === idxPorteur;
+        const balconsAncres = ancres.filter(a => a.type_projet === "balcon");
+        const extra = (isPorteur && balconsAncres.length > 0)
+          ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: balconsAncres[0].hauteur || 2.5 } }
+          : null;
+        const grp = construire(o, extra);
+        if (o.faitageCardinal === "nord_sud") grp.rotation.y = Math.PI / 2;
+        grp.position.x = cursorX + (o.longueur || 8) / 2;
+        posRangee.set(o, grp.position.x);
+        cursorX += (o.longueur || 8);
+      });
+
+      // Ancres : colles sur le porteur, sans mur d'ancrage propre
+      ancres.forEach((o) => {
+        const porteur = listeOuvrages[idxPorteur];
+        const px = posRangee.get(porteur) || 0;
+        const grp = construire(o, { sansMurAncrage: true });
+        if (o.type_projet === "monopente") {
+          // Garage accole : cote haut (Z+ local) tourne contre le pignon X+ du porteur, pente vers l'exterieur
+          grp.rotation.y = -Math.PI / 2;
+          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 4) / 2 + 0.1;
+          grp.position.z = 0;
+        } else if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
+          // PORCHE : adosse au pignon avant (x = +L/2 du porteur), centre sur la porte
+          grp.rotation.y = -Math.PI / 2; // son cote haut (Z+) tourne vers le pignon (X+)
+          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
+          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2 + 0.1;
+          grp.position.z = 0;
+        } else {
+          // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
+          // Appentis : demi-tour pour presenter le cote haut (muraillere) au mur
+          if (o.type_projet === "appentis") grp.rotation.y = Math.PI;
+          grp.position.x = px;
+          // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
+          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) + 0.1 : 0.1);
+        }
+      });
+
+      // ===== ACCOLES : places selon les positions extraites du plan =====
+      const places = new Map();
+      rangee.forEach((o) => { places.set(o, { x: posRangee.get(o) || 0, z: 0, rot: o.faitageCardinal === "nord_sud" ? Math.PI / 2 : 0 }); });
+      const demiEmprise = (o, rot) => {
+        const quart = Math.abs(Math.round(rot / (Math.PI / 2))) % 2;
+        if (quart === 1) return { hx: (o.largeur || 6) / 2, hz: (o.longueur || 8) / 2 };
+        return { hx: (o.longueur || 8) / 2, hz: (o.largeur || 6) / 2 };
+      };
+      let attente = accoles.slice();
+      let tours = 0;
+      while (attente.length > 0 && tours < 10) {
+        tours += 1;
+        const encore = [];
+        attente.forEach((o) => {
+          const ref = listeOuvrages[(o.pos.contre || 1) - 1];
+          const pRef = places.get(ref);
+          if (pRef === undefined || ref === o) { encore.push(o); return; }
+          const rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
+          const dR = demiEmprise(ref, pRef.rot);
+          const dA = demiEmprise(o, rot);
+          const dec = o.pos.decalage || 0;
+          let px = pRef.x, pz = pRef.z;
+          if (o.pos.facade) {
+            // Placement CARDINAL : nord = -Z, sud = +Z, est = +X, ouest = -X
+            const fc = o.pos.facade;
+            if (fc === "est") px = pRef.x + dR.hx + dA.hx + 0.2;
+            else if (fc === "ouest") px = pRef.x - dR.hx - dA.hx - 0.2;
+            else if (fc === "sud") pz = pRef.z + dR.hz + dA.hz + 0.2;
+            else pz = pRef.z - dR.hz - dA.hz - 0.2;
+            const al = o.pos.alignement;
+            if (fc === "est" || fc === "ouest") {
+              if (al === "sud") pz = pRef.z + (dR.hz - dA.hz);
+              else if (al === "nord") pz = pRef.z - (dR.hz - dA.hz);
+              else pz = pRef.z + dec;
+            } else {
+              if (al === "est") px = pRef.x + (dR.hx - dA.hx);
+              else if (al === "ouest") px = pRef.x - (dR.hx - dA.hx);
+              else px = pRef.x + dec;
+            }
+          }
+          else if (o.pos.cote === "pignon_droit") { px = pRef.x + dR.hx + dA.hx + 0.2; pz = pRef.z + dec; }
+          else if (o.pos.cote === "pignon_gauche") { px = pRef.x - dR.hx - dA.hx - 0.2; pz = pRef.z + dec; }
+          else if (o.pos.cote === "gouttereau_avant") { px = pRef.x + dec; pz = pRef.z + dR.hz + dA.hz + 0.2; }
+          else { px = pRef.x + dec; pz = pRef.z - dR.hz - dA.hz - 0.2; }
+          // Mur de jonction : deux corps a murs accoles = le mur de contact de l'accole disparait
+          let extraMur = null;
+          if (AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
+            const FACES = ["pignon_droit", "gouttereau_avant", "pignon_gauche", "gouttereau_arriere"];
+            const versRef = o.pos.facade ? ({ est: 2, ouest: 0, sud: 3, nord: 1 }[o.pos.facade]) : ({ pignon_droit: 2, pignon_gauche: 0, gouttereau_avant: 3, gouttereau_arriere: 1 }[o.pos.cote]);
+            if (versRef === 0 || versRef > 0) {
+              const q = ((Math.round(rot / (Math.PI / 2)) % 4) + 4) % 4;
+              extraMur = { sansMurFace: FACES[(versRef + q) % 4] };
+              console.log("[DEVIA] Jonction : mur " + extraMur.sansMurFace + " retire sur " + (o.type_projet || "ouvrage"));
+            }
+          }
+          // Penetration de toiture : aile perpendiculaire plus basse contre un GOUTTEREAU de la reference -> noues
+          const refFC = ref.faitageCardinal || "";
+          const oFC = o.faitageCardinal || "";
+          const fcPen = o.pos.facade || "";
+          const contactGoutt = (refFC === "nord_sud" && (fcPen === "est" || fcPen === "ouest"))
+            || (refFC === "est_ouest" && (fcPen === "sud" || fcPen === "nord"))
+            || (fcPen === "" && (o.pos.cote === "gouttereau_avant" || o.pos.cote === "gouttereau_arriere"));
+          const perpFaitages = (refFC === "nord_sud" && oFC === "est_ouest")
+            || (refFC === "est_ouest" && oFC === "nord_sud")
+            || ((refFC === "" || oFC === "") && o.pos.faitage === "perpendiculaire");
+          if (extraMur && contactGoutt && perpFaitages && AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
+            const fAile = (o.hauteur || 3) + ((o.largeur || 6) / 2) * Math.tan(((o.pente || 35) * Math.PI) / 180);
+            const fRef = (ref.hauteur || 3) + ((ref.largeur || 6) / 2) * Math.tan(((ref.pente || 35) * Math.PI) / 180);
+            if (fAile < fRef) {
+              extraMur.penetration = { hEgoutRef: ref.hauteur || 3, penteRef: ref.pente || 35, debordRef: ref.debord || 0 };
+            }
+          }
+          const grp = construire(o, extraMur);
+          grp.rotation.y = rot;
+          grp.position.x = px;
+          grp.position.z = pz;
+          places.set(o, { x: px, z: pz, rot: rot });
+          console.log("[DEVIA] Accolage : " + (o.type_projet || "ouvrage") + " contre V" + o.pos.contre + " cote " + o.pos.cote + " a x=" + px.toFixed(2) + " z=" + pz.toFixed(2));
+        });
+        attente = encore;
+      }
+      attente.forEach((o) => {
+        // Reference introuvable : placement de secours en bout de rangee
+        let maxX = 0;
+        places.forEach((p, oo) => { const d = demiEmprise(oo, p.rot); if (p.x + d.hx > maxX) maxX = p.x + d.hx; });
+        const dA = demiEmprise(o, 0);
+        const grp = construire(o, null);
+        grp.position.x = maxX + 2.0 + dA.hx;
+        places.set(o, { x: maxX + 2.0 + dA.hx, z: 0, rot: 0 });
+        console.warn("[DEVIA] Accolage : reference introuvable, ouvrage place en bout de rangee");
+      });
+
+      // Recentrage de l'ensemble sur l'origine (sol et camera)
+      if (groupes.length > 1) {
+        const boite = new THREE.Box3();
+        groupes.forEach((g) => { boite.expandByObject(g); });
+        if (boite.isEmpty() === false) {
+          const centre = new THREE.Vector3();
+          boite.getCenter(centre);
+          groupes.forEach((g) => { g.position.x -= centre.x; g.position.z -= centre.z; });
+        }
+      }
+      return groupes;
+}
+
 function capture3DViews(view3DParams) {
   const W = 800;
   const H = 600;
@@ -2517,46 +2753,30 @@ function capture3DViews(view3DParams) {
   let yCentre;
   let empriseL = L, empriseLg = lg;
   if (view3DParams.ouvrages && view3DParams.ouvrages.length > 1) {
-    // ===== MULTI-OUVRAGES : scene assemblee (meme logique que le viewer) =====
-    const gap = 2.0;
-    const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
-    const ouvrages = view3DParams.ouvrages;
-    const idxPorteur = ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
-    const rangee = [];
-    const ancres = [];
-    ouvrages.forEach((o, i) => {
-      const balconAncrable = o.type_projet === "balcon" && idxPorteur >= 0 && i !== idxPorteur
-        && ((o.hauteur || 2.5) + 2.0 <= (ouvrages[idxPorteur].hauteur || 3));
-      if (balconAncrable) ancres.push(o); else rangee.push(o);
-    });
-    const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
-    let cursorX = -totalW / 2;
-    const posRangee = new Map();
-    let yMax = 0;
-    rangee.forEach((o) => {
-      const isPorteur = ouvrages.indexOf(o) === ouvrages[idxPorteur] ? true : ouvrages.indexOf(o) === idxPorteur;
-      const extra = (isPorteur && ancres.length > 0)
-        ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: ancres[0].hauteur || 2.5 } }
-        : {};
+    // ===== MULTI-OUVRAGES : MEME assemblage que le viewer (fonction commune) =====
+    const construirePdf = (o, extraOpts, decoupes) => {
       const grp = new THREE.Group();
-      const res = buildScene3D(grp, { ...view3DParams, ...o }, { ...pdfOpts, couverture: o.couverture || view3DParams.couverture, ...extra });
-      grp.position.x = cursorX + (o.longueur || 8) / 2;
-      posRangee.set(o, grp.position.x);
-      cursorX += (o.longueur || 8) + gap;
+      buildScene3D(grp, { ...view3DParams, ...o }, {
+        ...pdfOpts,
+        couverture: o.couverture || view3DParams.couverture,
+        decoupesDebord: decoupes || null,
+        ...(extraOpts || {}),
+      });
       scene.add(grp);
-      yMax = Math.max(yMax, res.yCentre || 0);
-    });
-    ancres.forEach((o) => {
-      const porteur = ouvrages[idxPorteur];
-      const grp = new THREE.Group();
-      buildScene3D(grp, { ...view3DParams, ...o }, { ...pdfOpts, couverture: o.couverture || view3DParams.couverture, sansMurAncrage: true });
-      grp.position.x = posRangee.get(porteur) || 0;
-      grp.position.z = (porteur.largeur || 6) / 2 + 0.1; // face exterieure du mur (ep 0.2)
-      scene.add(grp);
-    });
-    yCentre = yMax;
-    empriseL = totalW;
-    empriseLg = Math.max(...ouvrages.map(o => o.largeur || 6)) + (ancres.length > 0 ? 2 : 0);
+      return grp;
+    };
+    const groupesPdf = assemblerOuvrages(view3DParams.ouvrages, construirePdf);
+    const boitePdf = new THREE.Box3();
+    groupesPdf.forEach((g) => { boitePdf.expandByObject(g); });
+    if (boitePdf.isEmpty() === false) {
+      const taillePdf = new THREE.Vector3();
+      boitePdf.getSize(taillePdf);
+      empriseL = Math.max(taillePdf.x, 6);
+      empriseLg = Math.max(taillePdf.z, 6);
+      yCentre = boitePdf.max.y * 0.5;
+    } else {
+      yCentre = Ht;
+    }
   } else {
     const buildResult = buildScene3D(scene, view3DParams, pdfOpts);
     yCentre = buildResult.yCentre;
@@ -3407,13 +3627,11 @@ function Viewer3D({ params, onMetre }) {
     // Construction de la scene via fonction commune
     if (params.ouvrages && params.ouvrages.length > 1) {
       // ===== MODE MULTI-OUVRAGES : un THREE.Group par ouvrage, cote a cote le long de X =====
-      const gap = 2.0;
       const metresAll = [];
       const proprietairePiece = []; // groupe d'origine de chaque piece (bake IFC)
-      const groupes = [];
       let densiteRef = 450;
       // Helper : preBuild EC5 + build final d'un ouvrage dans un groupe
-      const buildOuvrage = (o, extraOpts) => {
+      const buildOuvrage = (o, extraOpts, decoupes) => {
         const oParams = { ...params, ...o };
         const tmpGrp = new THREE.Group();
         const pre = buildScene3D(tmpGrp, oParams, { couverture: oParams.couverture, mode: params.mode3D, ...(extraOpts || {}) });
@@ -3427,238 +3645,18 @@ function Viewer3D({ params, onMetre }) {
         const res = buildScene3D(grp, oParams, {
           couverture: oParams.couverture, mode: params.mode3D,
           sections: secs, sectionMode: params.sectionMode || "conseillee",
-          decoupesDebord: decoupesParOuvrage.get(o) || null,
+          decoupesDebord: decoupes || null,
           ...(extraOpts || {}),
         });
         scene.add(grp);
-        groupes.push(grp);
         const iDebutMetre = metresAll.length;
         metresAll.push(...res.metre);
         for (let iP = iDebutMetre; iP < metresAll.length; iP++) proprietairePiece[iP] = grp;
         densiteRef = res.densiteBois || 450;
         return grp;
       };
-
-      // ===== ANCRAGE SEMANTIQUE : balcons/appentis ancres, monopente accolee =====
-      console.log("[DEVIA-DEBUG] types des ouvrages :", params.ouvrages.map(o => o.type_projet));
-      const AVEC_MURS = ["charpente_trad", "monopente", "4_pans"];
-      const idxPorteur = params.ouvrages.findIndex(o => AVEC_MURS.includes(o.type_projet));
-      // ===== PRE-PASSE NOUES : decoupe du DEBORD de la reference au droit de chaque aile en penetration =====
-      const decoupesParOuvrage = new Map();
-      params.ouvrages.forEach((oP) => {
-        if (oP.pos === undefined || oP.pos === null) return;
-        const refP = params.ouvrages[(oP.pos.contre || 1) - 1];
-        if (refP === undefined || refP === oP) return;
-        const refFC2 = refP.faitageCardinal || "";
-        const oFC2 = oP.faitageCardinal || "";
-        const fc2 = oP.pos.facade || "";
-        const goutt2 = (refFC2 === "nord_sud" && (fc2 === "est" || fc2 === "ouest")) || (refFC2 === "est_ouest" && (fc2 === "sud" || fc2 === "nord"));
-        const perp2 = (refFC2 === "nord_sud" && oFC2 === "est_ouest") || (refFC2 === "est_ouest" && oFC2 === "nord_sud");
-        if (goutt2 === false || perp2 === false) return;
-        if (AVEC_MURS.includes(oP.type_projet) === false || AVEC_MURS.includes(refP.type_projet || "") === false) return;
-        const fA2 = (oP.hauteur || 3) + ((oP.largeur || 6) / 2) * Math.tan(((oP.pente || 35) * Math.PI) / 180);
-        const fR2 = (refP.hauteur || 3) + ((refP.largeur || 6) / 2) * Math.tan(((refP.pente || 35) * Math.PI) / 180);
-        if (fA2 >= fR2) return;
-        // Etendues le long du mur de contact (les faitages sont croises : aile = largeur, ref = longueur)
-        const aH2 = (oP.largeur || 6) / 2;
-        const rH2 = (refP.longueur || 8) / 2;
-        const al2 = oP.pos.alignement || "";
-        let cAxe = oP.pos.decalage || 0;
-        if (fc2 === "est" || fc2 === "ouest") {
-          if (al2 === "sud") cAxe = rH2 - aH2;
-          else if (al2 === "nord") cAxe = -(rH2 - aH2);
-        } else {
-          if (al2 === "est") cAxe = rH2 - aH2;
-          else if (al2 === "ouest") cAxe = -(rH2 - aH2);
-        }
-        let m0 = cAxe - aH2, m1 = cAxe + aH2;
-        if (m0 < -rH2) m0 = -rH2;
-        if (m1 > rH2) m1 = rH2;
-        // Axe monde -> X local de la reference (nord_sud : x local = -z monde)
-        const qR2 = refFC2 === "nord_sud" ? 1 : 0;
-        const a2 = qR2 === 1 ? -m1 : m0;
-        const b2 = qR2 === 1 ? -m0 : m1;
-        const face2 = qR2 === 1 ? (fc2 === "est" ? "gouttereau_avant" : "gouttereau_arriere") : (fc2 === "sud" ? "gouttereau_avant" : "gouttereau_arriere");
-        const tanP2 = Math.tan(((refP.pente || 35) * Math.PI) / 180);
-        const tanA2 = Math.tan(((oP.pente || 35) * Math.PI) / 180);
-        const hE2 = refP.hauteur || 3;
-        if (fA2 <= hE2 + 0.05) return;
-        const refDeb2 = refP.debord || 0;
-        const dR3 = (fA2 - hE2) / tanP2;
-        const zPR = (fA2 - hE2 + refDeb2 * tanP2) / tanA2;
-        const zPA = (oP.largeur || 6) / 2 + (oP.debord || 0);
-        const zN3 = zPR > zPA ? zPA : zPR;
-        const yP3 = fA2 - zN3 * tanA2;
-        const dP3 = (yP3 - hE2) / tanP2;
-        const liste2 = decoupesParOuvrage.get(refP) || [];
-        liste2.push({ face: face2, a: a2, b: b2, xApex: (a2 + b2) / 2, dApex: dR3, zNoue: zN3, dPied: dP3 });
-        decoupesParOuvrage.set(refP, liste2);
-        console.log("[DEVIA] Decoupe debord : " + face2 + " de x=" + a2.toFixed(2) + " a x=" + b2.toFixed(2) + " (penetration aile)");
-      });
-      const rangee = [];
-      const ancres = [];
-      const accoles = [];
-      params.ouvrages.forEach((o, i) => {
-        if (idxPorteur < 0 || i === idxPorteur) { rangee.push(o); return; }
-        if (o.pos && o.pos.contre) { accoles.push(o); return; }
-        const porteur = params.ouvrages[idxPorteur];
-        const balconAncrable = o.type_projet === "balcon"
-          && ((o.hauteur || 2.5) + 2.0 <= (porteur.hauteur || 3));
-        // Appentis : haut du rampant (Ht + lg*tan(pente)) sous le haut du mur porteur (-10cm)
-        const hautAppentis = (o.hauteur || 2.2) + (o.largeur || 2) * Math.tan(((o.pente || 15) * Math.PI) / 180);
-        const appentisAncrable = o.type_projet === "appentis"
-          && hautAppentis <= (porteur.hauteur || 3) - 0.1;
-        const monopenteAccolable = o.type_projet === "monopente";
-        if (balconAncrable || appentisAncrable || monopenteAccolable) ancres.push(o); else rangee.push(o);
-      });
-
-      // Rangee : cote a cote le long de X
-      const totalW = rangee.reduce((acc, o) => acc + (o.longueur || 8), 0) + gap * Math.max(0, rangee.length - 1);
-      let cursorX = -totalW / 2;
-      const posRangee = new Map();
-      rangee.forEach((o, i) => {
-        if (i > 0) cursorX += gap;
-        const isPorteur = params.ouvrages.indexOf(o) === idxPorteur;
-        const balconsAncres = ancres.filter(a => a.type_projet === "balcon");
-        const extra = (isPorteur && balconsAncres.length > 0)
-          ? { pfBalcon: { cx: 0, w: 1.4, yPlancher: balconsAncres[0].hauteur || 2.5 } }
-          : null;
-        const grp = buildOuvrage(o, extra);
-        if (o.faitageCardinal === "nord_sud") grp.rotation.y = Math.PI / 2;
-        grp.position.x = cursorX + (o.longueur || 8) / 2;
-        posRangee.set(o, grp.position.x);
-        cursorX += (o.longueur || 8);
-      });
-
-      // Ancres : colles sur le porteur, sans mur d'ancrage propre
-      ancres.forEach((o) => {
-        const porteur = params.ouvrages[idxPorteur];
-        const px = posRangee.get(porteur) || 0;
-        const grp = buildOuvrage(o, { sansMurAncrage: true });
-        if (o.type_projet === "monopente") {
-          // Garage accole : cote haut (Z+ local) tourne contre le pignon X+ du porteur, pente vers l'exterieur
-          grp.rotation.y = -Math.PI / 2;
-          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
-          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 4) / 2 + 0.1;
-          grp.position.z = 0;
-        } else if (o.type_projet === "appentis" && (o.longueur || 8) <= 3) {
-          // PORCHE : adosse au pignon avant (x = +L/2 du porteur), centre sur la porte
-          grp.rotation.y = -Math.PI / 2; // son cote haut (Z+) tourne vers le pignon (X+)
-          // +0.1 : demi-epaisseur mur, plaque sur la FACE du pignon
-          grp.position.x = px + (porteur.longueur || 8) / 2 + (o.largeur || 2) / 2 + 0.1;
-          grp.position.z = 0;
-        } else {
-          // Balcon ou grand appentis : contre le gouttereau Z+ (cote haut vers le mur)
-          // Appentis : demi-tour pour presenter le cote haut (muraillere) au mur
-          if (o.type_projet === "appentis") grp.rotation.y = Math.PI;
-          grp.position.x = px;
-          // Balcon : +0.10 = demi-epaisseur mur (murs centres, ep 0.2) -> muraillere et montants sur la FACE
-          grp.position.z = (porteur.largeur || 6) / 2 + (o.type_projet === "appentis" ? -(o.largeur || 2) / 2 + (o.largeur || 2) + 0.1 : 0.1);
-        }
-      });
-
-      // ===== ACCOLES : places selon les positions extraites du plan =====
-      const places = new Map();
-      rangee.forEach((o) => { places.set(o, { x: posRangee.get(o) || 0, z: 0, rot: o.faitageCardinal === "nord_sud" ? Math.PI / 2 : 0 }); });
-      const demiEmprise = (o, rot) => {
-        const quart = Math.abs(Math.round(rot / (Math.PI / 2))) % 2;
-        if (quart === 1) return { hx: (o.largeur || 6) / 2, hz: (o.longueur || 8) / 2 };
-        return { hx: (o.longueur || 8) / 2, hz: (o.largeur || 6) / 2 };
-      };
-      let attente = accoles.slice();
-      let tours = 0;
-      while (attente.length > 0 && tours < 10) {
-        tours += 1;
-        const encore = [];
-        attente.forEach((o) => {
-          const ref = params.ouvrages[(o.pos.contre || 1) - 1];
-          const pRef = places.get(ref);
-          if (pRef === undefined || ref === o) { encore.push(o); return; }
-          const rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
-          const dR = demiEmprise(ref, pRef.rot);
-          const dA = demiEmprise(o, rot);
-          const dec = o.pos.decalage || 0;
-          let px = pRef.x, pz = pRef.z;
-          if (o.pos.facade) {
-            // Placement CARDINAL : nord = -Z, sud = +Z, est = +X, ouest = -X
-            const fc = o.pos.facade;
-            if (fc === "est") px = pRef.x + dR.hx + dA.hx + 0.2;
-            else if (fc === "ouest") px = pRef.x - dR.hx - dA.hx - 0.2;
-            else if (fc === "sud") pz = pRef.z + dR.hz + dA.hz + 0.2;
-            else pz = pRef.z - dR.hz - dA.hz - 0.2;
-            const al = o.pos.alignement;
-            if (fc === "est" || fc === "ouest") {
-              if (al === "sud") pz = pRef.z + (dR.hz - dA.hz);
-              else if (al === "nord") pz = pRef.z - (dR.hz - dA.hz);
-              else pz = pRef.z + dec;
-            } else {
-              if (al === "est") px = pRef.x + (dR.hx - dA.hx);
-              else if (al === "ouest") px = pRef.x - (dR.hx - dA.hx);
-              else px = pRef.x + dec;
-            }
-          }
-          else if (o.pos.cote === "pignon_droit") { px = pRef.x + dR.hx + dA.hx + 0.2; pz = pRef.z + dec; }
-          else if (o.pos.cote === "pignon_gauche") { px = pRef.x - dR.hx - dA.hx - 0.2; pz = pRef.z + dec; }
-          else if (o.pos.cote === "gouttereau_avant") { px = pRef.x + dec; pz = pRef.z + dR.hz + dA.hz + 0.2; }
-          else { px = pRef.x + dec; pz = pRef.z - dR.hz - dA.hz - 0.2; }
-          // Mur de jonction : deux corps a murs accoles = le mur de contact de l'accole disparait
-          let extraMur = null;
-          if (AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
-            const FACES = ["pignon_droit", "gouttereau_avant", "pignon_gauche", "gouttereau_arriere"];
-            const versRef = o.pos.facade ? ({ est: 2, ouest: 0, sud: 3, nord: 1 }[o.pos.facade]) : ({ pignon_droit: 2, pignon_gauche: 0, gouttereau_avant: 3, gouttereau_arriere: 1 }[o.pos.cote]);
-            if (versRef === 0 || versRef > 0) {
-              const q = ((Math.round(rot / (Math.PI / 2)) % 4) + 4) % 4;
-              extraMur = { sansMurFace: FACES[(versRef + q) % 4] };
-              console.log("[DEVIA] Jonction : mur " + extraMur.sansMurFace + " retire sur " + (o.type_projet || "ouvrage"));
-            }
-          }
-          // Penetration de toiture : aile perpendiculaire plus basse contre un GOUTTEREAU de la reference -> noues
-          const refFC = ref.faitageCardinal || "";
-          const oFC = o.faitageCardinal || "";
-          const fcPen = o.pos.facade || "";
-          const contactGoutt = (refFC === "nord_sud" && (fcPen === "est" || fcPen === "ouest"))
-            || (refFC === "est_ouest" && (fcPen === "sud" || fcPen === "nord"))
-            || (fcPen === "" && (o.pos.cote === "gouttereau_avant" || o.pos.cote === "gouttereau_arriere"));
-          const perpFaitages = (refFC === "nord_sud" && oFC === "est_ouest")
-            || (refFC === "est_ouest" && oFC === "nord_sud")
-            || ((refFC === "" || oFC === "") && o.pos.faitage === "perpendiculaire");
-          if (extraMur && contactGoutt && perpFaitages && AVEC_MURS.includes(o.type_projet) && AVEC_MURS.includes(ref.type_projet || "")) {
-            const fAile = (o.hauteur || 3) + ((o.largeur || 6) / 2) * Math.tan(((o.pente || 35) * Math.PI) / 180);
-            const fRef = (ref.hauteur || 3) + ((ref.largeur || 6) / 2) * Math.tan(((ref.pente || 35) * Math.PI) / 180);
-            if (fAile < fRef) {
-              extraMur.penetration = { hEgoutRef: ref.hauteur || 3, penteRef: ref.pente || 35, debordRef: ref.debord || 0 };
-            }
-          }
-          const grp = buildOuvrage(o, extraMur);
-          grp.rotation.y = rot;
-          grp.position.x = px;
-          grp.position.z = pz;
-          places.set(o, { x: px, z: pz, rot: rot });
-          console.log("[DEVIA] Accolage : " + (o.type_projet || "ouvrage") + " contre V" + o.pos.contre + " cote " + o.pos.cote + " a x=" + px.toFixed(2) + " z=" + pz.toFixed(2));
-        });
-        attente = encore;
-      }
-      attente.forEach((o) => {
-        // Reference introuvable : placement de secours en bout de rangee
-        let maxX = 0;
-        places.forEach((p, oo) => { const d = demiEmprise(oo, p.rot); if (p.x + d.hx > maxX) maxX = p.x + d.hx; });
-        const dA = demiEmprise(o, 0);
-        const grp = buildOuvrage(o, null);
-        grp.position.x = maxX + 2.0 + dA.hx;
-        places.set(o, { x: maxX + 2.0 + dA.hx, z: 0, rot: 0 });
-        console.warn("[DEVIA] Accolage : reference introuvable, ouvrage place en bout de rangee");
-      });
-
-      // Recentrage de l'ensemble sur l'origine (sol et camera)
-      if (groupes.length > 1) {
-        const boite = new THREE.Box3();
-        groupes.forEach((g) => { boite.expandByObject(g); });
-        if (boite.isEmpty() === false) {
-          const centre = new THREE.Vector3();
-          boite.getCenter(centre);
-          groupes.forEach((g) => { g.position.x -= centre.x; g.position.z -= centre.z; });
-        }
-      }
+      // ===== ASSEMBLAGE : fonction commune viewer / capture PDF =====
+      assemblerOuvrages(params.ouvrages, buildOuvrage);
       // ===== BAKE IFC : coordonnees MONDE pour chaque piece du metre =====
       // Applique la transformation finale du groupe (rotation cardinale + accolage + recentrage)
       // a la position ET a l'orientation de chaque piece -> l'export IFC voit l'assemblage reel.
