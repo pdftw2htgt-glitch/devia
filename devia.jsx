@@ -2948,54 +2948,21 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
 
   y = Math.max(yG, yD) + 8;
 
-  // ============ VUES 3D ============
+  // ============ VUE 3D EN-TETE : perspective seule, en haut a droite ============
+  let viewsPdf = null;
   if (view3DParams) {
     try {
-      const views = capture3DViews(view3DParams);
-
-      // Verifier qu'on a la place sur la page
-      if (y > pageH - 90) { doc.addPage(); y = 20; }
-
-      // Titre section
-      doc.setTextColor(...C_GRIS);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.text("VUES DU PROJET", margin, y);
-      doc.setLineWidth(0.3);
-      doc.setDrawColor(...C_OR);
-      doc.line(margin, y + 1.5, margin + 25, y + 1.5);
-
-      y += 6;
-
-      // 3 vues alignees horizontalement
-      const viewW = (pageW - 2 * margin - 8) / 3; // 3 colonnes + 2 gaps de 4
-      const viewH = viewW * 0.65; // ratio 800x600 -> 4:3
-
-      // FACE
-      try {
-        doc.addImage(views.face, "PNG", margin, y, viewW, viewH);
-      } catch(e) { console.warn("Erreur vue face :", e); }
-
-      // COTE
-      try {
-        doc.addImage(views.cote, "PNG", margin + viewW + 4, y, viewW, viewH);
-      } catch(e) { console.warn("Erreur vue cote :", e); }
-
-      // PERSPECTIVE
-      try {
-        doc.addImage(views.perspective, "PNG", margin + 2 * (viewW + 4), y, viewW, viewH);
-      } catch(e) { console.warn("Erreur vue perspective :", e); }
-
-      // Labels sous chaque vue
-      y += viewH + 4;
+      viewsPdf = capture3DViews(view3DParams);
+      const persW = 78;
+      const persH = persW * 0.75; // ratio 800x600
+      if (y > pageH - (persH + 20)) { doc.addPage(); y = 20; }
+      const persX = pageW - margin - persW;
+      doc.addImage(viewsPdf.perspective, "PNG", persX, y, persW, persH);
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...C_GRIS);
-      doc.text("Vue de face", margin + viewW/2, y, { align: "center" });
-      doc.text("Vue de cote", margin + viewW + 4 + viewW/2, y, { align: "center" });
-      doc.text("Perspective", margin + 2 * (viewW + 4) + viewW/2, y, { align: "center" });
-
-      y += 8;
+      doc.text("Perspective du projet", persX + persW / 2, y + persH + 4, { align: "center" });
+      y += persH + 10;
     } catch (e) {
       console.error("Erreur capture 3D :", e);
     }
@@ -3003,13 +2970,36 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
 
   // ============ TABLEAU DES POSTES ============
   const postes = result.postes || [];
-  const posteRow = (p) => [
+  const ligneDetail = (p) => [
     (p.designation || "").replace(/^Ouvrage \d+ - /, ""),
     p.quantite ? String(p.quantite) : "-",
     p.unite || "-",
-    p.prixUnitaireHT ? Number(p.prixUnitaireHT).toFixed(2) + " EUR" : "-",
-    p.totalHT ? fmtEUR(p.totalHT) : "-"
+    ""
   ];
+  // Regroupe une liste de postes par categorie (ordre d'apparition conserve)
+  const lignesParCategorie = (liste, corps) => {
+    const ordre = [];
+    const parCat = new Map();
+    liste.forEach((p) => {
+      const cat = p.categorie || "Autres";
+      if (parCat.has(cat) === false) { parCat.set(cat, []); ordre.push(cat); }
+      parCat.get(cat).push(p);
+    });
+    ordre.forEach((cat) => {
+      const lignes = parCat.get(cat);
+      corps.push([{
+        content: cat.toUpperCase(),
+        colSpan: 4,
+        styles: { fillColor: [245, 245, 247], textColor: [90, 90, 100], fontStyle: "bold", fontSize: 8 }
+      }]);
+      lignes.forEach((p) => corps.push(ligneDetail(p)));
+      const totalCat = lignes.reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
+      corps.push([
+        { content: cat + " : ", colSpan: 3, styles: { halign: "right", fontStyle: "bold" } },
+        { content: fmtEUR(totalCat), styles: { halign: "right", fontStyle: "bold" } }
+      ]);
+    });
+  };
   let tableBody;
   if (result._ouvrages && result._ouvrages.length > 1) {
     tableBody = [];
@@ -3017,23 +3007,24 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       const desc = (ouv.projet && ouv.projet.description) || "";
       tableBody.push([{
         content: "OUVRAGE " + (oi + 1) + (desc ? " - " + desc : ""),
-        colSpan: 5,
+        colSpan: 4,
         styles: { fillColor: [240, 192, 64], textColor: [25, 28, 38], fontStyle: "bold", fontSize: 8.5 }
       }]);
-      (ouv.postes || []).forEach(p => tableBody.push(posteRow(p)));
+      lignesParCategorie(ouv.postes || [], tableBody);
       const sousHT = (ouv.postes || []).reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
       tableBody.push([
-        { content: "Sous-total Ouvrage " + (oi + 1), colSpan: 4, styles: { halign: "right", fontStyle: "bold", textColor: [90, 90, 100], fillColor: [245, 245, 247] } },
-        { content: fmtEUR(sousHT), styles: { halign: "right", fontStyle: "bold", fillColor: [245, 245, 247] } }
+        { content: "Sous-total Ouvrage " + (oi + 1), colSpan: 3, styles: { halign: "right", fontStyle: "bold", textColor: [25, 28, 38], fillColor: [250, 242, 214] } },
+        { content: fmtEUR(sousHT), styles: { halign: "right", fontStyle: "bold", fillColor: [250, 242, 214] } }
       ]);
     });
   } else {
-    tableBody = postes.map(posteRow);
+    tableBody = [];
+    lignesParCategorie(postes, tableBody);
   }
 
   autoTable(doc, {
     startY: y,
-    head: [["Designation", "Qte", "Unite", "PU HT", "Total HT"]],
+    head: [["Designation", "Qte", "Unite", "Montant HT"]],
     body: tableBody,
     theme: "striped",
     styles: {
@@ -3055,11 +3046,10 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       fillColor: [248, 248, 250]
     },
     columnStyles: {
-      0: { cellWidth: 72 },
-      1: { cellWidth: 16, halign: "right" },
-      2: { cellWidth: 16, halign: "center" },
-      3: { cellWidth: 36, halign: "right" },
-      4: { cellWidth: 40, halign: "right", fontStyle: "bold" }
+      0: { cellWidth: 96 },
+      1: { cellWidth: 18, halign: "right" },
+      2: { cellWidth: 22, halign: "center" },
+      3: { cellWidth: 44, halign: "right", fontStyle: "bold" }
     },
     margin: { left: margin, right: margin }
   });
@@ -3130,6 +3120,28 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       const lines = doc.splitTextToSize("- " + note, pageW - 2 * margin);
       doc.text(lines, margin, y);
       y += lines.length * 4 + 1;
+    });
+  }
+
+  // ============ VUES 3D PLEINE PAGE (a la suite du devis) ============
+  if (viewsPdf) {
+    const vuesFin = [
+      { img: viewsPdf.face, titre: "Vue de face" },
+      { img: viewsPdf.cote, titre: "Vue de cote" },
+    ];
+    vuesFin.forEach((v) => {
+      if (v.img === undefined || v.img === null) return;
+      doc.addPage();
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...C_TEXTE);
+      doc.text(v.titre, margin, 22);
+      doc.setLineWidth(0.4);
+      doc.setDrawColor(...C_OR);
+      doc.line(margin, 24.5, margin + 30, 24.5);
+      const imgPleineW = pageW - 2 * margin;
+      const imgPleineH = imgPleineW * 0.75;
+      doc.addImage(v.img, "PNG", margin, 32, imgPleineW, imgPleineH);
     });
   }
 
