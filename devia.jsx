@@ -163,6 +163,34 @@ function dimensionnerPiece(typePiece, charge) {
 // sections via le moteur EC5 (memes sk/dS que le viewer -> resultat identique
 // au tableau), puis reecrit les sections dans les designations par mot-cle.
 // Best effort : en cas d erreur, le devis sort inchange.
+// ================================================================
+// METRE MOTEUR -> TEXTE : quantites reelles issues de la 3D, imposees a la generation
+// ================================================================
+function metreTexteDepuisParams(p) {
+  try {
+    const MAP_TYPE = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", garde_corps: "garde_corps", sas: "sas_liaison" };
+    const paramsCalc = {
+      type_projet: p.type_projet || MAP_TYPE[p.type] || "charpente_trad",
+      longueur: Number(p.longueur) || 8,
+      largeur: Number(p.largeur) || 6,
+      hauteur: Number(p.hauteur) || 3,
+      pente: Number(p.pente) || 35,
+      couverture: p.couverture || "tuile_terre",
+      debord: p.debord || 0,
+      murs: p.murs,
+    };
+    const tmp = new THREE.Group();
+    const pre = buildScene3D(tmp, paramsCalc, { couverture: paramsCalc.couverture, mode: "technique" });
+    tmp.traverse((obj) => { if (obj.isMesh && obj.geometry) obj.geometry.dispose(); });
+    const agg = agregerMetre(pre.metre, pre.densiteBois || 450);
+    if (agg === null || agg === undefined || (agg.groupes || []).length === 0) return "";
+    const lignes = agg.groupes.map((g) => "- " + g.nom + " " + g.section[0] + "x" + g.section[1] + " mm : " + g.nombre + " piece(s), " + g.longueurTotale.toFixed(1) + " ml au total");
+    return "METRE EXACT DU MOTEUR 3D (source de verite : utilise EXACTEMENT ces quantites pour les postes bois, n'en invente aucune) :\n" + lignes.join("\n");
+  } catch (eMet) {
+    return "";
+  }
+}
+
 function harmoniserSectionsDevis(parsed, sk, dS) {
   try {
     const pj = (parsed && parsed.projet) || {};
@@ -2790,18 +2818,32 @@ function capture3DViews(view3DParams) {
 
   // ============ CAPTURE 3 VUES ============
   const views = {};
+  // Version pivotee de 90 degres du rendu courant (pour les pages pleine feuille)
+  const tourner90 = () => {
+    const src = renderer.domElement;
+    const c2 = document.createElement("canvas");
+    c2.width = src.height;
+    c2.height = src.width;
+    const ctx = c2.getContext("2d");
+    ctx.translate(c2.width / 2, c2.height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.drawImage(src, -src.width / 2, -src.height / 2);
+    return c2.toDataURL("image/png");
+  };
 
   // 1. FACE (regard depuis Z positif vers Z negatif)
   camera.position.set(0, yCentre, dist);
   camera.lookAt(0, yCentre, 0);
   renderer.render(scene, camera);
   views.face = renderer.domElement.toDataURL("image/png");
+  views.faceRot = tourner90();
 
   // 2. COTE (regard depuis X positif vers X negatif)
   camera.position.set(dist, yCentre, 0);
   camera.lookAt(0, yCentre, 0);
   renderer.render(scene, camera);
   views.cote = renderer.domElement.toDataURL("image/png");
+  views.coteRot = tourner90();
 
   // 3. PERSPECTIVE (3/4 classique)
   camera.position.set(dist * 0.7, yCentre + dist * 0.4, dist * 0.7);
@@ -3147,17 +3189,15 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
     });
   }
 
-  // ============ VUES 3D PLEINE PAGE PAYSAGE (a la suite du devis) ============
+  // ============ VUES 3D PLEINE PAGE : 3D pivote de 90 degres et agrandi ============
   if (viewsPdf) {
     const vuesFin = [
-      { img: viewsPdf.face, titre: "Vue de face" },
-      { img: viewsPdf.cote, titre: "Vue de cote" },
+      { img: viewsPdf.faceRot || viewsPdf.face, titre: "Vue de face" },
+      { img: viewsPdf.coteRot || viewsPdf.cote, titre: "Vue de cote" },
     ];
     vuesFin.forEach((v) => {
       if (v.img === undefined || v.img === null) return;
-      doc.addPage("a4", "landscape");
-      const pwV = doc.internal.pageSize.getWidth();
-      const phV = doc.internal.pageSize.getHeight();
+      doc.addPage();
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...C_TEXTE);
@@ -3165,10 +3205,11 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       doc.setLineWidth(0.4);
       doc.setDrawColor(...C_OR);
       doc.line(margin, 22.5, margin + 30, 22.5);
-      let imgH2 = phV - 50;
-      let imgW2 = imgH2 / 0.75;
-      if (imgW2 > pwV - 2 * margin) { imgW2 = pwV - 2 * margin; imgH2 = imgW2 * 0.75; }
-      doc.addImage(v.img, "PNG", (pwV - imgW2) / 2, 27, imgW2, imgH2);
+      let imgW3 = pageW - 2 * margin;
+      let imgH3 = imgW3 * (4 / 3);
+      const dispo = pageH - 27 - 22;
+      if (imgH3 > dispo) { imgH3 = dispo; imgW3 = imgH3 * 0.75; }
+      doc.addImage(v.img, "PNG", (pageW - imgW3) / 2, 27, imgW3, imgH3);
     });
   }
 
@@ -5814,7 +5855,12 @@ return out;
         };
         const { systemPrompt, catalogSource } = buildDeviaPrompt(fp);
         catalogSourceGlobal = catalogSource;
-        const { parsed, data } = await callDeviaIA(systemPrompt, fp.description);
+        let contenuOuvrage = fp.description || "Genere un devis pour cet ouvrage.";
+        try {
+          const texteMetreO = metreTexteDepuisParams(fp);
+          if (texteMetreO) contenuOuvrage += "\n\n" + texteMetreO;
+        } catch (eMO) { console.warn("[DEVIA] Metre moteur indisponible (ouvrage)", eMO); }
+        const { parsed, data } = await callDeviaIA(systemPrompt, contenuOuvrage);
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
         // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
@@ -5953,6 +5999,10 @@ const zoneInfo = getZone(commune, altitude);
 const { systemPrompt, catalogSource } = buildDeviaPrompt(finalParams);
 try {
 let userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
+try {
+  const texteMetre = metreTexteDepuisParams(finalParams);
+  if (texteMetre) userContent += "\n\n" + texteMetre;
+} catch (eM) { console.warn("[DEVIA] Metre moteur indisponible pour la generation", eM); }
 if (files && files.length > 0) {
   try {
     const fileBlocks = await buildFileBlocks(files);
