@@ -3938,6 +3938,7 @@ function Viewer3D({ params, onMetre }) {
       geoE.setAttribute("position", new THREE.BufferAttribute(posE, 3));
       scene.add(new THREE.Points(geoE, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.35, transparent: true, opacity: 0.8 })));
     }
+    let metreVue = null;
 
     // Construction de la scene via fonction commune
     if (params.ouvrages && params.ouvrages.length > 1) {
@@ -3990,6 +3991,7 @@ function Viewer3D({ params, onMetre }) {
         p.quat = [qGrp.x, qGrp.y, qGrp.z, qGrp.w];
         p.rot = null;
       });
+      metreVue = metresAll;
       if (onMetreRef.current && metresAll.length) {
         onMetreRef.current(agregerMetre(metresAll, densiteRef), metresAll);
       }
@@ -4009,10 +4011,66 @@ function Viewer3D({ params, onMetre }) {
         couverture: params.couverture, mode: params.mode3D,
         sections: sectionsEC5, sectionMode: params.sectionMode || "conseillee",
       });
+      metreVue = buildResultViewer.metre;
       if (onMetreRef.current && buildResultViewer.metre) {
         onMetreRef.current(agregerMetre(buildResultViewer.metre, buildResultViewer.densiteBois || 450), buildResultViewer.metre);
       }
     }
+    // ===== VUE ECLATEE / RANGEE AU SOL =====
+    const vueMode = params.vue3D || "assemble";
+    if (vueMode === "explose") {
+      const meshesE = [];
+      scene.traverse((o) => { if (o.isMesh) meshesE.push(o); });
+      if (meshesE.length > 0) {
+        const bbAll = new THREE.Box3();
+        meshesE.forEach((m) => { bbAll.expandByObject(m); });
+        const centreE = bbAll.getCenter(new THREE.Vector3());
+        centreE.y = 0; // on ecarte vers le haut et les cotes, jamais sous le sol
+        const K = 0.5; // intensite de l'eclatement
+        meshesE.forEach((m) => {
+          const bbM = new THREE.Box3().setFromObject(m);
+          const cM = bbM.getCenter(new THREE.Vector3());
+          const dW = cM.clone().sub(centreE).multiplyScalar(K);
+          const pW = m.getWorldPosition(new THREE.Vector3());
+          const cible = pW.add(dW);
+          if (m.parent) m.position.copy(m.parent.worldToLocal(cible));
+        });
+      }
+    }
+    if (vueMode === "sol" && metreVue && metreVue.length > 0) {
+      const aVirer = [];
+      scene.traverse((o) => { if (o.isMesh) aVirer.push(o); });
+      aVirer.forEach((o) => { if (o.parent) o.parent.remove(o); if (o.geometry) o.geometry.dispose(); });
+      const matSol = new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.85, metalness: 0.0 });
+      const parNom = {};
+      metreVue.forEach((p) => {
+        const nomP = p.nom || "Piece";
+        if (parNom[nomP] === undefined) parNom[nomP] = [];
+        parNom[nomP].push(p);
+      });
+      let zCur = 0;
+      let xMax = 0;
+      Object.keys(parNom).forEach((nomP) => {
+        parNom[nomP].forEach((p) => {
+          const Lp = Math.max(0.1, p.longueur || 1);
+          const bM = ((p.section && p.section[0]) || 100) / 1000;
+          const hM = ((p.section && p.section[1]) || 100) / 1000;
+          const ep = Math.min(bM, hM);
+          const larg = Math.max(bM, hM);
+          const meshP = new THREE.Mesh(new THREE.BoxGeometry(Lp, ep, larg), matSol);
+          meshP.position.set(Lp / 2, ep / 2 + 0.001, zCur + larg / 2);
+          meshP.castShadow = true;
+          scene.add(meshP);
+          zCur += larg + 0.12;
+          if (Lp > xMax) xMax = Lp;
+        });
+        zCur += 0.5; // espace entre familles de pieces
+      });
+      const dxS = xMax / 2;
+      const dzS = zCur / 2;
+      scene.traverse((o) => { if (o.isMesh) { o.position.x -= dxS; o.position.z -= dzS; } });
+    }
+
     const H = params.hauteur || 3;
     const lg = params.largeur || 6;
     const pente = params.pente || 35;
@@ -4124,7 +4182,7 @@ function Viewer3D({ params, onMetre }) {
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
         mountRef.current.removeChild(renderer.domElement);
     };
-  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.fond3D, params.sectionMode, params.sk, params.dS, JSON.stringify(params.ouvrages || null)]);
+  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.fond3D, params.vue3D, params.sectionMode, params.sk, params.dS, JSON.stringify(params.ouvrages || null)]);
 
   return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
@@ -4615,6 +4673,7 @@ const [activeResultTab, setActiveResultTab] = useState("devis");
 const [ouvrageActif, setOuvrageActif] = useState(-1); // -1 = tous les ouvrages (mode multi)
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
   const [fond3D, setFond3D] = useState("noir"); // noir | blanc | soleil | pluie | nuit
+  const [vue3D, setVue3D] = useState("assemble"); // assemble | explose | sol
   const [metreData, setMetreData] = useState(null);
   const [metreBrut, setMetreBrut] = useState(null);
   const [sectionMode, setSectionMode] = useState("conseillee"); // "mini" | "conseillee"
@@ -7780,6 +7839,13 @@ return (
                     <option value="pluie">Pluie</option>
                     <option value="nuit">Nuit</option>
                   </select>
+                  <select value={vue3D} onChange={e => setVue3D(e.target.value)}
+                    style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                      border: "1px solid rgba(255,255,255,0.08)", background: "#181a26", color: "#d0d2dc" }}>
+                    <option value="assemble">Assemblage</option>
+                    <option value="explose">Vue eclatee</option>
+                    <option value="sol">Range au sol</option>
+                  </select>
                   <button
                     onClick={() => {
                       if (!metreBrut || metreBrut.length === 0) { alert("Genere d'abord un devis avec une charpente."); return; }
@@ -7854,6 +7920,13 @@ return (
                         <option value="pluie">Pluie</option>
                         <option value="nuit">Nuit</option>
                       </select>
+                      <select value={vue3D} onChange={e => setVue3D(e.target.value)}
+                        style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: "#d0d2dc" }}>
+                        <option value="assemble">Assemblage</option>
+                        <option value="explose">Vue eclatee</option>
+                        <option value="sol">Range au sol</option>
+                      </select>
                       {[{ id: "mini", label: "Section mini" }, { id: "conseillee", label: "Section conseillee" }].map(m => (
                         <button key={"fss-" + m.id} onClick={() => setSectionMode(m.id)}
                           style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: sectionMode === m.id ? 600 : 500,
@@ -7872,7 +7945,7 @@ return (
                     ...(view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif]
                       ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture, debord: view3DParams.ouvrages[ouvrageActif].debord }
                       : {}),
-                    fond3D, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
+                    vue3D, fond3D, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
