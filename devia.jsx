@@ -6238,6 +6238,7 @@ return out;
         type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
+      if (zoneInfo) { fusion._sk = zoneInfo.sk; fusion._dS = zoneInfo.dS; }
       setResult(fusion);
       setView3DParams({
         longueur: p1.longueur || structures[0].longueur || 10,
@@ -6247,6 +6248,8 @@ return out;
         type_projet: p1.type_projet || "autre",
         couverture: p1.couverture || structures[0].couverture || "tuile_terre",
         ouvrages: ouvrages3D,
+        sk: zoneInfo ? zoneInfo.sk : undefined,
+        dS: zoneInfo ? zoneInfo.dS : undefined,
       });
 
       // Sauvegarde Supabase (projet fusionne)
@@ -6342,6 +6345,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
   if (finalParams.debord) parsed._debord = finalParams.debord;
   if (finalParams.essence) parsed._essence = finalParams.essence;
   if (finalParams.finition) parsed._finition = finalParams.finition;
+  if (zoneInfo) { parsed._sk = zoneInfo.sk; parsed._dS = zoneInfo.dS; }
   // Harmonisation : sections des designations = tableau Calcul (conseillees)
   harmoniserSectionsDevis(parsed, zoneInfo ? zoneInfo.sk : 0.45, zoneInfo ? zoneInfo.dS : 0);
   setResult({ ...parsed, _catalogSource: catalogSource });
@@ -6358,7 +6362,9 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         solaire: finalParams.solaire || undefined,
         debord: finalParams.debord || undefined,
         essence: finalParams.essence || undefined,
-        finition: finalParams.finition || undefined
+        finition: finalParams.finition || undefined,
+        sk: zoneInfo ? zoneInfo.sk : undefined,
+        dS: zoneInfo ? zoneInfo.dS : undefined
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -6469,6 +6475,8 @@ const loadProjectDetails = (project) => {
         essence: project.devis_data._essence || undefined,
         finition: project.devis_data._finition || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
+        sk: project.devis_data._sk,
+        dS: project.devis_data._dS,
       });
     }
     setActiveResultTab("devis");
@@ -7966,7 +7974,7 @@ return (
                     ...(view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif]
                       ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture, debord: view3DParams.ouvrages[ouvrageActif].debord }
                       : {}),
-                    vue3D, fond3D, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
+                    vue3D, fond3D, mode3D, sectionMode, sk: (view3DParams.sk === undefined) ? (zoneInfo ? zoneInfo.sk : 0.45) : view3DParams.sk, dS: (view3DParams.dS === undefined) ? (zoneInfo ? zoneInfo.dS : 0) : view3DParams.dS }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
