@@ -3857,7 +3857,8 @@ function Viewer3D({ params, onMetre }) {
       camera.position.set(12, 8, 12);
     }
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const lumAmb = new THREE.AmbientLight(0xffffff, 0.45);
+    scene.add(lumAmb);
     const sun = new THREE.DirectionalLight(0xfff8e7, 1.2);
     sun.position.set(10, 20, 10);
     sun.castShadow = true;
@@ -3872,6 +3873,48 @@ function Viewer3D({ params, onMetre }) {
     sun.shadow.camera.far = 60;
     sun.shadow.bias = -0.0005;
     scene.add(sun);
+
+    // ===== FOND / AMBIANCE 3D =====
+    const AMBIANCES = {
+      noir:  { ciel: 0x000000, ambI: 0.45, sunI: 1.2,  sunC: 0xfff8e7 },
+      blanc: { ciel: 0xf2f4f8, ambI: 0.6,  sunI: 1.1,  sunC: 0xffffff },
+      soleil: { ciel: 0x8ec8ee, ambI: 0.6, sunI: 1.65, sunC: 0xfff2c8 },
+      pluie: { ciel: 0x77828e, ambI: 0.55, sunI: 0.4,  sunC: 0xdde5ee, pluie: true },
+      nuit:  { ciel: 0x070d1e, ambI: 0.16, sunI: 0.3,  sunC: 0xb8ccff, etoiles: true },
+    };
+    const amb3D = AMBIANCES[params.fond3D] || AMBIANCES.noir;
+    scene.background = new THREE.Color(amb3D.ciel);
+    lumAmb.intensity = amb3D.ambI;
+    sun.intensity = amb3D.sunI;
+    sun.color.set(amb3D.sunC);
+    let pluiePts = null;
+    if (amb3D.pluie) {
+      const nG = 1400;
+      const posG = new Float32Array(nG * 3);
+      for (let iG = 0; iG < nG; iG++) {
+        posG[iG * 3] = (Math.random() - 0.5) * 50;
+        posG[iG * 3 + 1] = Math.random() * 30;
+        posG[iG * 3 + 2] = (Math.random() - 0.5) * 50;
+      }
+      const geoP = new THREE.BufferGeometry();
+      geoP.setAttribute("position", new THREE.BufferAttribute(posG, 3));
+      pluiePts = new THREE.Points(geoP, new THREE.PointsMaterial({ color: 0xaec6dd, size: 0.09, transparent: true, opacity: 0.55 }));
+      scene.add(pluiePts);
+    }
+    if (amb3D.etoiles) {
+      const nE = 450;
+      const posE = new Float32Array(nE * 3);
+      for (let iE = 0; iE < nE; iE++) {
+        const th = Math.random() * Math.PI * 2;
+        const ph = Math.random() * Math.PI * 0.48;
+        posE[iE * 3] = 90 * Math.sin(ph) * Math.cos(th);
+        posE[iE * 3 + 1] = 90 * Math.cos(ph) + 2;
+        posE[iE * 3 + 2] = 90 * Math.sin(ph) * Math.sin(th);
+      }
+      const geoE = new THREE.BufferGeometry();
+      geoE.setAttribute("position", new THREE.BufferAttribute(posE, 3));
+      scene.add(new THREE.Points(geoE, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.35, transparent: true, opacity: 0.8 })));
+    }
 
     // Construction de la scene via fonction commune
     if (params.ouvrages && params.ouvrages.length > 1) {
@@ -4023,6 +4066,15 @@ function Viewer3D({ params, onMetre }) {
       controls.update();
       const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
       aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
+      if (pluiePts) {
+        const arrP = pluiePts.geometry.attributes.position;
+        for (let iG = 0; iG < arrP.count; iG++) {
+          let yP = arrP.getY(iG) - 0.35;
+          if (yP < 0) yP = 30;
+          arrP.setY(iG, yP);
+        }
+        arrP.needsUpdate = true;
+      }
       renderer.render(scene, camera);
     };
     animate();
@@ -4049,7 +4101,7 @@ function Viewer3D({ params, onMetre }) {
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
         mountRef.current.removeChild(renderer.domElement);
     };
-  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.sectionMode, params.sk, params.dS, JSON.stringify(params.ouvrages || null)]);
+  }, [params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.couverture, params.mode3D, params.fond3D, params.sectionMode, params.sk, params.dS, JSON.stringify(params.ouvrages || null)]);
 
   return <div ref={mountRef} style={{ width: "100%", height: "100%", borderRadius: 8 }} />;
 }
@@ -4539,6 +4591,7 @@ const [view3DParams, setView3DParams] = useState({ longueur: 8, largeur: 6, haut
 const [activeResultTab, setActiveResultTab] = useState("devis");
 const [ouvrageActif, setOuvrageActif] = useState(-1); // -1 = tous les ouvrages (mode multi)
   const [mode3D, setMode3D] = useState("technique"); // "technique" | "realiste"
+  const [fond3D, setFond3D] = useState("noir"); // noir | blanc | soleil | pluie | nuit
   const [metreData, setMetreData] = useState(null);
   const [metreBrut, setMetreBrut] = useState(null);
   const [sectionMode, setSectionMode] = useState("conseillee"); // "mini" | "conseillee"
@@ -7695,6 +7748,15 @@ return (
                       {m.label}
                     </button>
                   ))}
+                  <select value={fond3D} onChange={e => setFond3D(e.target.value)}
+                    style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                      border: "1px solid rgba(255,255,255,0.08)", background: "#181a26", color: "#d0d2dc" }}>
+                    <option value="noir">Fond noir</option>
+                    <option value="blanc">Fond blanc</option>
+                    <option value="soleil">Ensoleille</option>
+                    <option value="pluie">Pluie</option>
+                    <option value="nuit">Nuit</option>
+                  </select>
                   <button
                     onClick={() => {
                       if (!metreBrut || metreBrut.length === 0) { alert("Genere d'abord un devis avec une charpente."); return; }
@@ -7756,7 +7818,7 @@ return (
                     ...(view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif]
                       ? { longueur: view3DParams.ouvrages[ouvrageActif].longueur, largeur: view3DParams.ouvrages[ouvrageActif].largeur, hauteur: view3DParams.ouvrages[ouvrageActif].hauteur, pente: view3DParams.ouvrages[ouvrageActif].pente || view3DParams.pente, type_projet: view3DParams.ouvrages[ouvrageActif].type_projet, couverture: view3DParams.ouvrages[ouvrageActif].couverture || view3DParams.couverture, debord: view3DParams.ouvrages[ouvrageActif].debord }
                       : {}),
-                    mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
+                    fond3D, mode3D, sectionMode, sk: zoneInfo ? zoneInfo.sk : 0.45, dS: zoneInfo ? zoneInfo.dS : 0 }} onMetre={(agg, brut) => { setMetreData(agg); setMetreBrut(brut); }} />
                 </div>
                 <PanneauTechnique data={metreData} params={view3DParams} zoneInfo={zoneInfo} sectionMode={sectionMode} />
               </div>
