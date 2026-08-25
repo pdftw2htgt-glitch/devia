@@ -4973,7 +4973,7 @@ const fileInputRef = useRef(null);
         type: v.type,
         longueur: num(v.longueur, 0), largeur: num(v.largeur, 0),
         hauteur: (v.hauteur === undefined || v.hauteur === "") ? undefined : num(v.hauteur, undefined),
-        pente: v.pente, couverture: v.couverture, essence: v.essence,
+        pente: v.pente, couverture: v.couverture, essence: v.essence, finition: v.finition || undefined,
         debord: (v.debord === undefined || v.debord === "") ? undefined : (num(v.debord, 0) || undefined),
         faitageCardinal: v.faitageCardinal || undefined,
       };
@@ -6076,7 +6076,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence, murs: s.murs, debord: s.debord || undefined,
+        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, debord: s.debord || undefined,
         pos: s.pos || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
         type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
@@ -6184,6 +6184,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   if (finalParams.debord) parsed._debord = finalParams.debord;
+  if (finalParams.essence) parsed._essence = finalParams.essence;
+  if (finalParams.finition) parsed._finition = finalParams.finition;
   // Harmonisation : sections des designations = tableau Calcul (conseillees)
   harmoniserSectionsDevis(parsed, zoneInfo ? zoneInfo.sk : 0.45, zoneInfo ? zoneInfo.dS : 0);
   setResult({ ...parsed, _catalogSource: catalogSource });
@@ -6198,7 +6200,9 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         couverture: p.couverture || "tuile_terre",
         murs: finalParams.murs || undefined,
         solaire: finalParams.solaire || undefined,
-        debord: finalParams.debord || undefined
+        debord: finalParams.debord || undefined,
+        essence: finalParams.essence || undefined,
+        finition: finalParams.finition || undefined
       });
       console.log("[DEVIA] Type de projet détecté par l'IA :", p.type_projet || "non specifie");
     (async () => {
@@ -6306,6 +6310,8 @@ const loadProjectDetails = (project) => {
         murs: project.devis_data._murs || undefined,
         solaire: project.devis_data._solaire || undefined,
         debord: project.devis_data._debord || undefined,
+        essence: project.devis_data._essence || undefined,
+        finition: project.devis_data._finition || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
       });
     }
