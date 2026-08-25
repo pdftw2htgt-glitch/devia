@@ -748,6 +748,7 @@ function buildScene3D(scene, params, opts) {
     }
   })();
   const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+  roofMat.userData.estCouverture = true;
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
   // Materiau BETON (murs par defaut : opaque, gris clair mat)
   const betonMat = new THREE.MeshStandardMaterial({ color: 0xb4b4b8, roughness: 0.95, metalness: 0.0 });
@@ -1057,9 +1058,11 @@ function buildScene3D(scene, params, opts) {
     const mode = (opts && opts.mode) ? opts.mode : "technique";
     if (mode !== "realiste") {
       // Vue technique : couleur transparente
-      return new THREE.MeshStandardMaterial({
+      const mTech = new THREE.MeshStandardMaterial({
         color: couv.couleur, roughness: 0.8, metalness: 0.0, transparent: true, opacity: 0.4, side: THREE.DoubleSide
       });
+      mTech.userData.estCouverture = true;
+      return mTech;
     }
     // Vue realiste : on tente l'image, fallback procedural
     const code = couv.code || "";
@@ -1071,6 +1074,7 @@ function buildScene3D(scene, params, opts) {
     ptex.colorSpace = THREE.SRGBColorSpace;
     ptex.repeat.set(rx, ry);
     const mat = new THREE.MeshStandardMaterial({ map: ptex, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+    mat.userData.estCouverture = true;
 
     // Tentative de chargement de l'image reelle (async, remplace si trouvee)
     if (code) {
@@ -3911,6 +3915,8 @@ function Viewer3D({ params, onMetre }) {
     sun.intensity = amb3D.sunI;
     sun.color.set(amb3D.sunC);
     let pluiePts = null;
+    let pluieToitMats = null;
+    let t0Pluie = 0;
     if (amb3D.pluie) {
       const nG = 1400;
       const posG = new Float32Array(nG * 3);
@@ -4148,6 +4154,21 @@ function Viewer3D({ params, onMetre }) {
       const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
       aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
       if (pluiePts) {
+        if (pluieToitMats === null) {
+          pluieToitMats = [];
+          const dejaVu = new Set();
+          scene.traverse((o) => {
+            if (o.isMesh && o.material && o.material.userData && o.material.userData.estCouverture === true) {
+              if (dejaVu.has(o.material.uuid) === false) {
+                dejaVu.add(o.material.uuid);
+                pluieToitMats.push({ mat: o.material, base: o.material.color.clone() });
+              }
+            }
+          });
+          t0Pluie = performance.now();
+        }
+        const tHum = Math.max(0, Math.min(1, (performance.now() - t0Pluie - 10000) / 4000));
+        pluieToitMats.forEach((eT) => { eT.mat.color.copy(eT.base).multiplyScalar(1 - 0.45 * tHum); });
         const arrP = pluiePts.geometry.attributes.position;
         for (let iG = 0; iG < arrP.count; iG++) {
           let yP = arrP.getY(iG) - 0.35;
