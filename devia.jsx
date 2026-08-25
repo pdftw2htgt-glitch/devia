@@ -669,6 +669,7 @@ function buildScene3D(scene, params, opts) {
     epicea: "bois_epicea",
     sapin: "bois_sapin",
     douglas: "bois_douglas",
+    pin: "bois_pin",
     chene: "bois_chene",
     meleze: "bois_meleze",
   };
@@ -686,9 +687,11 @@ function buildScene3D(scene, params, opts) {
     const code = TEXTURES_BOIS[essenceKey];
     if (!code) return;
     const loader = new THREE.TextureLoader();
-    const tryLoad = (ext, onFail) => {
+    const finRaw = ((opts && opts.finition) || (params && params.finition) || "").toString().toLowerCase();
+    const codeFin = finRaw.length > 0 ? code + "_" + finRaw : "";
+    const tryLoad = (base, ext, onFail) => {
       loader.load(
-        "/textures/" + code + "." + ext,
+        "/textures/" + base + "." + ext,
         (img) => {
           img.colorSpace = THREE.SRGBColorSpace;
           img.wrapS = THREE.RepeatWrapping;
@@ -703,7 +706,7 @@ function buildScene3D(scene, params, opts) {
       );
     };
     // png -> jpg -> fallback epicea (si la texture de l'essence n'existe pas encore)
-    tryLoad("png", () => tryLoad("jpg", () => {
+    const chargeEssence = () => tryLoad(code, "png", () => tryLoad(code, "jpg", () => {
       if (code !== "bois_epicea") {
         loader.load("/textures/bois_epicea.png", (img) => {
           img.colorSpace = THREE.SRGBColorSpace;
@@ -716,11 +719,29 @@ function buildScene3D(scene, params, opts) {
         });
       }
     }));
+    if (codeFin.length > 0) {
+      tryLoad(codeFin, "png", () => tryLoad(codeFin, "jpg", chargeEssence));
+    } else {
+      chargeEssence();
+    }
   })();
   const roofMat = new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
   const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.9, metalness: 0.0, transparent: true, opacity: wallOpacity, side: THREE.DoubleSide });
   // Materiau BETON (murs par defaut : opaque, gris clair mat)
   const betonMat = new THREE.MeshStandardMaterial({ color: 0xb4b4b8, roughness: 0.95, metalness: 0.0 });
+  (function chargeBeton() {
+    const modeB = (opts && opts.mode) ? opts.mode : "technique";
+    if (modeB === "realiste") {
+      new THREE.TextureLoader().load("/textures/beton_mur.png", (img) => {
+        img.colorSpace = THREE.SRGBColorSpace;
+        img.wrapS = THREE.RepeatWrapping;
+        img.wrapT = THREE.RepeatWrapping;
+        betonMat.map = img;
+        betonMat.color.set(0xffffff);
+        betonMat.needsUpdate = true;
+      });
+    }
+  })();
   // Beton lisse (dalles, plus clair que les murs)
   const dalleMat = new THREE.MeshStandardMaterial({ color: 0xc8c8cc, roughness: 0.85, metalness: 0.0 });
 
