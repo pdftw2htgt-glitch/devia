@@ -7811,6 +7811,37 @@ return (
                         : <><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>}
                     </svg>
                   </button>
+                  {is3DFullscreen && (
+                    <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      {[{ id: "technique", label: "Vue technique" }, { id: "realiste", label: "Vue realiste" }].map(m => (
+                        <button key={"fsv-" + m.id} onClick={() => setMode3D(m.id)}
+                          style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: mode3D === m.id ? 600 : 500,
+                            border: "1px solid " + (mode3D === m.id ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.14)"),
+                            background: mode3D === m.id ? "rgba(240,192,64,0.16)" : "rgba(10,12,18,0.55)", backdropFilter: "blur(8px)",
+                            color: mode3D === m.id ? "#f0c040" : "#c8cad4" }}>
+                          {m.label}
+                        </button>
+                      ))}
+                      <select value={fond3D} onChange={e => setFond3D(e.target.value)}
+                        style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: "#d0d2dc" }}>
+                        <option value="noir">Fond noir</option>
+                        <option value="blanc">Fond blanc</option>
+                        <option value="soleil">Ensoleille</option>
+                        <option value="pluie">Pluie</option>
+                        <option value="nuit">Nuit</option>
+                      </select>
+                      {[{ id: "mini", label: "Section mini" }, { id: "conseillee", label: "Section conseillee" }].map(m => (
+                        <button key={"fss-" + m.id} onClick={() => setSectionMode(m.id)}
+                          style={{ padding: "7px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: sectionMode === m.id ? 600 : 500,
+                            border: "1px solid " + (sectionMode === m.id ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.14)"),
+                            background: sectionMode === m.id ? "rgba(240,192,64,0.16)" : "rgba(10,12,18,0.55)", backdropFilter: "blur(8px)",
+                            color: sectionMode === m.id ? "#f0c040" : "#c8cad4" }}>
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <Viewer3D params={{ ...view3DParams,
                     ouvrages: (view3DParams.ouvrages && ouvrageActif >= 0 && view3DParams.ouvrages[ouvrageActif])
                       ? [view3DParams.ouvrages[ouvrageActif]]
