@@ -251,10 +251,31 @@ function harmoniserSectionsDevis(parsed, sk, dS) {
   return parsed;
 }
 
+// REGLE METIER (Mathis 25/08) : le MOINS de fermes possible tant que la panne
+// tient le calcul EC5 sur la portee entre fermes. Une panne est d'une seule
+// piece jusqu'a 13 m (reference stock fournisseur). Repli : 3,5 m historique.
+function entraxeFermesOptimal(L, couverture, sk, pente, dS, solaire, altitude) {
+  try {
+    const ch = ec5DescenteCharge(couverture || "tuile_terre", sk || 0.45, pente || 35, dS || 0, solaire ? true : false);
+    for (let nInt = 1; nInt <= 10; nInt++) {
+      const entraxe = L / nInt;
+      if (entraxe > 13) continue;
+      const dim = dimensionnerPiece("Panne", {
+        portee: entraxe, entraxe: 1.5,
+        G: ch.G, Q: ch.Q, S: ch.S,
+        classeService: 2, typeBatiment: "courant", dureeVariable: "court",
+        altitude: altitude || 0, console: false,
+      });
+      if (dim) return entraxe;
+    }
+  } catch (e) { console.warn("[DEVIA] entraxeFermesOptimal:", e); }
+  return 3.5;
+}
+
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
   const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire));
-  const ENTRAXE_FERMES = 3.5;
+  const ENTRAXE_FERMES = entraxeFermesOptimal(((params && params.longueur) || 8), (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0);
   const PORTEE_MAX = 8;
   const result = {};
 
@@ -348,7 +369,8 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     } else {
       porteeCalc = g.longueurUnitMax;
     }
-    porteeCalc = Math.min(porteeCalc, PORTEE_MAX);
+    const clampable = (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") === false;
+    if (clampable) { porteeCalc = Math.min(porteeCalc, PORTEE_MAX); }
     const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                   : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
@@ -1099,7 +1121,8 @@ function buildScene3D(scene, params, opts) {
 setPiece("Ferme");
     // ===== FERMES (tous les ~3.5m) =====
     // Chaque ferme = entrait + 2 arbaletriers + poincon + 2 contrefiches
-    const nbFermes = Math.max(2, Math.ceil(L / 3.5));
+    const entraxeFOpt = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente, params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
+    const nbFermes = Math.max(1, Math.round(L / entraxeFOpt));
     const fermeXs = [];
     for (let i = 0; i <= nbFermes; i++) {
       const x = -L/2 + (i / nbFermes) * L;
