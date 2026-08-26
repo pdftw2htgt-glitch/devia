@@ -3889,6 +3889,7 @@ function Viewer3D({ params, onMetre }) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
+    while (mountRef.current.firstChild) { mountRef.current.removeChild(mountRef.current.firstChild); }
     mountRef.current.appendChild(renderer.domElement);
     // BOUSSOLE HUD : pastille en haut a droite, l'aiguille suit la camera (nord = -Z monde)
     mountRef.current.style.position = "relative";
@@ -3975,7 +3976,6 @@ function Viewer3D({ params, onMetre }) {
       scene.add(new THREE.Points(geoE, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.35, transparent: true, opacity: 0.8 })));
     }
     let metreVue = null;
-    console.log("[DEVIA][3D]", JSON.stringify({ L: params.longueur, lg: params.largeur, H: params.hauteur, pente: params.pente, type: params.type_projet, debord: params.debord, sk: params.sk, dS: params.dS, murs: params.murs, essence: params.essence, finition: params.finition, nbOuvrages: (params.ouvrages || []).length }));
 
     // Construction de la scene via fonction commune
     if (params.ouvrages && params.ouvrages.length > 1) {
@@ -4043,7 +4043,7 @@ function Viewer3D({ params, onMetre }) {
       } catch (e) { sectionsEC5 = {}; }
       const toRemove = [];
       scene.traverse((o) => { if (o.isMesh) toRemove.push(o); });
-      toRemove.forEach((o) => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
+      toRemove.forEach((o) => { if (o.parent) o.parent.remove(o); if (o.geometry) o.geometry.dispose(); });
       const buildResultViewer = buildScene3D(scene, params, {
         couverture: params.couverture, mode: params.mode3D,
         sections: sectionsEC5, sectionMode: params.sectionMode || "conseillee",
