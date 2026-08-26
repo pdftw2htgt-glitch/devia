@@ -3490,8 +3490,8 @@ const ZONES_DB = {
 };
 
 // ====== Interrupteur global mode clair (assombrit les couleurs codees en dur) ======
-let MODE_CLAIR = false;
-const cl = (sombre, clair) => (MODE_CLAIR ? clair : sombre);
+var MODE_CLAIR = false;
+function cl(sombre, clair) { return MODE_CLAIR ? clair : sombre; }
 
 // ====== Palettes Theme (Mode Clair / Sombre) ======
 // Placees AU DEBUT du fichier pour etre disponibles partout
