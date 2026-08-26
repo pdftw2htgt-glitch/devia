@@ -789,6 +789,27 @@ function buildScene3D(scene, params, opts) {
       transparent: !modeReal, opacity: modeReal ? 1.0 : 0.12,
       side: THREE.DoubleSide
     });
+    if (modeReal) {
+      const essB = ((opts && opts.essence) || (params && params.essence) || "sapin").toString().toLowerCase();
+      let codeB = "bardage_sapin";
+      if (essB.includes("chene")) codeB = "bardage_chene";
+      else if (essB.includes("douglas")) codeB = "bardage_douglas";
+      else if (essB.includes("sapin") || essB.includes("epicea")) codeB = "bardage_sapin";
+      else if (essB.includes("pin")) codeB = "bardage_pin";
+      const loaderB = new THREE.TextureLoader();
+      const chargeB = (base, onFail) => {
+        loaderB.load("/textures/" + base + ".png", (img) => {
+          img.colorSpace = THREE.SRGBColorSpace;
+          img.wrapS = THREE.RepeatWrapping;
+          img.wrapT = THREE.RepeatWrapping;
+          osbMat.map = img;
+          osbMat.color.set(0xffffff);
+          osbMat.needsUpdate = true;
+        }, undefined, () => { if (onFail) onFail(); });
+      };
+      if (codeB === "bardage_sapin") { chargeB("bardage_sapin"); }
+      else { chargeB(codeB, () => chargeB("bardage_sapin")); }
+    }
 
     // Un pan : longueur len le long de "x" ou "z", position fixe posFixe, ouvertures [{c,w,y0,y1}]
     const panOssature = (len, axe, posFixe, ouvertures) => {
@@ -858,6 +879,15 @@ function buildScene3D(scene, params, opts) {
         if (lS < 0.03 || hS < 0.03) return;
         const cm = (c0 + c1) / 2, ym = (yB + yH) / 2;
         const g = axe === "x" ? new THREE.BoxGeometry(lS, hS, ep) : new THREE.BoxGeometry(ep, hS, lS);
+        if (modeReal) {
+          const posA = g.attributes.position;
+          const uvA = g.attributes.uv;
+          for (let vi = 0; vi < posA.count; vi++) {
+            const la = (axe === "x") ? posA.getX(vi) : posA.getZ(vi);
+            uvA.setXY(vi, (cm + la) / 2.4, (ym + posA.getY(vi)) / 1.6);
+          }
+          uvA.needsUpdate = true;
+        }
         const m = new THREE.Mesh(g, osbMat);
         if (axe === "x") m.position.set(cm, ym, posFixe + dOsb);
         else m.position.set(posFixe + dOsb, ym, cm);
