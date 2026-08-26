@@ -3493,7 +3493,7 @@ const ZONES_DB = {
 // Placees AU DEBUT du fichier pour etre disponibles partout
 const themes = {
   dark: {
-    bgRoot: "radial-gradient(ellipse at top, rgba(30, 35, 50, 0.4) 0%, #08090c 50%), #08090c",
+    bgRoot: "#08090c",
     bgPage: "transparent",
     headerBg: "rgba(8, 9, 12, 0.7)",
     headerBorder: "rgba(255, 255, 255, 0.05)",
@@ -6801,7 +6801,7 @@ return (
     input:focus, select:focus, textarea:focus { border-color: rgba(240,192,64,0.4) !important; background: rgba(255,255,255,0.05) !important; }
     button:active { transform: scale(0.97); }
     .devia-page { animation: fadeInUp 0.35s ease-out; }
-    .devia-bg-noise { background-image: radial-gradient(at 0% 0%, rgba(240, 192, 64, 0.04) 0px, transparent 40%), radial-gradient(at 100% 100%, rgba(96, 165, 250, 0.03) 0px, transparent 40%); }
+    .devia-bg-noise { background-image: none; }
   `}</style>
 
   <header style={{
