@@ -7363,7 +7363,7 @@ return (
                 ) : null}
                 {editeurOuvert && editionVolumes ? (
                   <div onClick={() => setEditeurOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,10,18,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: "min(880px, 94vw)", maxHeight: "88vh", overflowY: "auto", background: "#14161f", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 20 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: "min(880px, 94vw)", maxHeight: "88vh", overflowY: "auto", background: cl("#14161f", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.12)", "1px solid rgba(0,0,0,0.12)"), borderRadius: 16, padding: 20 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                         <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 15, fontWeight: 700 }}>Decomposition manuelle</div>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -7900,7 +7900,7 @@ return (
                   ))}
                   <select value={fond3D} onChange={e => setFond3D(e.target.value)}
                     style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: "#181a26", color: cl("#d0d2dc", "#3a3e50") }}>
+                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: cl("#181a26", "#ffffff"), color: cl("#d0d2dc", "#3a3e50") }}>
                     <option value="noir">Fond noir</option>
                     <option value="blanc">Fond blanc</option>
                     <option value="soleil">Ensoleille</option>
@@ -7909,7 +7909,7 @@ return (
                   </select>
                   <select value={vue3D} onChange={e => setVue3D(e.target.value)}
                     style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: "#181a26", color: cl("#d0d2dc", "#3a3e50") }}>
+                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: cl("#181a26", "#ffffff"), color: cl("#d0d2dc", "#3a3e50") }}>
                     <option value="assemble">Assemblage</option>
                     <option value="explose">Vue eclatee</option>
                     <option value="sol">Range au sol</option>
