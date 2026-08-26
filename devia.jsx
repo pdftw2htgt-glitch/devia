@@ -7075,7 +7075,7 @@ return (
               )}
               {/* Dimensions */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
@@ -7093,7 +7093,7 @@ return (
               </div>
               {/* Pente */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
                   const degToPct = (d) => Math.round(Math.tan(d * Math.PI / 180) * 100);
@@ -7143,7 +7143,7 @@ return (
               </div>
               {/* Depasse de toiture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>cm (egouts et rives)</span>
@@ -7151,12 +7151,12 @@ return (
               </div>
               {/* Couverture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.couverture.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormCouverture(opt.val)}
-                      style={{ background: formCouverture === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formCouverture === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formCouverture === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formCouverture === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      style={{ background: formCouverture === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCouverture === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7164,12 +7164,12 @@ return (
               </div>
               {/* Essence */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Essence du bois</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Essence du bois</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.essence.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormEssence(opt.val)}
-                      style={{ background: formEssence === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formEssence === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formEssence === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formEssence === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      style={{ background: formEssence === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formEssence === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7191,12 +7191,12 @@ return (
               </div>
               {/* Combles */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {QUESTIONS.combles.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormCombles(opt.val)}
-                      style={{ background: formCombles === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formCombles === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? "#f0c040" : "#9ca0b8")}</span>
+                      style={{ background: formCombles === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCombles === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7204,14 +7204,14 @@ return (
               </div>
               {/* Type de murs */}
               <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","4_pans","monopente"].includes(typeEffectif) ? undefined : "none" }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de murs</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de murs</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {[
                     { val: "", label: "Beton / maconnerie existante" },
                     { val: "ossature_bois", label: "Ossature bois (45x145)" }
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormMurs(opt.val)}
-                      style={{ background: formMurs === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formMurs === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      style={{ background: formMurs === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formMurs === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -7219,7 +7219,7 @@ return (
               </div>
               {/* Panneaux solaires */}
               <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","monopente","4_pans","hangar"].includes(typeEffectif) ? undefined : "none" }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Panneaux solaires (surimposition)</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Panneaux solaires (surimposition)</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                   {[
                     { val: "", label: "Aucun" },
@@ -7228,7 +7228,7 @@ return (
                     { val: "9", label: "9 kWc (18 pan.)" }
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormSolaire(opt.val)}
-                      style={{ background: formSolaire === opt.val ? "rgba(240,192,64,0.09)" : "rgba(255,255,255,0.02)", border: formSolaire === opt.val ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formSolaire === opt.val ? "#f0c040" : "#d0d2dc", textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      style={{ background: formSolaire === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formSolaire === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formSolaire === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -7664,7 +7664,7 @@ return (
                     style={{
                       background: ouvrageActif === opt.idx ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)",
                       border: ouvrageActif === opt.idx ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                      color: ouvrageActif === opt.idx ? "#f0c040" : "#9ca0b8",
+                      color: ouvrageActif === opt.idx ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
                       borderRadius: 999, padding: "6px 14px", cursor: "pointer",
                       fontSize: 12, fontWeight: 600, transition: "all 0.15s"
                     }}>
@@ -8148,7 +8148,7 @@ return (
               style={{
                 background: selectedGroupe === "all" ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
                 border: "1px solid " + (selectedGroupe === "all" ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
-                color: selectedGroupe === "all" ? "#f0c040" : "#9ca0b8",
+                color: selectedGroupe === "all" ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
                 borderRadius: 999,
                 padding: "7px 14px",
                 fontSize: 12,
@@ -8186,7 +8186,7 @@ return (
                       gap: 7,
                       transition: "all 0.15s",
                       letterSpacing: "0.005em",
-                      color: isActive ? "#f0c040" : "#9ca0b8",
+                      color: isActive ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
                       cursor: "pointer"
                     }}
                     onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
@@ -8555,7 +8555,7 @@ return (
                                   onClick={(e) => { e.stopPropagation(); assignProjectToGroup(p.id, null); }}
                                   style={{
                                     width: "100%", background: "transparent", border: "none",
-                                    color: !p.groupe_id ? "#f0c040" : "#9ca0b8", textAlign: "left",
+                                    color: !p.groupe_id ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"), textAlign: "left",
                                     padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
                                     display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s",
                                     fontWeight: !p.groupe_id ? 600 : 500
