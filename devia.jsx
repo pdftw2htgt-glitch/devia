@@ -2717,7 +2717,7 @@ import autoTable from "jspdf-autotable";
 
 const T = {
 bg: "#08090c", surface: "#0f1117", card: "#13161f", border: "#1e2231",
-accent: "#f0c040", accentLo: "#f0c04018", text: "#e8eaf2", muted: "#545870",
+accent: "#f0c040", accentLo: "#f0c04018", text: cl("#e8eaf2", "#1a1d2a"), muted: "#545870",
 dim: "#2a2e40", ok: "#3ecf8e", blue: "#60a5fa", red: "#ef4444",
 purple: "#a78bfa", orange: "#f97316",
 };
@@ -3489,6 +3489,10 @@ const ZONES_DB = {
 "luxembourg": { neige: "A2", vent: "2", sismique: "1" },
 };
 
+// ====== Interrupteur global mode clair (assombrit les couleurs codees en dur) ======
+let MODE_CLAIR = false;
+const cl = (sombre, clair) => (MODE_CLAIR ? clair : sombre);
+
 // ====== Palettes Theme (Mode Clair / Sombre) ======
 // Placees AU DEBUT du fichier pour etre disponibles partout
 const themes = {
@@ -3496,23 +3500,23 @@ const themes = {
     bgRoot: "#08090c",
     bgPage: "transparent",
     headerBg: "rgba(8, 9, 12, 0.7)",
-    headerBorder: "rgba(255, 255, 255, 0.05)",
+    headerBorder: cl("rgba(255, 255, 255, 0.05)", "rgba(0, 0, 0, 0.08)"),
     cardBg: "rgba(22, 25, 35, 0.55)",
-    cardBorder: "rgba(255, 255, 255, 0.06)",
+    cardBorder: cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"),
     cardShadow: "0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 32px rgba(0,0,0,0.25)",
     inputBg: "rgba(255, 255, 255, 0.03)",
     inputBorder: "rgba(255, 255, 255, 0.08)",
-    btnSecBg: "rgba(255, 255, 255, 0.04)",
+    btnSecBg: cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
     btnSecBorder: "rgba(255, 255, 255, 0.08)",
-    navBg: "rgba(255,255,255,0.03)",
-    navBorder: "rgba(255,255,255,0.06)",
-    navTabActive: "rgba(255,255,255,0.08)",
+    navBg: cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"),
+    navBorder: cl("rgba(255,255,255,0.06)", "rgba(0,0,0,0.09)"),
+    navTabActive: cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)"),
     navTabActiveText: "#ffffff",
-    navTabText: "#7a7d92",
-    navTabHover: "#d0d2dc",
-    textPrimary: "#e8eaf2",
-    textSecondary: "#9ca0b8",
-    textMuted: "#7a7d92",
+    navTabText: cl("#7a7d92", "#5f6374"),
+    navTabHover: cl("#d0d2dc", "#3a3e50"),
+    textPrimary: cl("#e8eaf2", "#1a1d2a"),
+    textSecondary: cl("#9ca0b8", "#565a6c"),
+    textMuted: cl("#7a7d92", "#5f6374"),
     textFaint: "#545870",
     gold: "#f0c040",
     goldDark: "#e0a020",
@@ -3784,12 +3788,12 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
   if (!data || !data.groupes || data.groupes.length === 0) {
     return null;
   }
-  const card = { background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, marginTop: 12 };
+  const card = { background: "rgba(255,255,255,0.02)", border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"), borderRadius: 12, padding: 16, marginTop: 12 };
   const stat = { flex: 1, minWidth: 120, background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.18)", borderRadius: 10, padding: "12px 14px" };
   const statVal = { fontSize: 22, fontWeight: 700, color: "#f0c040", fontVariantNumeric: "tabular-nums" };
-  const statLbl = { fontSize: 11, color: "#7a7d92", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" };
-  const th = { textAlign: "left", padding: "8px 10px", fontSize: 11, color: "#7a7d92", textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: "1px solid rgba(255,255,255,0.08)" };
-  const td = { padding: "9px 10px", fontSize: 13, color: "#d0d2dc", borderBottom: "1px solid rgba(255,255,255,0.04)", fontVariantNumeric: "tabular-nums" };
+  const statLbl = { fontSize: 11, color: cl("#7a7d92", "#5f6374"), marginTop: 2, textTransform: "uppercase", letterSpacing: "0.04em" };
+  const th = { textAlign: "left", padding: "8px 10px", fontSize: 11, color: cl("#7a7d92", "#5f6374"), textTransform: "uppercase", letterSpacing: "0.03em", borderBottom: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)") };
+  const td = { padding: "9px 10px", fontSize: 13, color: cl("#d0d2dc", "#3a3e50"), borderBottom: "1px solid rgba(255,255,255,0.04)", fontVariantNumeric: "tabular-nums" };
 
   const fmt = (n, d) => Number(n).toLocaleString("fr-FR", { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -3805,7 +3809,7 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
 
       {/* Tableau de metre */}
       <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#e8eaf2", marginBottom: 10 }}>Metre detaille</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 10 }}>Metre detaille</div>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -3823,7 +3827,7 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
             <tbody>
               {data.groupes.map((g, i) => (
                 <tr key={i}>
-                  <td style={{ ...td, color: "#e8eaf2", fontWeight: 500 }}>{g.nom}</td>
+                  <td style={{ ...td, color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 500 }}>{g.nom}</td>
                   <td style={td}>{g.section[0]} x {g.section[1]}</td>
                   <td style={{ ...td, textAlign: "right" }}>{g.nombre}</td>
                   <td style={{ ...td, textAlign: "right" }}>{fmt(g.longueurUnitMax, 2)}</td>
@@ -3838,9 +3842,9 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
                     const consSel = miniSel ? false : true;
                     return (
                       <span>
-                        <span style={{ color: miniSel ? "#60a5fa" : "#7a7d92", fontWeight: miniSel ? 700 : 400 }}>{dim.mini.b}x{dim.mini.h} {dim.mini.classe}</span>
+                        <span style={{ color: miniSel ? "#60a5fa" : cl("#7a7d92", "#5f6374"), fontWeight: miniSel ? 700 : 400 }}>{dim.mini.b}x{dim.mini.h} {dim.mini.classe}</span>
                         <span style={{ color: "#545870" }}> / </span>
-                        <span style={{ color: consSel ? "#60a5fa" : "#7a7d92", fontWeight: consSel ? 700 : 400 }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
+                        <span style={{ color: consSel ? "#60a5fa" : cl("#7a7d92", "#5f6374"), fontWeight: consSel ? 700 : 400 }}>{dim.conseillee.b}x{dim.conseillee.h} {dim.conseillee.classe}</span>
                       </span>
                     );
                   })()}</td>
@@ -3857,7 +3861,7 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
 
       {/* Assemblages recommandes */}
       <div style={card}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#e8eaf2", marginBottom: 10 }}>Assemblages recommandes (types)</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 10 }}>Assemblages recommandes (types)</div>
         {data.groupes.map((g, i) => (
           <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: i < data.groupes.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
             <div style={{ minWidth: 130, fontSize: 13, fontWeight: 600, color: "#f0c040" }}>{g.nom}</div>
@@ -4285,7 +4289,7 @@ options: [
 };
 
 // Mapping des identifiants vers des SVG (style line icons, stroke 2px)
-function renderIcon(name, size = 20, color = "#e8eaf2") {
+function renderIcon(name, size = 20, color = cl("#e8eaf2", "#1a1d2a")) {
   const stroke = color;
   const sw = "2";
   const svgs = {
@@ -4315,7 +4319,7 @@ return (
 <div style={{ padding: 24, maxWidth: 600, margin: "0 auto" }}>
 <div style={{ textAlign: "center", marginBottom: 28 }}>
 <div style={{ marginBottom: 8, display: "flex", justifyContent: "center" }}>{renderIcon("help-circle", 40, "#f0c040")}</div>
-<div style={{ fontSize: 20, fontWeight: 700, color: "#e8eaf2" }}>Quelques precisions</div>
+<div style={{ fontSize: 20, fontWeight: 700, color: cl("#e8eaf2", "#1a1d2a") }}>Quelques precisions</div>
 <div style={{ color: "#545870", fontSize: 14, marginTop: 4 }}>Pour un devis precis, quelques informations manquantes</div>
 </div>
 {missing.map(key => (
@@ -4328,10 +4332,10 @@ style={{
 background: answers[key] === opt.val ? "#f0c04018" : "#13161f",
 border: answers[key] === opt.val ? "1px solid #f0c040" : "1px solid #1e2231",
 borderRadius: 8, padding: "12px 10px", cursor: "pointer",
-color: answers[key] === opt.val ? "#f0c040" : "#e8eaf2",
+color: answers[key] === opt.val ? "#f0c040" : cl("#e8eaf2", "#1a1d2a"),
 textAlign: "left", display: "flex", alignItems: "center", gap: 8, fontSize: 14,
 }}>
-<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20 }}>{renderIcon(opt.icon, 18, "#e8eaf2")}</span>{opt.label}
+<span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20 }}>{renderIcon(opt.icon, 18, cl("#e8eaf2", "#1a1d2a"))}</span>{opt.label}
 </button>
 ))}
 </div>
@@ -4400,7 +4404,7 @@ lastCat = r.cat;
 return (
 <tr key={i} style={{ borderBottom: "1px solid #1e2231", background: i % 2 === 0 ? "transparent" : "#0f1117" }}>
 <td style={{ padding: "7px 12px", color: showCat ? "#60a5fa" : "transparent", fontSize: 12, fontWeight: 600 }}>{r.cat}</td>
-<td style={{ padding: "7px 12px", color: "#e8eaf2" }}>{r.item}</td>
+<td style={{ padding: "7px 12px", color: cl("#e8eaf2", "#1a1d2a") }}>{r.item}</td>
 <td style={{ padding: "7px 12px", color: "#f0c040" }}>{r.val}</td>
 <td style={{ padding: "7px 12px", color: r.ok ? "#3ecf8e" : "#ef4444", fontSize: 16 }}>{r.ok ? "OK" : "!!"}</td>
 </tr>
@@ -4410,7 +4414,7 @@ return (
 </table>
 <div style={{ marginTop: 16, padding: 12, background: "#13161f", borderRadius: 8, border: "1px solid #3ecf8e" }}>
 <span style={{ color: "#3ecf8e", fontWeight: 700 }}>Conclusion : </span>
-<span style={{ color: "#e8eaf2" }}>Section {section_choisie}x{section_choisie} mm en C24 - espacement fermes 2.0 m.</span>
+<span style={{ color: cl("#e8eaf2", "#1a1d2a") }}>Section {section_choisie}x{section_choisie} mm en C24 - espacement fermes 2.0 m.</span>
 </div>
 </div>
 );
@@ -4500,7 +4504,7 @@ const MATERIAL_TYPES = {
   },
   autre: {
     label: "Autre",
-    color: "#7a7d92",
+    color: cl("#7a7d92", "#5f6374"),
     keywords: [],
     showDimensions: true,
     suggestedUnits: ["u", "ml", "m2", "m3", "kg", "h", "forfait"],
@@ -4648,6 +4652,7 @@ const [commune, setCommune] = useState("");
 
   // Styles dynamiques selon le theme
   const t = themes[themeMode] || themes.dark;
+  MODE_CLAIR = themeMode === "light";
   const cardStyle = {
     background: t.cardBg,
     backdropFilter: "blur(24px) saturate(140%)",
@@ -5075,7 +5080,7 @@ const fileInputRef = useRef(null);
   };
 
   // EDITEUR DE DECOMPOSITION : les valeurs saisies par l'utilisateur font foi
-  const miniInp = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, color: "#e8eaf2", fontSize: 11.5, padding: "3px 6px" };
+  const miniInp = { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 6, color: cl("#e8eaf2", "#1a1d2a"), fontSize: 11.5, padding: "3px 6px" };
   const majVolume = (i, champ, val) => {
     setEditionVolumes(prev => prev.map((v, k) => k === i ? { ...v, [champ]: val === "" ? undefined : val } : v));
   };
@@ -5130,7 +5135,7 @@ const fileInputRef = useRef(null);
   };
   // Une ligne d'edition d'un volume (utilisee par le schema ET l'onglet Tout editer)
   const ligneVolume = (v, i) => (
-    <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 6, fontSize: 11.5, color: "#d0d2dc" }}>
+    <div key={i} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 6, fontSize: 11.5, color: cl("#d0d2dc", "#3a3e50") }}>
       <span style={{ color: "#f0c040", fontWeight: 700, width: 24 }}>V{i + 1}</span>
       <select value={v.type} onChange={e => majVolume(i, "type", e.target.value)} style={{ ...miniInp, cursor: "pointer" }}>{["traditionnelle", "fermette", "monopente", "carport", "hangar", "appentis", "4_pans", "terrasse", "etage", "balcon", "garde_corps", "sas"].map(t => <option key={t} value={t}>{t}</option>)}</select>
       <input value={v.longueur === undefined ? "" : v.longueur} onChange={e => majVolume(i, "longueur", e.target.value)} style={{ ...miniInp, width: 52 }} />
@@ -6832,7 +6837,7 @@ return (
         }}
       />
       <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>DEVIA</span>
-      <span style={{ color: "#545870", fontSize: 11, fontWeight: 500, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid rgba(255,255,255,0.08)" }}>Devis charpente IA</span>
+      <span style={{ color: "#545870", fontSize: 11, fontWeight: 500, marginLeft: 4, paddingLeft: 12, borderLeft: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)") }}>Devis charpente IA</span>
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
     <nav style={{
@@ -6877,7 +6882,7 @@ return (
         ) : !result ? (
           <div>
             <div style={{ marginBottom: 20, paddingTop: 4 }}>
-              <p style={{ color: "#7a7d92", fontSize: 14, lineHeight: 1.55 }}>Décrivez votre projet en langage naturel. DEVIA génère un devis professionnel et une visualisation 3D.</p>
+              <p style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 14, lineHeight: 1.55 }}>Décrivez votre projet en langage naturel. DEVIA génère un devis professionnel et une visualisation 3D.</p>
             </div>
 
             {/* Toggle Neuf / Rénovation */}
@@ -6887,23 +6892,23 @@ return (
               justifyContent: "space-between",
               marginBottom: 20,
               padding: "14px 18px",
-              background: themeMode === "light" ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)",
-              border: themeMode === "light" ? "1px solid rgba(0, 0, 0, 0.08)" : "1px solid rgba(255, 255, 255, 0.05)",
+              background: themeMode === "light" ? "rgba(0, 0, 0, 0.03)" : cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
+              border: themeMode === "light" ? "1px solid rgba(0, 0, 0, 0.08)" : cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
               borderRadius: 12
             }}>
               <div>
-                <div style={{ color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 3 }}>
+                <div style={{ color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 3 }}>
                   Type de travaux
                 </div>
-                <div style={{ color: themeMode === "light" ? "#1a1d2a" : "#e8eaf2", fontSize: 13, fontWeight: 500 }}>
+                <div style={{ color: themeMode === "light" ? "#1a1d2a" : cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500 }}>
                   {typeTravaux === "neuf" ? "Construction neuve" : "Rénovation"}
                 </div>
               </div>
               <div style={{
                 display: "inline-flex",
                 gap: 2,
-                background: themeMode === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.03)",
-                border: themeMode === "light" ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,255,255,0.06)",
+                background: themeMode === "light" ? "rgba(0,0,0,0.05)" : cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"),
+                border: themeMode === "light" ? "1px solid rgba(0,0,0,0.08)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"),
                 borderRadius: 999,
                 padding: 4
               }}>
@@ -6913,9 +6918,9 @@ return (
                 ].map(t => (
                   <button key={t.id} type="button" onClick={() => setTypeTravaux(t.id)}
                     style={{
-                      background: typeTravaux === t.id ? (themeMode === "light" ? "#1a1d2a" : "rgba(255,255,255,0.08)") : "transparent",
+                      background: typeTravaux === t.id ? (themeMode === "light" ? "#1a1d2a" : cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)")) : "transparent",
                       border: "none",
-                      color: typeTravaux === t.id ? "#ffffff" : (themeMode === "light" ? "#474b5c" : "#7a7d92"),
+                      color: typeTravaux === t.id ? "#ffffff" : (themeMode === "light" ? "#474b5c" : cl("#7a7d92", "#5f6374")),
                       borderRadius: 999,
                       padding: "7px 16px",
                       cursor: "pointer",
@@ -6928,8 +6933,8 @@ return (
                       gap: 7,
                       boxShadow: typeTravaux === t.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
                     }}
-                    onMouseEnter={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = themeMode === "light" ? "#1a1d2a" : "#d0d2dc"; }}
-                    onMouseLeave={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = themeMode === "light" ? "#474b5c" : "#7a7d92"; }}>
+                    onMouseEnter={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = themeMode === "light" ? "#1a1d2a" : cl("#d0d2dc", "#3a3e50"); }}
+                    onMouseLeave={(e) => { if (typeTravaux !== t.id) e.currentTarget.style.color = themeMode === "light" ? "#474b5c" : cl("#7a7d92", "#5f6374"); }}>
                     <span style={{
                       width: 6, height: 6, borderRadius: "50%",
                       background: typeTravaux === t.id ? t.color : (themeMode === "light" ? "#c8cbd8" : "#3a3d4f"),
@@ -6942,7 +6947,7 @@ return (
             </div>
             <div style={cardStyle}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   Nom du projet <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span>
                 </label>
                 <input
@@ -6956,7 +6961,7 @@ return (
               </div>
               {/* Groupe (categorie) */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   Groupe <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span>
                 </label>
                 <select value={formGroupe} onChange={e => setFormGroupe(e.target.value)}
@@ -6974,12 +6979,12 @@ return (
               </div>
               {/* Type de structure (menu deroulant) */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   Type de structure <span style={{ color: "#f0c040" }}>*</span>
                 </label>
                 <select value={formType} onChange={e => setFormType(e.target.value)}
                   style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-                    color: formType ? "#e8eaf2" : "#545870",
+                    color: formType ? cl("#e8eaf2", "#1a1d2a") : "#545870",
                     backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
                     backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
                   <option value="">Choisir un type de structure...</option>
@@ -6992,12 +6997,12 @@ return (
               {/* MODE STRUCTURE PERSONNALISEE : sous-type + liste des ouvrages */}
               {formType === "custom" && (
                 <div style={{ marginBottom: 18, padding: 14, background: "rgba(240,192,64,0.04)", border: "1px solid rgba(240,192,64,0.18)", borderRadius: 12 }}>
-                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                     Ouvrage n°{formStructures.length + 1} — type
                   </label>
                   <select value={formSousType} onChange={e => setFormSousType(e.target.value)}
                     style={{ ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none",
-                      color: formSousType ? "#e8eaf2" : "#545870",
+                      color: formSousType ? cl("#e8eaf2", "#1a1d2a") : "#545870",
                       backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%237a7d92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\")",
                       backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center", paddingRight: 36 }}>
                     <option value="">Type de cet ouvrage...</option>
@@ -7049,8 +7054,8 @@ return (
                       setFormPente(""); setFormCouverture(""); setFormCombles("");
                     }}
                     style={{ marginTop: 10, width: "100%", padding: "10px 14px", borderRadius: 9, cursor: "pointer",
-                      background: (!formSousType || !formLongueur || !formLargeur) ? "rgba(255,255,255,0.03)" : "rgba(240,192,64,0.12)",
-                      border: "1px solid " + ((!formSousType || !formLongueur || !formLargeur) ? "rgba(255,255,255,0.08)" : "rgba(240,192,64,0.5)"),
+                      background: (!formSousType || !formLongueur || !formLargeur) ? cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)") : "rgba(240,192,64,0.12)",
+                      border: "1px solid " + ((!formSousType || !formLongueur || !formLargeur) ? cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)") : "rgba(240,192,64,0.5)"),
                       color: (!formSousType || !formLongueur || !formLargeur) ? "#545870" : "#f0c040",
                       fontSize: 13, fontWeight: 600 }}>
                     + Ajouter cette structure
@@ -7061,8 +7066,8 @@ return (
                   {formStructures.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       {formStructures.map((s, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, marginBottom: 6 }}>
-                          <div style={{ fontSize: 12.5, color: "#d0d2dc", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 10px", background: cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"), border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"), borderRadius: 8, marginBottom: 6 }}>
+                          <div style={{ fontSize: 12.5, color: cl("#d0d2dc", "#3a3e50"), minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             <span style={{ color: "#f0c040", fontWeight: 700 }}>{i + 1}.</span> {s.desc}
                           </div>
                           <button type="button" onClick={() => setFormStructures(prev => prev.filter((_, j) => j !== i))}
@@ -7075,7 +7080,7 @@ return (
               )}
               {/* Dimensions */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <div>
                     <input value={formLongueur} onChange={e => setFormLongueur(e.target.value)} type="number" placeholder="Longueur" style={inputStyle} />
@@ -7093,7 +7098,7 @@ return (
               </div>
               {/* Pente */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
                   const degToPct = (d) => Math.round(Math.tan(d * Math.PI / 180) * 100);
@@ -7116,10 +7121,10 @@ return (
                       <div style={{ display: "flex", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
                         <button type="button" onClick={() => setFormPenteUnite("deg")}
                           style={{ padding: "7px 12px", cursor: "pointer", border: "none", fontSize: 13, fontWeight: 600,
-                            background: !isPct ? "rgba(240,192,64,0.15)" : "transparent", color: !isPct ? "#f0c040" : "#7a7d92" }}>°</button>
+                            background: !isPct ? "rgba(240,192,64,0.15)" : "transparent", color: !isPct ? "#f0c040" : cl("#7a7d92", "#5f6374") }}>°</button>
                         <button type="button" onClick={() => setFormPenteUnite("pourcent")}
                           style={{ padding: "7px 12px", cursor: "pointer", border: "none", fontSize: 13, fontWeight: 600,
-                            background: isPct ? "rgba(240,192,64,0.15)" : "transparent", color: isPct ? "#f0c040" : "#7a7d92" }}>%</button>
+                            background: isPct ? "rgba(240,192,64,0.15)" : "transparent", color: isPct ? "#f0c040" : cl("#7a7d92", "#5f6374") }}>%</button>
                       </div>
                       {/* Equivalence affichee */}
                       {formPente !== "" && (
@@ -7133,7 +7138,7 @@ return (
                           const actif = formPente === String(degVal);
                           return (
                             <button key={p} type="button" onClick={() => setFormPente(String(degVal))}
-                              style={{ background: actif ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)", border: actif ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "6px 11px", cursor: "pointer", color: actif ? "#f0c040" : "#7a7d92", fontSize: 12, fontWeight: 600 }}>{p}{isPct ? "%" : "°"}</button>
+                              style={{ background: actif ? "rgba(240,192,64,0.12)" : cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"), border: actif ? "1px solid rgba(240,192,64,0.5)" : cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), borderRadius: 7, padding: "6px 11px", cursor: "pointer", color: actif ? "#f0c040" : cl("#7a7d92", "#5f6374"), fontSize: 12, fontWeight: 600 }}>{p}{isPct ? "%" : "°"}</button>
                           );
                         })}
                       </div>
@@ -7143,7 +7148,7 @@ return (
               </div>
               {/* Depasse de toiture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>cm (egouts et rives)</span>
@@ -7151,12 +7156,12 @@ return (
               </div>
               {/* Couverture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de couverture</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.couverture.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormCouverture(opt.val)}
-                      style={{ background: formCouverture === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCouverture === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
+                      style={{ background: formCouverture === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCouverture === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formCouverture === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7164,12 +7169,12 @@ return (
               </div>
               {/* Essence */}
               <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Essence du bois</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Essence du bois</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {QUESTIONS.essence.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormEssence(opt.val)}
-                      style={{ background: formEssence === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formEssence === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
+                      style={{ background: formEssence === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formEssence === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 12px", cursor: "pointer", color: formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, flexShrink: 0 }}>{renderIcon(opt.icon, 17, formEssence === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7191,12 +7196,12 @@ return (
               </div>
               {/* Combles */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Utilisation des combles</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {QUESTIONS.combles.options.map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormCombles(opt.val)}
-                      style={{ background: formCombles === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCombles === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"))}</span>
+                      style={{ background: formCombles === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCombles === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")))}</span>
                       {opt.label}
                     </button>
                   ))}
@@ -7204,14 +7209,14 @@ return (
               </div>
               {/* Type de murs */}
               <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","4_pans","monopente"].includes(typeEffectif) ? undefined : "none" }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de murs</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Type de murs</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {[
                     { val: "", label: "Beton / maconnerie existante" },
                     { val: "ossature_bois", label: "Ossature bois (45x145)" }
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormMurs(opt.val)}
-                      style={{ background: formMurs === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formMurs === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      style={{ background: formMurs === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formMurs === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -7219,7 +7224,7 @@ return (
               </div>
               {/* Panneaux solaires */}
               <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","monopente","4_pans","hangar"].includes(typeEffectif) ? undefined : "none" }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : "#9ca0b8", fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Panneaux solaires (surimposition)</label>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Panneaux solaires (surimposition)</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                   {[
                     { val: "", label: "Aucun" },
@@ -7228,7 +7233,7 @@ return (
                     { val: "9", label: "9 kWc (18 pan.)" }
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormSolaire(opt.val)}
-                      style={{ background: formSolaire === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formSolaire === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.06)"), borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formSolaire === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : "#d0d2dc"), textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      style={{ background: formSolaire === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formSolaire === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formSolaire === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
@@ -7236,7 +7241,7 @@ return (
               </div>
               {/* Precisions libres */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Precisions <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span></label>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Precisions <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(optionnel)</span></label>
                 <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                   placeholder="Details supplementaires : debord de toit, contraintes particulieres, finitions..."
                   rows={2} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
@@ -7259,11 +7264,11 @@ return (
                           }}
                           style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", cursor: "pointer",
                             background: "transparent", border: "none", borderBottom: i < communeSuggestions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                            color: "#d0d2dc", fontSize: 13 }}
+                            color: cl("#d0d2dc", "#3a3e50"), fontSize: 13 }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(240,192,64,0.08)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.ville || s.label}</span>
-                          {s.context && <span style={{ color: "#7a7d92", fontSize: 12 }}> — {s.context}</span>}
+                          {s.context && <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}> — {s.context}</span>}
                         </button>
                       ))}
                     </div>
@@ -7282,10 +7287,10 @@ return (
                 </div>
               )}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
                 <div onClick={() => fileInputRef.current && fileInputRef.current.click()}
                   style={{ border: "2px dashed #1e2231", borderRadius: 8, padding: 20, textAlign: "center", cursor: "pointer", color: "#545870" }}>
-                  <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>{renderIcon("paperclip", 24, "#7a7d92")}</div>
+                  <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>{renderIcon("paperclip", 24, cl("#7a7d92", "#5f6374"))}</div>
                   <div style={{ fontSize: 13 }}>Cliquez pour ajouter des fichiers</div>
                   {files.length > 0 && (
                     <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
@@ -7318,8 +7323,8 @@ return (
                       style={{
                         width: "100%", padding: "10px 14px", borderRadius: 9,
                         cursor: (loading || !formType || !formLongueur || !commune.trim()) ? "not-allowed" : "pointer",
-                        background: (loading || !formType || !formLongueur || !commune.trim()) ? "rgba(255,255,255,0.03)" : "rgba(240,192,64,0.14)",
-                        border: "1px solid " + ((loading || !formType || !formLongueur || !commune.trim()) ? "rgba(255,255,255,0.08)" : "rgba(240,192,64,0.55)"),
+                        background: (loading || !formType || !formLongueur || !commune.trim()) ? cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)") : "rgba(240,192,64,0.14)",
+                        border: "1px solid " + ((loading || !formType || !formLongueur || !commune.trim()) ? cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)") : "rgba(240,192,64,0.55)"),
                         color: (loading || !formType || !formLongueur || !commune.trim()) ? "#545870" : "#f0c040",
                         fontSize: 13, fontWeight: 700
                       }}>
@@ -7360,10 +7365,10 @@ return (
                   <div onClick={() => setEditeurOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(8,10,18,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
                     <div onClick={e => e.stopPropagation()} style={{ width: "min(880px, 94vw)", maxHeight: "88vh", overflowY: "auto", background: "#14161f", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 16, padding: 20 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                        <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 700 }}>Decomposition manuelle</div>
+                        <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 15, fontWeight: 700 }}>Decomposition manuelle</div>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button type="button" onClick={() => setModeToutEditer(false)} style={{ ...miniInp, cursor: "pointer", fontWeight: 600, color: modeToutEditer ? "#9ca0b8" : "#f0c040", borderColor: modeToutEditer ? "rgba(255,255,255,0.14)" : "rgba(240,192,64,0.5)" }}>Schema</button>
-                          <button type="button" onClick={() => setModeToutEditer(true)} style={{ ...miniInp, cursor: "pointer", fontWeight: 600, color: modeToutEditer ? "#f0c040" : "#9ca0b8", borderColor: modeToutEditer ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.14)" }}>Tout editer</button>
+                          <button type="button" onClick={() => setModeToutEditer(false)} style={{ ...miniInp, cursor: "pointer", fontWeight: 600, color: modeToutEditer ? cl("#9ca0b8", "#565a6c") : "#f0c040", borderColor: modeToutEditer ? "rgba(255,255,255,0.14)" : "rgba(240,192,64,0.5)" }}>Schema</button>
+                          <button type="button" onClick={() => setModeToutEditer(true)} style={{ ...miniInp, cursor: "pointer", fontWeight: 600, color: modeToutEditer ? "#f0c040" : cl("#9ca0b8", "#565a6c"), borderColor: modeToutEditer ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.14)" }}>Tout editer</button>
                           <button type="button" onClick={() => setEditeurOuvert(false)} style={{ ...miniInp, cursor: "pointer", fontWeight: 700 }}>Fermer</button>
                         </div>
                       </div>
@@ -7383,8 +7388,8 @@ return (
                               <svg viewBox={(minX - pad) + " " + (minZ - pad) + " " + (maxX - minX + 2 * pad) + " " + (maxZ - minZ + 2 * pad)} style={{ width: "100%", maxHeight: 300, background: "rgba(255,255,255,0.02)", borderRadius: 10, marginBottom: 10 }}>
                                 {rects.map((r, i) => r ? (
                                   <g key={i} onClick={() => setVolumeSel(i)} style={{ cursor: "pointer" }}>
-                                    <rect x={r.x - r.hx} y={r.z - r.hz} width={2 * r.hx} height={2 * r.hz} fill={volumeSel === i ? "rgba(240,192,64,0.22)" : "rgba(255,255,255,0.06)"} stroke={volumeSel === i ? "#f0c040" : "rgba(255,255,255,0.4)"} strokeWidth="0.12" />
-                                    <text x={r.x} y={r.z} textAnchor="middle" dominantBaseline="middle" fill={volumeSel === i ? "#f0c040" : "#d0d2dc"} fontSize="0.9" fontWeight="700">V{i + 1}</text>
+                                    <rect x={r.x - r.hx} y={r.z - r.hz} width={2 * r.hx} height={2 * r.hz} fill={volumeSel === i ? "rgba(240,192,64,0.22)" : cl("rgba(255,255,255,0.06)", "rgba(0,0,0,0.09)")} stroke={volumeSel === i ? "#f0c040" : "rgba(255,255,255,0.4)"} strokeWidth="0.12" />
+                                    <text x={r.x} y={r.z} textAnchor="middle" dominantBaseline="middle" fill={volumeSel === i ? "#f0c040" : cl("#d0d2dc", "#3a3e50")} fontSize="0.9" fontWeight="700">V{i + 1}</text>
                                     <text x={r.x} y={r.z + 1.2} textAnchor="middle" fill="#9ca0b8" fontSize="0.6">{(2 * r.hx).toFixed(1)} x {(2 * r.hz).toFixed(1)}</text>
                                   </g>
                                 ) : null)}
@@ -7396,7 +7401,7 @@ return (
                               </svg>
                             );
                           })()}
-                          <div style={{ color: "#9ca0b8", fontSize: 11, marginBottom: 6 }}>Clique une structure du schema pour l'editer :</div>
+                          <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6 }}>Clique une structure du schema pour l'editer :</div>
                           {editionVolumes[volumeSel] ? ligneVolume(editionVolumes[volumeSel], volumeSel) : null}
                         </div>
                       )}
@@ -7423,7 +7428,7 @@ return (
               )}
               {/* Selecteur de catalogue - v2 cards elegantes */}
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 12, marginBottom: 12, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Catalogue a utiliser pour ce devis</label>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, marginBottom: 12, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Catalogue a utiliser pour ce devis</label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   {/* Card MARCHE */}
                   <div onClick={() => setCatalogChoice("marche")}
@@ -7431,36 +7436,36 @@ return (
                       position: "relative",
                       padding: 16,
                       borderRadius: 12,
-                      background: catalogChoice === "marche" ? "rgba(240, 192, 64, 0.06)" : "rgba(255, 255, 255, 0.02)",
-                      border: catalogChoice === "marche" ? "1px solid rgba(240, 192, 64, 0.45)" : "1px solid rgba(255, 255, 255, 0.06)",
+                      background: catalogChoice === "marche" ? "rgba(240, 192, 64, 0.06)" : cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
+                      border: catalogChoice === "marche" ? "1px solid rgba(240, 192, 64, 0.45)" : cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                       cursor: "pointer",
                       transition: "all 0.18s",
                       boxShadow: catalogChoice === "marche" ? "0 0 0 3px rgba(240, 192, 64, 0.08), inset 0 0 0 1px rgba(240, 192, 64, 0.1)" : "none"
                     }}
                     onMouseEnter={(e) => { if (catalogChoice !== "marche") { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.035)"; } }}
-                    onMouseLeave={(e) => { if (catalogChoice !== "marche") { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; } }}>
+                    onMouseLeave={(e) => { if (catalogChoice !== "marche") { e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"); } }}>
                     <div style={{ display: "flex", alignItems: "start", gap: 10, marginBottom: 6 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 8,
-                        background: catalogChoice === "marche" ? "linear-gradient(135deg, rgba(240, 192, 64, 0.25), rgba(240, 192, 64, 0.1))" : "rgba(255, 255, 255, 0.04)",
+                        background: catalogChoice === "marche" ? "linear-gradient(135deg, rgba(240, 192, 64, 0.25), rgba(240, 192, 64, 0.1))" : cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
                         display: "flex", alignItems: "center", justifyContent: "center",
                         flexShrink: 0,
                         transition: "background 0.18s"
                       }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={catalogChoice === "marche" ? "#f0c040" : "#7a7d92"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={catalogChoice === "marche" ? "#f0c040" : cl("#7a7d92", "#5f6374")} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                         </svg>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "marche" ? "#f5f6fa" : "#d0d2dc" }}>Marché DEVIA</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "marche" ? cl("#f5f6fa", "#14161f") : cl("#d0d2dc", "#3a3e50") }}>Marché DEVIA</div>
                           {catalogChoice === "marche" && (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0c040" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto" }}>
                               <path d="M20 6L9 17l-5-5"/>
                             </svg>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: "#7a7d92", marginTop: 2 }}>{marchePrix.length} materiaux du marche</div>
+                        <div style={{ fontSize: 11, color: cl("#7a7d92", "#5f6374"), marginTop: 2 }}>{marchePrix.length} materiaux du marche</div>
                       </div>
                     </div>
                   </div>
@@ -7470,37 +7475,37 @@ return (
                       position: "relative",
                       padding: 16,
                       borderRadius: 12,
-                      background: catalogChoice === "perso" ? "rgba(62, 207, 142, 0.06)" : "rgba(255, 255, 255, 0.02)",
-                      border: catalogChoice === "perso" ? "1px solid rgba(62, 207, 142, 0.45)" : "1px solid rgba(255, 255, 255, 0.06)",
+                      background: catalogChoice === "perso" ? "rgba(62, 207, 142, 0.06)" : cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
+                      border: catalogChoice === "perso" ? "1px solid rgba(62, 207, 142, 0.45)" : cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                       cursor: "pointer",
                       transition: "all 0.18s",
                       boxShadow: catalogChoice === "perso" ? "0 0 0 3px rgba(62, 207, 142, 0.08), inset 0 0 0 1px rgba(62, 207, 142, 0.1)" : "none"
                     }}
                     onMouseEnter={(e) => { if (catalogChoice !== "perso") { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.035)"; } }}
-                    onMouseLeave={(e) => { if (catalogChoice !== "perso") { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; } }}>
+                    onMouseLeave={(e) => { if (catalogChoice !== "perso") { e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"); } }}>
                     <div style={{ display: "flex", alignItems: "start", gap: 10, marginBottom: 6 }}>
                       <div style={{
                         width: 32, height: 32, borderRadius: 8,
-                        background: catalogChoice === "perso" ? "linear-gradient(135deg, rgba(62, 207, 142, 0.25), rgba(62, 207, 142, 0.1))" : "rgba(255, 255, 255, 0.04)",
+                        background: catalogChoice === "perso" ? "linear-gradient(135deg, rgba(62, 207, 142, 0.25), rgba(62, 207, 142, 0.1))" : cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
                         display: "flex", alignItems: "center", justifyContent: "center",
                         flexShrink: 0,
                         transition: "background 0.18s"
                       }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={catalogChoice === "perso" ? "#3ecf8e" : "#7a7d92"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={catalogChoice === "perso" ? "#3ecf8e" : cl("#7a7d92", "#5f6374")} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                           <circle cx="12" cy="7" r="4" />
                         </svg>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "perso" ? "#f5f6fa" : "#d0d2dc" }}>Mon catalogue</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: catalogChoice === "perso" ? cl("#f5f6fa", "#14161f") : cl("#d0d2dc", "#3a3e50") }}>Mon catalogue</div>
                           {catalogChoice === "perso" && (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto" }}>
                               <path d="M20 6L9 17l-5-5"/>
                             </svg>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: "#7a7d92", marginTop: 2 }}>{catalogueEntreprise.length} materiaux personnels</div>
+                        <div style={{ fontSize: 11, color: cl("#7a7d92", "#5f6374"), marginTop: 2 }}>{catalogueEntreprise.length} materiaux personnels</div>
                       </div>
                     </div>
                   </div>
@@ -7517,7 +7522,7 @@ return (
                     background: "rgba(240, 192, 64, 0.04)",
                     border: "1px solid rgba(240, 192, 64, 0.18)",
                     borderRadius: 10,
-                    color: completeWithMarket ? "#e8eaf2" : "#9ca0b8",
+                    color: completeWithMarket ? cl("#e8eaf2", "#1a1d2a") : cl("#9ca0b8", "#565a6c"),
                     transition: "all 0.15s"
                   }}>
                     <input type="checkbox" checked={completeWithMarket}
@@ -7588,7 +7593,7 @@ return (
                       </span>
                     )}
                   </div>
-                  <div style={{ color: "#7a7d92", fontSize: 13, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     {result.projet && result.projet.commune && (<>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
@@ -7662,9 +7667,9 @@ return (
                 {[{ idx: -1, label: "Tous les ouvrages" }, ...result._ouvrages3D.map((o, i) => ({ idx: i, label: "Ouvrage " + (i + 1) }))].map(opt => (
                   <button key={opt.idx} onClick={() => setOuvrageActif(opt.idx)}
                     style={{
-                      background: ouvrageActif === opt.idx ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.03)",
+                      background: ouvrageActif === opt.idx ? "rgba(240,192,64,0.12)" : cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"),
                       border: ouvrageActif === opt.idx ? "1px solid rgba(240,192,64,0.5)" : "1px solid rgba(255,255,255,0.07)",
-                      color: ouvrageActif === opt.idx ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
+                      color: ouvrageActif === opt.idx ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")),
                       borderRadius: 999, padding: "6px 14px", cursor: "pointer",
                       fontSize: 12, fontWeight: 600, transition: "all 0.15s"
                     }}>
@@ -7673,13 +7678,13 @@ return (
                 ))}
               </div>
             )}
-            <div style={{ display: "inline-flex", gap: 2, marginBottom: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 999, padding: 4 }}>
+            <div style={{ display: "inline-flex", gap: 2, marginBottom: 20, background: cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"), border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"), borderRadius: 999, padding: 4 }}>
               {[{ id: "devis", label: "Devis" }, { id: "3d", label: "Vue 3D" }, { id: "calcul", label: "Calcul" }].map(t => (
                 <button key={t.id} onClick={() => setActiveResultTab(t.id)}
                   style={{
-                    background: activeResultTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                    background: activeResultTab === t.id ? cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)") : "transparent",
                     border: "none",
-                    color: activeResultTab === t.id ? "#ffffff" : "#7a7d92",
+                    color: activeResultTab === t.id ? "#ffffff" : cl("#7a7d92", "#5f6374"),
                     borderRadius: 999,
                     padding: "7px 18px",
                     cursor: "pointer",
@@ -7689,8 +7694,8 @@ return (
                     transition: "all 0.15s",
                     boxShadow: activeResultTab === t.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
                   }}
-                  onMouseEnter={(e) => { if (activeResultTab !== t.id) e.currentTarget.style.color = "#d0d2dc"; }}
-                  onMouseLeave={(e) => { if (activeResultTab !== t.id) e.currentTarget.style.color = "#7a7d92"; }}>
+                  onMouseEnter={(e) => { if (activeResultTab !== t.id) e.currentTarget.style.color = cl("#d0d2dc", "#3a3e50"); }}
+                  onMouseLeave={(e) => { if (activeResultTab !== t.id) e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                   {t.label}
                 </button>
               ))}
@@ -7706,16 +7711,16 @@ return (
                     { label: "Type", val: result.projet.type || "?" }
                   ].map(info => (
                     <div key={info.label} style={{
-                      background: "rgba(255, 255, 255, 0.02)",
+                      background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
                       borderRadius: 12,
                       padding: "14px 16px",
-                      border: "1px solid rgba(255, 255, 255, 0.05)",
+                      border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
                       transition: "border-color 0.15s"
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)"; }}>
-                      <div style={{ color: "#7a7d92", fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>{info.label}</div>
-                      <div style={{ color: "#f5f6fa", fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>{info.val}</div>
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.05)", "rgba(0, 0, 0, 0.08)"); }}>
+                      <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 6 }}>{info.label}</div>
+                      <div style={{ color: cl("#f5f6fa", "#14161f"), fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" }}>{info.val}</div>
                     </div>
                   ))}
                 </div>
@@ -7729,12 +7734,12 @@ return (
                         <div key={oi} style={{ marginBottom: 24 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                             <span style={{ background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.4)", color: "#f0c040", borderRadius: 999, padding: "4px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Ouvrage {oi + 1}</span>
-                            <span style={{ color: "#9ca0b8", fontSize: 12.5 }}>{(ouv.projet && ouv.projet.description) || ""}</span>
+                            <span style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12.5 }}>{(ouv.projet && ouv.projet.description) || ""}</span>
                           </div>
-                          <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: 10 }}>
+                          <div style={{ borderRadius: 12, overflow: "hidden", border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"), marginBottom: 10 }}>
                             <table style={{ width: "100%", borderCollapse: "collapse" }}>
                               <thead>
-                                <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                                <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)") }}>
                                   {[
                                     { label: "Categorie", align: "left" },
                                     { label: "Designation", align: "left" },
@@ -7743,7 +7748,7 @@ return (
                                     { label: "PU HT", align: "right" },
                                     { label: "Total HT", align: "right" }
                                   ].map(h => (
-                                    <th key={h.label} style={{ padding: "12px 16px", textAlign: h.align, color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h.label}</th>
+                                    <th key={h.label} style={{ padding: "12px 16px", textAlign: h.align, color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h.label}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -7755,10 +7760,10 @@ return (
                                     <td style={{ padding: "12px 16px", fontSize: 13 }}>
                                       <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 600, padding: "3px 8px", background: "rgba(96, 165, 250, 0.08)", borderRadius: 999, letterSpacing: "0.02em" }}>{p.categorie}</span>
                                     </td>
-                                    <td style={{ padding: "12px 16px", color: "#e8eaf2", fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
-                                    <td style={{ padding: "12px 16px", color: "#7a7d92", fontSize: 13 }}>{p.unite}</td>
-                                    <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
-                                    <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
+                                    <td style={{ padding: "12px 16px", color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
+                                    <td style={{ padding: "12px 16px", color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{p.unite}</td>
+                                    <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
+                                    <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
                                     <td style={{ padding: "12px 16px", color: "#f0c040", fontWeight: 600, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.totalHT ? p.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span></td>
                                   </tr>
                                 ))}
@@ -7766,7 +7771,7 @@ return (
                             </table>
                           </div>
                           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
-                            <span style={{ color: "#9ca0b8", fontSize: 13, fontWeight: 600 }}>Sous-total Ouvrage {oi + 1} : <span style={{ color: "#f0c040" }}>{sousHT.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} EUR HT</span></span>
+                            <span style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 13, fontWeight: 600 }}>Sous-total Ouvrage {oi + 1} : <span style={{ color: "#f0c040" }}>{sousHT.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} EUR HT</span></span>
                           </div>
                         </div>
                       );
@@ -7778,8 +7783,8 @@ return (
                           const lbl = ouvrageActif >= 0 ? "Ouvrage " + (ouvrageActif + 1) : "general";
                           return (
                             <>
-                              <div style={{ color: "#9ca0b8", fontSize: 12, marginBottom: 4 }}>Total HT ({lbl}) : <span style={{ color: "#e8eaf2", fontWeight: 600 }}>{(src.totalHT || 0).toLocaleString("fr-FR")} EUR</span></div>
-                              <div style={{ color: "#9ca0b8", fontSize: 12, marginBottom: 6 }}>TVA : <span style={{ color: "#e8eaf2", fontWeight: 600 }}>{(src.tva || 0).toLocaleString("fr-FR")} EUR</span></div>
+                              <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12, marginBottom: 4 }}>Total HT ({lbl}) : <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 600 }}>{(src.totalHT || 0).toLocaleString("fr-FR")} EUR</span></div>
+                              <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12, marginBottom: 6 }}>TVA : <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 600 }}>{(src.tva || 0).toLocaleString("fr-FR")} EUR</span></div>
                               <div style={{ color: "#f0c040", fontSize: 18, fontWeight: 800, textShadow: "0 0 24px rgba(240, 192, 64, 0.25)" }}>TOTAL TTC : {(src.totalTTC || 0).toLocaleString("fr-FR")} EUR</div>
                             </>
                           );
@@ -7789,10 +7794,10 @@ return (
                   </>
                 ) : (
                   <>
-                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: 20 }}>
+                <div style={{ borderRadius: 12, overflow: "hidden", border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"), marginBottom: 20 }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
-                      <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                      <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)") }}>
                         {[
                           { label: "Categorie", align: "left" },
                           { label: "Designation", align: "left" },
@@ -7801,7 +7806,7 @@ return (
                           { label: "PU HT", align: "right" },
                           { label: "Total HT", align: "right" }
                         ].map(h => (
-                          <th key={h.label} style={{ padding: "12px 16px", textAlign: h.align, color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h.label}</th>
+                          <th key={h.label} style={{ padding: "12px 16px", textAlign: h.align, color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{h.label}</th>
                         ))}
                       </tr>
                     </thead>
@@ -7813,10 +7818,10 @@ return (
                           <td style={{ padding: "12px 16px", fontSize: 13 }}>
                             <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 600, padding: "3px 8px", background: "rgba(96, 165, 250, 0.08)", borderRadius: 999, letterSpacing: "0.02em" }}>{p.categorie}</span>
                           </td>
-                          <td style={{ padding: "12px 16px", color: "#e8eaf2", fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
-                          <td style={{ padding: "12px 16px", color: "#7a7d92", fontSize: 13 }}>{p.unite}</td>
-                          <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
-                          <td style={{ padding: "12px 16px", color: "#d0d2dc", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
+                          <td style={{ padding: "12px 16px", color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
+                          <td style={{ padding: "12px 16px", color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{p.unite}</td>
+                          <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
+                          <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
                           <td style={{ padding: "12px 16px", color: "#f0c040", fontWeight: 600, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.totalHT ? p.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span></td>
                         </tr>
                       ))}
@@ -7833,12 +7838,12 @@ return (
                     boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)"
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <span style={{ color: "#7a7d92", fontSize: 12, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Total HT</span>
-                      <span style={{ color: "#e8eaf2", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{result.totaux ? result.totaux.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#7a7d92", fontSize: 11, fontWeight: 500 }}>EUR</span></span>
+                      <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Total HT</span>
+                      <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{result.totaux ? result.totaux.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, fontWeight: 500 }}>EUR</span></span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                      <span style={{ color: "#7a7d92", fontSize: 12, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>TVA</span>
-                      <span style={{ color: "#e8eaf2", fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{result.totaux ? result.totaux.tva.toLocaleString("fr-FR") : 0} <span style={{ color: "#7a7d92", fontSize: 11, fontWeight: 500 }}>EUR</span></span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 14, borderBottom: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)") }}>
+                      <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>TVA</span>
+                      <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 14, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{result.totaux ? result.totaux.tva.toLocaleString("fr-FR") : 0} <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, fontWeight: 500 }}>EUR</span></span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                       <span style={{ color: "#f0c040", fontSize: 13, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Total TTC</span>
@@ -7857,17 +7862,17 @@ return (
                 )}
 
                 {result.notes && result.notes.length > 0 && (
-                  <div style={{ marginTop: 20, padding: 18, background: "rgba(255, 255, 255, 0.02)", borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                  <div style={{ marginTop: 20, padding: 18, background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), borderRadius: 12, border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca0b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                       </svg>
-                      <div style={{ color: "#9ca0b8", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Notes techniques</div>
+                      <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Notes techniques</div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {result.notes.map((n, i) => (
-                        <div key={i} style={{ color: "#d0d2dc", fontSize: 13, lineHeight: 1.55, paddingLeft: 14, position: "relative" }}>
-                          <span style={{ position: "absolute", left: 0, top: 8, width: 4, height: 4, borderRadius: "50%", background: "#7a7d92" }}></span>
+                        <div key={i} style={{ color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, lineHeight: 1.55, paddingLeft: 14, position: "relative" }}>
+                          <span style={{ position: "absolute", left: 0, top: 8, width: 4, height: 4, borderRadius: "50%", background: cl("#7a7d92", "#5f6374") }}></span>
                           {n}
                         </div>
                       ))}
@@ -7885,9 +7890,9 @@ return (
                       style={{
                         padding: "7px 16px", borderRadius: 8, cursor: "pointer",
                         fontSize: 13, fontWeight: mode3D === m.id ? 600 : 500,
-                        border: "1px solid " + (mode3D === m.id ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.08)"),
+                        border: "1px solid " + (mode3D === m.id ? "rgba(240,192,64,0.5)" : cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)")),
                         background: mode3D === m.id ? "rgba(240,192,64,0.12)" : "transparent",
-                        color: mode3D === m.id ? "#f0c040" : "#7a7d92",
+                        color: mode3D === m.id ? "#f0c040" : cl("#7a7d92", "#5f6374"),
                         transition: "all 0.12s"
                       }}>
                       {m.label}
@@ -7895,7 +7900,7 @@ return (
                   ))}
                   <select value={fond3D} onChange={e => setFond3D(e.target.value)}
                     style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                      border: "1px solid rgba(255,255,255,0.08)", background: "#181a26", color: "#d0d2dc" }}>
+                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: "#181a26", color: cl("#d0d2dc", "#3a3e50") }}>
                     <option value="noir">Fond noir</option>
                     <option value="blanc">Fond blanc</option>
                     <option value="soleil">Ensoleille</option>
@@ -7904,7 +7909,7 @@ return (
                   </select>
                   <select value={vue3D} onChange={e => setVue3D(e.target.value)}
                     style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                      border: "1px solid rgba(255,255,255,0.08)", background: "#181a26", color: "#d0d2dc" }}>
+                      border: cl("1px solid rgba(255,255,255,0.08)", "1px solid rgba(0,0,0,0.10)"), background: "#181a26", color: cl("#d0d2dc", "#3a3e50") }}>
                     <option value="assemble">Assemblage</option>
                     <option value="explose">Vue eclatee</option>
                     <option value="sol">Range au sol</option>
@@ -7935,9 +7940,9 @@ return (
                       style={{
                         padding: "7px 14px", borderRadius: 8, cursor: "pointer",
                         fontSize: 12.5, fontWeight: sectionMode === m.id ? 600 : 500,
-                        border: "1px solid " + (sectionMode === m.id ? "rgba(96,165,250,0.5)" : "rgba(255,255,255,0.08)"),
+                        border: "1px solid " + (sectionMode === m.id ? "rgba(96,165,250,0.5)" : cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)")),
                         background: sectionMode === m.id ? "rgba(96,165,250,0.12)" : "transparent",
-                        color: sectionMode === m.id ? "#60a5fa" : "#7a7d92",
+                        color: sectionMode === m.id ? "#60a5fa" : cl("#7a7d92", "#5f6374"),
                         transition: "all 0.12s"
                       }}>
                       {m.label}
@@ -7976,7 +7981,7 @@ return (
                       ))}
                       <select value={fond3D} onChange={e => setFond3D(e.target.value)}
                         style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: "#d0d2dc" }}>
+                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: cl("#d0d2dc", "#3a3e50") }}>
                         <option value="noir">Fond noir</option>
                         <option value="blanc">Fond blanc</option>
                         <option value="soleil">Ensoleille</option>
@@ -7985,7 +7990,7 @@ return (
                       </select>
                       <select value={vue3D} onChange={e => setVue3D(e.target.value)}
                         style={{ padding: "7px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
-                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: "#d0d2dc" }}>
+                          border: "1px solid rgba(255,255,255,0.14)", background: "rgba(10,12,18,0.75)", color: cl("#d0d2dc", "#3a3e50") }}>
                         <option value="assemble">Assemblage</option>
                         <option value="explose">Vue eclatee</option>
                         <option value="sol">Range au sol</option>
@@ -8043,14 +8048,14 @@ return (
                           </svg>
                         </div>
                         <div>
-                          <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Estimation temps</div>
-                          <div style={{ color: "#7a7d92", fontSize: 12 }}>Fabrication atelier + pose chantier</div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: cl("#e8eaf2", "#1a1d2a") }}>Estimation temps</div>
+                          <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>Fabrication atelier + pose chantier</div>
                         </div>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                         <div style={{
                           background: "rgba(255, 255, 255, 0.025)",
-                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
                           borderRadius: 12,
                           padding: 14
                         }}>
@@ -8058,16 +8063,16 @@ return (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
                             </svg>
-                            <span style={{ color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Fabrication</span>
+                            <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Fabrication</span>
                           </div>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: "#e8eaf2", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
-                            {fab}<span style={{ fontSize: 13, color: "#7a7d92", fontWeight: 500, marginLeft: 4 }}>h</span>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: cl("#e8eaf2", "#1a1d2a"), letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                            {fab}<span style={{ fontSize: 13, color: cl("#7a7d92", "#5f6374"), fontWeight: 500, marginLeft: 4 }}>h</span>
                           </div>
                           <div style={{ color: "#545870", fontSize: 11, marginTop: 4 }}>Atelier</div>
                         </div>
                         <div style={{
                           background: "rgba(255, 255, 255, 0.025)",
-                          border: "1px solid rgba(255, 255, 255, 0.05)",
+                          border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
                           borderRadius: 12,
                           padding: 14
                         }}>
@@ -8075,10 +8080,10 @@ return (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                             </svg>
-                            <span style={{ color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pose</span>
+                            <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pose</span>
                           </div>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: "#e8eaf2", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
-                            {pose}<span style={{ fontSize: 13, color: "#7a7d92", fontWeight: 500, marginLeft: 4 }}>h</span>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: cl("#e8eaf2", "#1a1d2a"), letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
+                            {pose}<span style={{ fontSize: 13, color: cl("#7a7d92", "#5f6374"), fontWeight: 500, marginLeft: 4 }}>h</span>
                           </div>
                           <div style={{ color: "#545870", fontSize: 11, marginTop: 4 }}>Chantier</div>
                         </div>
@@ -8117,7 +8122,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Mes projets</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Retrouvez tous vos devis sauvegardés</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>Retrouvez tous vos devis sauvegardés</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -8147,8 +8152,8 @@ return (
               onClick={() => setSelectedGroupe("all")}
               style={{
                 background: selectedGroupe === "all" ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
-                border: "1px solid " + (selectedGroupe === "all" ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
-                color: selectedGroupe === "all" ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
+                border: "1px solid " + (selectedGroupe === "all" ? "rgba(240, 192, 64, 0.35)" : cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)")),
+                color: selectedGroupe === "all" ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")),
                 borderRadius: 999,
                 padding: "7px 14px",
                 fontSize: 12,
@@ -8160,8 +8165,8 @@ return (
                 transition: "all 0.15s",
                 letterSpacing: "0.005em"
               }}
-              onMouseEnter={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
-              onMouseLeave={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
+              onMouseEnter={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.05)", "rgba(0, 0, 0, 0.08)"); e.currentTarget.style.color = cl("#d0d2dc", "#3a3e50"); } }}
+              onMouseLeave={(e) => { if (selectedGroupe !== "all") { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = cl("#9ca0b8", "#565a6c"); } }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: selectedGroupe === "all" ? "#f0c040" : "#545870" }}></span>
               Tous
               <span style={{ color: selectedGroupe === "all" ? "#a8841f" : "#545870", fontWeight: 500 }}>{projects.length}</span>
@@ -8176,7 +8181,7 @@ return (
                   <div
                     style={{
                       background: isActive ? "rgba(240, 192, 64, 0.12)" : "rgba(255, 255, 255, 0.03)",
-                      border: "1px solid " + (isActive ? "rgba(240, 192, 64, 0.35)" : "rgba(255, 255, 255, 0.06)"),
+                      border: "1px solid " + (isActive ? "rgba(240, 192, 64, 0.35)" : cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)")),
                       borderRadius: 999,
                       padding: "0 4px 0 14px",
                       fontSize: 12,
@@ -8186,11 +8191,11 @@ return (
                       gap: 7,
                       transition: "all 0.15s",
                       letterSpacing: "0.005em",
-                      color: isActive ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"),
+                      color: isActive ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")),
                       cursor: "pointer"
                     }}
-                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)"; e.currentTarget.style.color = "#d0d2dc"; } }}
-                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = "#9ca0b8"; } }}>
+                    onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.05)", "rgba(0, 0, 0, 0.08)"); e.currentTarget.style.color = cl("#d0d2dc", "#3a3e50"); } }}
+                    onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)"; e.currentTarget.style.color = cl("#9ca0b8", "#565a6c"); } }}>
                     <span onClick={() => setSelectedGroupe(g.id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 4px 7px 0" }}>
                       <span style={{ width: 5, height: 5, borderRadius: "50%", background: isActive ? "#f0c040" : "#545870" }}></span>
                       {g.nom}
@@ -8227,7 +8232,7 @@ return (
                       background: "rgba(22, 25, 35, 0.98)",
                       backdropFilter: "blur(20px) saturate(140%)",
                       WebkitBackdropFilter: "blur(20px) saturate(140%)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
                       borderRadius: 10,
                       padding: 4,
                       minWidth: 140,
@@ -8243,11 +8248,11 @@ return (
                       }}
                         style={{
                           width: "100%", background: "transparent", border: "none",
-                          color: "#e8eaf2", textAlign: "left", padding: "8px 12px",
+                          color: cl("#e8eaf2", "#1a1d2a"), textAlign: "left", padding: "8px 12px",
                           fontSize: 13, cursor: "pointer", borderRadius: 7,
                           display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -8282,7 +8287,7 @@ return (
               style={{
                 background: "transparent",
                 border: "1px dashed rgba(255, 255, 255, 0.12)",
-                color: "#7a7d92",
+                color: cl("#7a7d92", "#5f6374"),
                 borderRadius: 999,
                 padding: "7px 14px",
                 fontSize: 12,
@@ -8300,7 +8305,7 @@ return (
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-                e.currentTarget.style.color = "#7a7d92";
+                e.currentTarget.style.color = cl("#7a7d92", "#5f6374");
                 e.currentTarget.style.background = "transparent";
               }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -8326,16 +8331,16 @@ return (
               style={{
                 width: "100%",
                 background: "rgba(255, 255, 255, 0.025)",
-                border: "1px solid rgba(255, 255, 255, 0.06)",
+                border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                 borderRadius: 999,
                 padding: "10px 38px 10px 40px",
-                color: "#e8eaf2",
+                color: cl("#e8eaf2", "#1a1d2a"),
                 fontSize: 13,
                 outline: "none",
                 transition: "border-color 0.15s, background 0.15s"
               }}
-              onFocus={(e) => { e.target.style.borderColor = "rgba(240, 192, 64, 0.3)"; e.target.style.background = "rgba(255, 255, 255, 0.04)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.target.style.background = "rgba(255, 255, 255, 0.025)"; }}
+              onFocus={(e) => { e.target.style.borderColor = "rgba(240, 192, 64, 0.3)"; e.target.style.background = cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"); }}
+              onBlur={(e) => { e.target.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.target.style.background = "rgba(255, 255, 255, 0.025)"; }}
             />
             {searchProjects && (
               <button
@@ -8343,13 +8348,13 @@ return (
                 title="Effacer"
                 style={{
                   position: "absolute", right: 8,
-                  background: "transparent", border: "none", color: "#7a7d92",
+                  background: "transparent", border: "none", color: cl("#7a7d92", "#5f6374"),
                   cursor: "pointer", borderRadius: 999, padding: 6,
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   transition: "color 0.15s"
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = "#e8eaf2"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "#7a7d92"; }}>
+                onMouseEnter={(e) => { e.currentTarget.style.color = cl("#e8eaf2", "#1a1d2a"); }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -8363,7 +8368,7 @@ return (
             <div style={{
               width: 56, height: 56, borderRadius: 14,
               background: "rgba(255, 255, 255, 0.03)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
+              border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               marginBottom: 16
             }}>
@@ -8371,8 +8376,8 @@ return (
                 <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
               </svg>
             </div>
-            <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun projet pour l&apos;instant</div>
-            <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Generez votre premier devis depuis l&apos;onglet Devis et il apparaitra ici.</div>
+            <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun projet pour l&apos;instant</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Generez votre premier devis depuis l&apos;onglet Devis et il apparaitra ici.</div>
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10, maxWidth: 760, margin: "0 auto", width: "100%" }}>
@@ -8391,7 +8396,7 @@ return (
                 <div style={{
                   width: 56, height: 56, borderRadius: 14,
                   background: "rgba(255, 255, 255, 0.03)",
-                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   marginBottom: 16
                 }}>
@@ -8399,8 +8404,8 @@ return (
                     <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   </svg>
                 </div>
-                <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun resultat</div>
-                <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
+                <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun resultat</div>
+                <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>
                   {selectedGroupe !== "all" && searchProjects.trim() !== ""
                     ? "Aucun projet ne correspond à votre recherche dans ce groupe."
                     : selectedGroupe !== "all"
@@ -8449,7 +8454,7 @@ return (
                 onMouseLeave={(e) => {
                   if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
                   setHoverProject(null);
-                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)";
+                  e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)");
                   e.currentTarget.style.background = "rgba(22, 25, 35, 0.55)";
                   const deleteBtn = e.currentTarget.querySelector(".devia-delete-btn");
                   if (deleteBtn) deleteBtn.style.opacity = "0.4";
@@ -8469,8 +8474,8 @@ return (
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: "#e8eaf2", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 3 }}>{p.nom}</div>
-                    <div style={{ color: "#7a7d92", fontSize: 12, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, color: cl("#e8eaf2", "#1a1d2a"), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 3 }}>{p.nom}</div>
+                    <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
@@ -8494,7 +8499,7 @@ return (
                               style={{
                                 background: groupeCourant ? "rgba(96, 165, 250, 0.08)" : "transparent",
                                 border: "1px " + (groupeCourant ? "solid rgba(96, 165, 250, 0.25)" : "dashed rgba(255, 255, 255, 0.12)"),
-                                color: groupeCourant ? "#60a5fa" : "#7a7d92",
+                                color: groupeCourant ? "#60a5fa" : cl("#7a7d92", "#5f6374"),
                                 borderRadius: 999,
                                 padding: "3px 10px",
                                 fontSize: 11,
@@ -8512,7 +8517,7 @@ return (
                               }}
                               onMouseLeave={(e) => {
                                 if (groupeCourant) { e.currentTarget.style.background = "rgba(96, 165, 250, 0.08)"; }
-                                else { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)"; e.currentTarget.style.color = "#7a7d92"; }
+                                else { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)"; e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }
                               }}>
                               {groupeCourant ? (
                                 <>
@@ -8541,7 +8546,7 @@ return (
                                 background: "rgba(22, 25, 35, 0.98)",
                                 backdropFilter: "blur(20px) saturate(140%)",
                                 WebkitBackdropFilter: "blur(20px) saturate(140%)",
-                                border: "1px solid rgba(255, 255, 255, 0.08)",
+                                border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
                                 borderRadius: 10,
                                 padding: 4,
                                 minWidth: 200,
@@ -8555,12 +8560,12 @@ return (
                                   onClick={(e) => { e.stopPropagation(); assignProjectToGroup(p.id, null); }}
                                   style={{
                                     width: "100%", background: "transparent", border: "none",
-                                    color: !p.groupe_id ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : "#9ca0b8"), textAlign: "left",
+                                    color: !p.groupe_id ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")), textAlign: "left",
                                     padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
                                     display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s",
                                     fontWeight: !p.groupe_id ? 600 : 500
                                   }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); }}
                                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                                   <span style={{ width: 14, display: "inline-flex" }}>
                                     {!p.groupe_id && (
@@ -8578,12 +8583,12 @@ return (
                                     onClick={(e) => { e.stopPropagation(); assignProjectToGroup(p.id, g.id); }}
                                     style={{
                                       width: "100%", background: "transparent", border: "none",
-                                      color: p.groupe_id === g.id ? "#f0c040" : "#e8eaf2", textAlign: "left",
+                                      color: p.groupe_id === g.id ? "#f0c040" : cl("#e8eaf2", "#1a1d2a"), textAlign: "left",
                                       padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
                                       display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s",
                                       fontWeight: p.groupe_id === g.id ? 600 : 500
                                     }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); }}
                                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                                     <span style={{ width: 14, display: "inline-flex" }}>
                                       {p.groupe_id === g.id && (
@@ -8595,7 +8600,7 @@ return (
                                     {g.nom}
                                   </button>
                                 ))}
-                                <div style={{ height: 1, background: "rgba(255, 255, 255, 0.06)", margin: "4px 0" }}></div>
+                                <div style={{ height: 1, background: cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"), margin: "4px 0" }}></div>
                                 {/* Nouveau groupe */}
                                 <button
                                   onClick={(e) => {
@@ -8607,12 +8612,12 @@ return (
                                   }}
                                   style={{
                                     width: "100%", background: "transparent", border: "none",
-                                    color: "#7a7d92", textAlign: "left",
+                                    color: cl("#7a7d92", "#5f6374"), textAlign: "left",
                                     padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 7,
                                     display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
                                   }}
                                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(240, 192, 64, 0.08)"; e.currentTarget.style.color = "#f0c040"; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                                   <span style={{ width: 14, display: "inline-flex", alignItems: "center" }}>
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                                       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -8633,7 +8638,7 @@ return (
                     <div style={{ color: "#f0c040", fontWeight: 700, fontSize: 17, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em" }}>
                       {p.ttc.toLocaleString("fr-FR")} <span style={{ fontSize: 12, fontWeight: 600 }}>EUR</span>
                     </div>
-                    <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>TTC</div>
+                    <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>TTC</div>
                   </div>
                   <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
                     <button
@@ -8641,8 +8646,8 @@ return (
                       title="Plus d'options"
                       style={{
                         background: openProjectMenuId === p.id ? "rgba(255, 255, 255, 0.08)" : "transparent",
-                        border: "1px solid rgba(255, 255, 255, 0.06)",
-                        color: "#7a7d92",
+                        border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+                        color: cl("#7a7d92", "#5f6374"),
                         cursor: "pointer",
                         borderRadius: 8,
                         padding: "6px 8px",
@@ -8651,8 +8656,8 @@ return (
                         justifyContent: "center",
                         transition: "all 0.15s"
                       }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#d0d2dc"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = openProjectMenuId === p.id ? "rgba(255, 255, 255, 0.08)" : "transparent"; e.currentTarget.style.color = "#7a7d92"; }}>
+                      onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.color = cl("#d0d2dc", "#3a3e50"); }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = openProjectMenuId === p.id ? "rgba(255, 255, 255, 0.08)" : "transparent"; e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>
                       </svg>
@@ -8665,7 +8670,7 @@ return (
                         background: "rgba(22, 25, 35, 0.98)",
                         backdropFilter: "blur(20px) saturate(140%)",
                         WebkitBackdropFilter: "blur(20px) saturate(140%)",
-                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
                         borderRadius: 10,
                         padding: 4,
                         minWidth: 160,
@@ -8682,11 +8687,11 @@ return (
                           }}
                           style={{
                             width: "100%", background: "transparent", border: "none",
-                            color: "#e8eaf2", textAlign: "left", padding: "8px 12px",
+                            color: cl("#e8eaf2", "#1a1d2a"), textAlign: "left", padding: "8px 12px",
                             fontSize: 13, cursor: "pointer", borderRadius: 7,
                             display: "flex", alignItems: "center", gap: 8, transition: "background 0.12s"
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -8702,8 +8707,8 @@ return (
                     title="Supprimer ce projet"
                     style={{
                       background: "transparent",
-                      border: "1px solid rgba(255, 255, 255, 0.06)",
-                      color: "#7a7d92",
+                      border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+                      color: cl("#7a7d92", "#5f6374"),
                       borderRadius: 8,
                       padding: "6px 8px",
                       cursor: "pointer",
@@ -8714,7 +8719,7 @@ return (
                       opacity: 0.4
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"; e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)"; e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.opacity = "1"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#7a7d92"; }}>
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                     </svg>
@@ -8738,11 +8743,11 @@ return (
                       const item = (lbl, val) => (
                         <div style={{ minWidth: 110 }}>
                           <div style={{ color: "#545870", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 2 }}>{lbl}</div>
-                          <div style={{ color: "#d0d2dc", fontSize: 12.5, fontWeight: 500 }}>{val}</div>
+                          <div style={{ color: cl("#d0d2dc", "#3a3e50"), fontSize: 12.5, fontWeight: 500 }}>{val}</div>
                         </div>
                       );
                       return (
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: 4, paddingTop: 12, display: "flex", flexWrap: "wrap", gap: "10px 26px" }}>
+                        <div style={{ borderTop: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"), marginTop: 4, paddingTop: 12, display: "flex", flexWrap: "wrap", gap: "10px 26px" }}>
                           {item("Type", typeLabel)}
                           {item("Dimensions", (pj.longueur || "?") + " x " + (pj.largeur || "?") + " m" + (pj.hauteur ? " - h " + pj.hauteur + " m" : ""))}
                           {pj.pente ? item("Pente", pj.pente + "\u00b0") : null}
@@ -8768,7 +8773,7 @@ return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Catalogue</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Gérez les prix de référence utilisés pour vos devis</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>Gérez les prix de référence utilisés pour vos devis</div>
           </div>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -8786,16 +8791,16 @@ return (
         </div>
 
         {/* Onglets internes - style pills */}
-        <div style={{ display: "inline-flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 999, padding: 4 }}>
+        <div style={{ display: "inline-flex", gap: 2, marginBottom: 24, background: cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.04)"), border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)"), borderRadius: 999, padding: 4 }}>
           {[
             { id: "marche", label: "Marché DEVIA", color: "#f0c040" },
             { id: "perso", label: "Mon catalogue", color: "#3ecf8e" }
           ].map(t => (
             <button key={t.id} onClick={() => setActiveCatalogTab(t.id)}
               style={{
-                background: activeCatalogTab === t.id ? "rgba(255,255,255,0.08)" : "transparent",
+                background: activeCatalogTab === t.id ? cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)") : "transparent",
                 border: "none",
-                color: activeCatalogTab === t.id ? "#ffffff" : "#7a7d92",
+                color: activeCatalogTab === t.id ? "#ffffff" : cl("#7a7d92", "#5f6374"),
                 borderRadius: 999,
                 padding: "8px 18px",
                 cursor: "pointer",
@@ -8808,8 +8813,8 @@ return (
                 gap: 8,
                 boxShadow: activeCatalogTab === t.id ? "0 1px 0 rgba(255,255,255,0.06) inset" : "none"
               }}
-              onMouseEnter={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = "#d0d2dc"; }}
-              onMouseLeave={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = "#7a7d92"; }}>
+              onMouseEnter={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = cl("#d0d2dc", "#3a3e50"); }}
+              onMouseLeave={(e) => { if (activeCatalogTab !== t.id) e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: activeCatalogTab === t.id ? t.color : "#3a3d4f", transition: "background 0.15s" }}></span>
               {t.label}
             </button>
@@ -8846,8 +8851,8 @@ return (
                     </svg>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Catalogue marché DEVIA</div>
-                    <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: cl("#e8eaf2", "#1a1d2a") }}>Catalogue marché DEVIA</div>
+                    <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 13, lineHeight: 1.55 }}>
                       Prix moyens du marché français 2026, mis à jour régulièrement par DEVIA.
                       Vos prix dans &quot;Mon catalogue&quot; ont la priorité sur ces références.
                     </div>
@@ -8869,7 +8874,7 @@ return (
                     "Outillage": "#f0c040"
                   };
                   const renderCatIcon = (cat) => {
-                    const c = catColors[cat] || "#7a7d92";
+                    const c = catColors[cat] || cl("#7a7d92", "#5f6374");
                     const sw = "2";
                     switch(cat) {
                       case "Charpente":
@@ -8897,14 +8902,14 @@ return (
                           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22 }}>{renderCatIcon(cat)}</span>
                           {cat} <span style={{ color: "#545870", fontWeight: 400, fontSize: 13 }}>({items.length})</span>
                         </h3>
-                        <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.05)", background: "rgba(255, 255, 255, 0.015)" }}>
+                        <div style={{ borderRadius: 12, overflow: "hidden", border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"), background: "rgba(255, 255, 255, 0.015)" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
-                              <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
-                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
-                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
-                                <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
+                              <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)") }}>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
+                                <th style={{ padding: "12px 16px", textAlign: "right", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -8912,9 +8917,9 @@ return (
                                 <tr key={m.id} style={{ borderBottom: i < items.length - 1 ? "1px solid rgba(255, 255, 255, 0.04)" : "none", transition: "background 0.12s" }}
                                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.025)"; }}
                                   onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#e8eaf2", fontWeight: 500 }}>{m.designation}</td>
-                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#9ca0b8" }}>{m.dimensions || "—"}</td>
-                                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#7a7d92" }}>{m.unite}</td>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 500 }}>{m.designation}</td>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#9ca0b8", "#565a6c") }}>{m.dimensions || "—"}</td>
+                                  <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#7a7d92", "#5f6374") }}>{m.unite}</td>
                                   <td style={{ padding: "12px 16px", textAlign: "right", fontSize: 13, color: "#f0c040", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                     {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span>
                                   </td>
@@ -8955,8 +8960,8 @@ return (
                       </svg>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "#e8eaf2" }}>Mon catalogue d&apos;entreprise</div>
-                      <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: cl("#e8eaf2", "#1a1d2a") }}>Mon catalogue d&apos;entreprise</div>
+                      <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 13, lineHeight: 1.55 }}>
                         Vos prix personnels, prioritaires sur le catalogue marche.
                       </div>
                     </div>
@@ -8993,7 +8998,7 @@ return (
                     <div style={{
                       width: 56, height: 56, borderRadius: 14,
                       background: "rgba(255, 255, 255, 0.03)",
-                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       marginBottom: 16
                     }}>
@@ -9001,20 +9006,20 @@ return (
                         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
                       </svg>
                     </div>
-                    <div style={{ color: "#e8eaf2", fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun matériau dans votre catalogue</div>
-                    <div style={{ color: "#7a7d92", fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Cliquez sur &quot;Ajouter un matériau&quot; pour creer votre premier prix personnalise.</div>
+                    <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Aucun matériau dans votre catalogue</div>
+                    <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13, maxWidth: 360, margin: "0 auto", lineHeight: 1.5 }}>Cliquez sur &quot;Ajouter un matériau&quot; pour creer votre premier prix personnalise.</div>
                   </div>
                 ) : (
                   <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
-                        <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
-                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Categorie</th>
-                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
-                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
-                          <th style={{ padding: "12px 16px", textAlign: "left", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
-                          <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
-                          <th style={{ padding: "12px 16px", textAlign: "right", color: "#7a7d92", fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Actions</th>
+                        <tr style={{ background: "rgba(255, 255, 255, 0.025)", borderBottom: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)") }}>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Categorie</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Designation</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dimensions</th>
+                          <th style={{ padding: "12px 16px", textAlign: "left", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Unite</th>
+                          <th style={{ padding: "12px 16px", textAlign: "right", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Prix HT</th>
+                          <th style={{ padding: "12px 16px", textAlign: "right", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -9025,9 +9030,9 @@ return (
                             <td style={{ padding: "12px 16px", fontSize: 13 }}>
                               <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 600, padding: "3px 8px", background: "rgba(96, 165, 250, 0.08)", borderRadius: 999, letterSpacing: "0.02em" }}>{m.categorie}</span>
                             </td>
-                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#e8eaf2", fontWeight: 500 }}>{m.designation}</td>
-                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#9ca0b8" }}>{m.dimensions || "—"}</td>
-                            <td style={{ padding: "12px 16px", fontSize: 13, color: "#7a7d92" }}>{m.unite}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 500 }}>{m.designation}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#9ca0b8", "#565a6c") }}>{m.dimensions || "—"}</td>
+                            <td style={{ padding: "12px 16px", fontSize: 13, color: cl("#7a7d92", "#5f6374") }}>{m.unite}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontSize: 13, color: "#3ecf8e", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                               {m.prix_ht ? Number(m.prix_ht).toFixed(2) : "0.00"} <span style={{ color: "#1f7a4c", fontSize: 11 }}>EUR</span>
                             </td>
@@ -9038,8 +9043,8 @@ return (
                                   title="Modifier"
                                   style={{
                                     background: "transparent",
-                                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                                    color: "#7a7d92",
+                                    border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+                                    color: cl("#7a7d92", "#5f6374"),
                                     borderRadius: 8,
                                     padding: "6px 8px",
                                     cursor: "pointer",
@@ -9049,7 +9054,7 @@ return (
                                     justifyContent: "center"
                                   }}
                                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(96, 165, 250, 0.1)"; e.currentTarget.style.borderColor = "rgba(96, 165, 250, 0.4)"; e.currentTarget.style.color = "#60a5fa"; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                   </svg>
@@ -9059,8 +9064,8 @@ return (
                                   title="Supprimer"
                                   style={{
                                     background: "transparent",
-                                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                                    color: "#7a7d92",
+                                    border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+                                    color: cl("#7a7d92", "#5f6374"),
                                     borderRadius: 8,
                                     padding: "6px 8px",
                                     cursor: "pointer",
@@ -9070,7 +9075,7 @@ return (
                                     justifyContent: "center"
                                   }}
                                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"; e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)"; e.currentTarget.style.color = "#ef4444"; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.06)"; e.currentTarget.style.color = "#7a7d92"; }}>
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                                   </svg>
@@ -9130,7 +9135,7 @@ return (
                 }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 10,
-                  background: opt.id === "dark" ? "#08090c" : "#f5f6fa",
+                  background: opt.id === "dark" ? "#08090c" : cl("#f5f6fa", "#14161f"),
                   border: "1px solid " + (opt.id === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"),
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0
@@ -9168,7 +9173,7 @@ return (
         </div>
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Paramètres</h2>
-          <div style={{ color: "#7a7d92", fontSize: 13, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span>Configurez votre entreprise et vos tarifs par défaut</span>
             {paramsSaving && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#f0c040", fontSize: 12 }}>
@@ -9203,13 +9208,13 @@ return (
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Informations entreprise</div>
-              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces informations apparaîtront sur vos devis</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: cl("#e8eaf2", "#1a1d2a") }}>Informations entreprise</div>
+              <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>Ces informations apparaîtront sur vos devis</div>
             </div>
           </div>
           {[{ label: "Nom de l'entreprise", key: "entreprise" }, { label: "SIRET", key: "siret" }, { label: "Adresse", key: "adresse" }].map(f => (
             <div key={f.key} style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label}</label>
+              <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label}</label>
               <input value={params[f.key]} onChange={e => setParams(prev => ({ ...prev, [f.key]: e.target.value }))} style={inputStyle} />
             </div>
           ))}
@@ -9229,8 +9234,8 @@ return (
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Tarification par defaut</div>
-              <div style={{ color: "#7a7d92", fontSize: 12 }}>Ces valeurs s&apos;appliquent automatiquement à vos devis</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: cl("#e8eaf2", "#1a1d2a") }}>Tarification par defaut</div>
+              <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>Ces valeurs s&apos;appliquent automatiquement à vos devis</div>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
@@ -9240,7 +9245,7 @@ return (
               { label: "Marge", key: "marge", suffix: "%" }
             ].map(f => (
               <div key={f.key}>
-                <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label} <span style={{ color: "#7a7d92", fontWeight: 400, textTransform: "none" }}>({f.suffix})</span></label>
+                <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>{f.label} <span style={{ color: cl("#7a7d92", "#5f6374"), fontWeight: 400, textTransform: "none" }}>({f.suffix})</span></label>
                 <input type="number" value={params[f.key]} onChange={e => setParams(prev => ({ ...prev, [f.key]: parseFloat(e.target.value) }))} style={inputStyle} />
               </div>
             ))}
@@ -9261,8 +9266,8 @@ return (
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: "#e8eaf2" }}>Mentions legales</div>
-              <div style={{ color: "#7a7d92", fontSize: 12 }}>Texte affiche en bas de vos devis</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: cl("#e8eaf2", "#1a1d2a") }}>Mentions legales</div>
+              <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>Texte affiche en bas de vos devis</div>
             </div>
           </div>
           <textarea value={params.mentions} onChange={e => setParams(prev => ({ ...prev, mentions: e.target.value }))} rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
@@ -9294,7 +9299,7 @@ return (
       <div>
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Mon compte</h2>
-          <div style={{ color: "#7a7d92", fontSize: 13 }}>Aperçu de votre activité DEVIA</div>
+          <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>Aperçu de votre activité DEVIA</div>
         </div>
 
         {/* Card Identite + Plan */}
@@ -9391,7 +9396,7 @@ return (
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 18, color: "#e8eaf2", marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ fontWeight: 700, fontSize: 18, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {params.entreprise || "Mon entreprise"}
               </div>
               <div style={{
@@ -9414,8 +9419,8 @@ return (
 
           {/* Accordeon Infos entreprise */}
           <div style={{
-            background: "rgba(255, 255, 255, 0.02)",
-            border: "1px solid rgba(255, 255, 255, 0.05)",
+            background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
+            border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
             borderRadius: 12,
             marginBottom: 16,
             overflow: "hidden",
@@ -9433,10 +9438,10 @@ return (
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: 12,
-                color: "#e8eaf2",
+                color: cl("#e8eaf2", "#1a1d2a"),
                 transition: "background 0.15s"
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"); }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
@@ -9450,8 +9455,8 @@ return (
                   </svg>
                 </div>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#e8eaf2", marginBottom: 1 }}>Infos entreprise</div>
-                  <div style={{ fontSize: 11, color: "#7a7d92" }}>{showInfosEntreprise ? "Cliquez pour replier" : "Cliquez pour déplier"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 1 }}>Infos entreprise</div>
+                  <div style={{ fontSize: 11, color: cl("#7a7d92", "#5f6374") }}>{showInfosEntreprise ? "Cliquez pour replier" : "Cliquez pour déplier"}</div>
                 </div>
               </div>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7d92" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
@@ -9467,38 +9472,38 @@ return (
               }}>
                 {/* Bloc 1 - Identite legale */}
                 <div style={{ marginTop: 16, marginBottom: 14 }}>
-                  <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Identite</div>
+                  <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Identite</div>
                   <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8 }}>
-                      <span style={{ color: "#9ca0b8", fontSize: 12 }}>Nom de l'entreprise</span>
-                      <span style={{ color: "#e8eaf2", fontSize: 13, fontWeight: 500, textAlign: "right" }}>{params.entreprise || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseigne</span>}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8 }}>
+                      <span style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12 }}>Nom de l'entreprise</span>
+                      <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500, textAlign: "right" }}>{params.entreprise || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseigne</span>}</span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8 }}>
-                      <span style={{ color: "#9ca0b8", fontSize: 12 }}>SIRET</span>
-                      <span style={{ color: "#e8eaf2", fontSize: 13, fontWeight: 500, fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{params.siret || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseigne</span>}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8 }}>
+                      <span style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12 }}>SIRET</span>
+                      <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500, fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{params.siret || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseigne</span>}</span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", padding: "10px 12px", background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, gap: 12 }}>
-                      <span style={{ color: "#9ca0b8", fontSize: 12, flexShrink: 0 }}>Adresse</span>
-                      <span style={{ color: "#e8eaf2", fontSize: 13, fontWeight: 500, textAlign: "right" }}>{params.adresse || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseignee</span>}</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", padding: "10px 12px", background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, gap: 12 }}>
+                      <span style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 12, flexShrink: 0 }}>Adresse</span>
+                      <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500, textAlign: "right" }}>{params.adresse || <span style={{ color: "#545870", fontStyle: "italic" }}>Non renseignee</span>}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Bloc 2 - Parametres financiers */}
                 <div style={{ marginBottom: 6 }}>
-                  <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Paramètres financiers</div>
+                  <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Paramètres financiers</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
-                      <div style={{ color: "#7a7d92", fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Taux horaire</div>
-                      <div style={{ color: "#e8eaf2", fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.tauxHoraire}<span style={{ color: "#7a7d92", fontSize: 12, marginLeft: 2 }}>EUR/h</span></div>
+                    <div style={{ background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                      <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Taux horaire</div>
+                      <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.tauxHoraire}<span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, marginLeft: 2 }}>EUR/h</span></div>
                     </div>
-                    <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
-                      <div style={{ color: "#7a7d92", fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>TVA</div>
-                      <div style={{ color: "#e8eaf2", fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.tva}<span style={{ color: "#7a7d92", fontSize: 12, marginLeft: 2 }}>%</span></div>
+                    <div style={{ background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                      <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>TVA</div>
+                      <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.tva}<span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, marginLeft: 2 }}>%</span></div>
                     </div>
-                    <div style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
-                      <div style={{ color: "#7a7d92", fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Marge</div>
-                      <div style={{ color: "#e8eaf2", fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.marge}<span style={{ color: "#7a7d92", fontSize: 12, marginLeft: 2 }}>%</span></div>
+                    <div style={{ background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: 8, padding: 12, textAlign: "center" }}>
+                      <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Marge</div>
+                      <div style={{ color: cl("#e8eaf2", "#1a1d2a"), fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em" }}>{params.marge}<span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12, marginLeft: 2 }}>%</span></div>
                     </div>
                   </div>
                 </div>
@@ -9506,7 +9511,7 @@ return (
                 {/* Lien vers Parametres */}
                 <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255, 255, 255, 0.04)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ color: "#545870", fontSize: 11, lineHeight: 1.4 }}>
-                    Pour modifier ces informations,<br/>rendez-vous dans <span style={{ color: "#9ca0b8" }}>Paramètres</span>.
+                    Pour modifier ces informations,<br/>rendez-vous dans <span style={{ color: cl("#9ca0b8", "#565a6c") }}>Paramètres</span>.
                   </div>
                   <button onClick={() => setActiveTab("parametres")}
                     style={{
@@ -9712,27 +9717,27 @@ return (
               }}>
                 {stats.map(s => (
                   <div key={s.label} style={{
-                    background: "rgba(255, 255, 255, 0.02)",
+                    background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"),
                     borderRadius: 12,
                     padding: 14,
-                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
                     transition: "border-color 0.15s",
                     display: "flex",
                     flexDirection: "column"
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)"; }}>
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = cl("rgba(255, 255, 255, 0.05)", "rgba(0, 0, 0, 0.08)"); }}>
                     <div style={{
                       width: 28, height: 28, borderRadius: 7,
-                      background: "rgba(255, 255, 255, 0.04)",
-                      border: "1px solid rgba(255, 255, 255, 0.06)",
+                      background: cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
+                      border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       marginBottom: 10
                     }}>
                       {s.icon}
                     </div>
-                    <div style={{ color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: "#f5f6fa", letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{s.val}</div>
+                    <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: cl("#f5f6fa", "#14161f"), letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.1 }}>{s.val}</div>
                     {s.sub && (
                       <div style={{ marginTop: 6, color: "#545870", fontSize: 10, fontVariantNumeric: "tabular-nums" }}>{s.sub}</div>
                     )}
@@ -9756,7 +9761,7 @@ return (
                       {LISTE_GRAPHES.map(gr => (
                         <button key={gr.id} onClick={() => basculerGraphe(gr.id)}
                           style={{ padding: "5px 11px", borderRadius: 20, cursor: "pointer", fontSize: 11, fontWeight: 500,
-                            border: "1px solid " + (graphesActifs[gr.id] === true ? "rgba(240,192,64,0.5)" : "rgba(255,255,255,0.08)"),
+                            border: "1px solid " + (graphesActifs[gr.id] === true ? "rgba(240,192,64,0.5)" : cl("rgba(255,255,255,0.08)", "rgba(0,0,0,0.10)")),
                             background: graphesActifs[gr.id] === true ? "rgba(240,192,64,0.10)" : "transparent",
                             color: graphesActifs[gr.id] === true ? "#f0c040" : "#545870", transition: "all 0.12s" }}>
                           {gr.titre}
@@ -9765,8 +9770,8 @@ return (
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
                       {LISTE_GRAPHES.filter(gr => graphesActifs[gr.id] === true).map(gr => (
-                        <div key={gr.id} style={{ background: "rgba(255, 255, 255, 0.02)", borderRadius: 12, padding: 18, border: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                          <div style={{ color: "#7a7d92", fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 }}>{gr.titre}</div>
+                        <div key={gr.id} style={{ background: cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)"), borderRadius: 12, padding: 18, border: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
+                          <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 10 }}>{gr.titre}</div>
                           {gr.rendu()}
                         </div>
                       ))}
@@ -9799,7 +9804,7 @@ return (
         background: "rgba(22, 25, 35, 0.95)",
         backdropFilter: "blur(24px) saturate(140%)",
         WebkitBackdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
         borderRadius: 20,
         padding: 28,
         maxWidth: 480,
@@ -9809,13 +9814,13 @@ return (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Renommer le projet</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>Modifiez le nom de ce projet</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>Modifiez le nom de ce projet</div>
           </div>
           <button onClick={() => { if (!savingRename) { setRenameProjectModal(null); setRenameProjectName(""); setRenameError(null); } }}
             style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              color: "#7a7d92",
+              background: cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
+              border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+              color: cl("#7a7d92", "#5f6374"),
               cursor: savingRename ? "not-allowed" : "pointer",
               borderRadius: 10,
               padding: 8,
@@ -9833,7 +9838,7 @@ return (
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Nom du projet <span style={{ color: "#f0c040" }}>*</span></label>
+          <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Nom du projet <span style={{ color: "#f0c040" }}>*</span></label>
           <input
             type="text"
             value={renameProjectName}
@@ -9867,7 +9872,7 @@ return (
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
           <button onClick={() => { setRenameProjectModal(null); setRenameProjectName(""); setRenameError(null); }}
             disabled={savingRename}
             style={{ ...btnSecondary, opacity: savingRename ? 0.5 : 1 }}>
@@ -9919,7 +9924,7 @@ return (
         background: "rgba(22, 25, 35, 0.95)",
         backdropFilter: "blur(24px) saturate(140%)",
         WebkitBackdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
         borderRadius: 20,
         padding: 28,
         maxWidth: 440,
@@ -9940,13 +9945,13 @@ return (
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Supprimer le groupe ?</h2>
-            <div style={{ color: "#9ca0b8", fontSize: 13, lineHeight: 1.55 }}>
-              Le groupe <span style={{ color: "#e8eaf2", fontWeight: 600 }}>&quot;{deleteConfirmGroup.nom}&quot;</span> sera supprime. Les projets associes ne seront pas supprimes, ils reviendront a &quot;Tous&quot; sans groupe.
+            <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 13, lineHeight: 1.55 }}>
+              Le groupe <span style={{ color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 600 }}>&quot;{deleteConfirmGroup.nom}&quot;</span> sera supprime. Les projets associes ne seront pas supprimes, ils reviendront a &quot;Tous&quot; sans groupe.
             </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
           <button onClick={() => setDeleteConfirmGroup(null)}
             disabled={deletingGroup}
             style={{ ...btnSecondary, opacity: deletingGroup ? 0.5 : 1 }}>
@@ -10006,7 +10011,7 @@ return (
         background: "rgba(22, 25, 35, 0.95)",
         backdropFilter: "blur(24px) saturate(140%)",
         WebkitBackdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
         borderRadius: 20,
         padding: 28,
         maxWidth: 440,
@@ -10016,13 +10021,13 @@ return (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingGroupId ? "Renommer le groupe" : "Nouveau groupe"}</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingGroupId ? "Modifiez le nom du groupe" : "Organisez vos projets par categorie"}</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{editingGroupId ? "Modifiez le nom du groupe" : "Organisez vos projets par categorie"}</div>
           </div>
           <button onClick={() => { if (!savingGroup) { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); } }}
             style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              color: "#7a7d92",
+              background: cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
+              border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+              color: cl("#7a7d92", "#5f6374"),
               cursor: savingGroup ? "not-allowed" : "pointer",
               borderRadius: 10,
               padding: 8,
@@ -10040,7 +10045,7 @@ return (
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Nom du groupe <span style={{ color: "#f0c040" }}>*</span></label>
+          <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Nom du groupe <span style={{ color: "#f0c040" }}>*</span></label>
           <input
             type="text"
             value={newGroupName}
@@ -10074,7 +10079,7 @@ return (
           </div>
         )}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
           <button onClick={() => { setShowGroupModal(false); setNewGroupName(""); setGroupError(null); setEditingGroupId(null); }}
             disabled={savingGroup}
             style={{ ...btnSecondary, opacity: savingGroup ? 0.5 : 1 }}>
@@ -10155,7 +10160,7 @@ return (
           </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>Génération en cours</h2>
-            <div style={{ color: "#7a7d92", fontSize: 12 }}>DEVIA prépare votre devis...</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>DEVIA prépare votre devis...</div>
           </div>
         </div>
 
@@ -10164,7 +10169,7 @@ return (
           <div style={{
             width: "100%",
             height: 6,
-            background: "rgba(255, 255, 255, 0.06)",
+            background: cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"),
             borderRadius: 999,
             overflow: "hidden",
             position: "relative"
@@ -10178,7 +10183,7 @@ return (
               boxShadow: "0 0 8px rgba(240, 192, 64, 0.5)"
             }}/>
           </div>
-          <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", fontSize: 11, color: "#7a7d92" }}>
+          <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", fontSize: 11, color: cl("#7a7d92", "#5f6374") }}>
             <span>Progression</span>
             <span style={{ fontFamily: "ui-monospace, monospace", color: "#f0c040", fontWeight: 600 }}>{loadingProgress}%</span>
           </div>
@@ -10195,8 +10200,8 @@ return (
           ].map((step, idx) => {
             const status = idx < loadingStep ? "done" : idx === loadingStep ? "active" : "pending";
             const color = status === "done" ? "#3ecf8e" : status === "active" ? "#f0c040" : "#545870";
-            const bgColor = status === "done" ? "rgba(62, 207, 142, 0.08)" : status === "active" ? "rgba(240, 192, 64, 0.08)" : "rgba(255, 255, 255, 0.02)";
-            const borderColor = status === "done" ? "rgba(62, 207, 142, 0.2)" : status === "active" ? "rgba(240, 192, 64, 0.25)" : "rgba(255, 255, 255, 0.04)";
+            const bgColor = status === "done" ? "rgba(62, 207, 142, 0.08)" : status === "active" ? "rgba(240, 192, 64, 0.08)" : cl("rgba(255, 255, 255, 0.02)", "rgba(0, 0, 0, 0.03)");
+            const borderColor = status === "done" ? "rgba(62, 207, 142, 0.2)" : status === "active" ? "rgba(240, 192, 64, 0.25)" : cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)");
             return (
               <div key={idx} style={{
                 display: "flex", alignItems: "center", gap: 12,
@@ -10208,7 +10213,7 @@ return (
               }}>
                 <div style={{
                   width: 30, height: 30, borderRadius: 8,
-                  background: status === "active" ? "rgba(240, 192, 64, 0.15)" : status === "done" ? "rgba(62, 207, 142, 0.15)" : "rgba(255, 255, 255, 0.04)",
+                  background: status === "active" ? "rgba(240, 192, 64, 0.15)" : status === "done" ? "rgba(62, 207, 142, 0.15)" : cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
                   transition: "all 0.25s"
@@ -10254,7 +10259,7 @@ return (
                   flex: 1,
                   fontSize: 13,
                   fontWeight: status === "active" ? 600 : 500,
-                  color: status === "pending" ? "#7a7d92" : "#e8eaf2",
+                  color: status === "pending" ? cl("#7a7d92", "#5f6374") : cl("#e8eaf2", "#1a1d2a"),
                   transition: "color 0.25s"
                 }}>
                   {step.label}
@@ -10271,7 +10276,7 @@ return (
         <div style={{
           marginTop: 20,
           paddingTop: 16,
-          borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+          borderTop: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)"),
           fontSize: 11,
           color: "#545870",
           textAlign: "center",
@@ -10298,7 +10303,7 @@ return (
         background: "rgba(22, 25, 35, 0.95)",
         backdropFilter: "blur(24px) saturate(140%)",
         WebkitBackdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
         borderRadius: 20,
         padding: 28,
         maxWidth: 560,
@@ -10310,13 +10315,13 @@ return (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24, gap: 12 }}>
           <div>
             <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", marginBottom: 4 }}>{editingCatalogId ? "Modifier un matériau" : "Ajouter un matériau"}</h2>
-            <div style={{ color: "#7a7d92", fontSize: 13 }}>{editingCatalogId ? "Mettez à jour les informations" : "Ajoutez un prix à votre catalogue personnel"}</div>
+            <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{editingCatalogId ? "Mettez à jour les informations" : "Ajoutez un prix à votre catalogue personnel"}</div>
           </div>
           <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
             style={{
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              color: "#7a7d92",
+              background: cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"),
+              border: cl("1px solid rgba(255, 255, 255, 0.06)", "1px solid rgba(0, 0, 0, 0.09)"),
+              color: cl("#7a7d92", "#5f6374"),
               cursor: "pointer",
               borderRadius: 10,
               padding: 8,
@@ -10326,8 +10331,8 @@ return (
               justifyContent: "center",
               transition: "all 0.15s"
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)"; e.currentTarget.style.color = "#e8eaf2"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)"; e.currentTarget.style.color = "#7a7d92"; }}>
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)"; e.currentTarget.style.color = cl("#e8eaf2", "#1a1d2a"); }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.04)", "rgba(0, 0, 0, 0.04)"); e.currentTarget.style.color = cl("#7a7d92", "#5f6374"); }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -10337,7 +10342,7 @@ return (
         <div style={{ display: "grid", gap: 14 }}>
           {/* Designation - avec detection intelligente */}
           <div>
-            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Désignation <span style={{ color: "#f0c040" }}>*</span></label>
+            <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Désignation <span style={{ color: "#f0c040" }}>*</span></label>
             <input type="text" value={catalogForm.designation}
               onChange={(e) => {
                 const v = e.target.value;
@@ -10384,26 +10389,26 @@ return (
                       background: "rgba(22, 25, 35, 0.98)",
                       backdropFilter: "blur(20px) saturate(140%)",
                       WebkitBackdropFilter: "blur(20px) saturate(140%)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
+                      border: cl("1px solid rgba(255, 255, 255, 0.08)", "1px solid rgba(0, 0, 0, 0.10)"),
                       borderRadius: 10,
                       padding: 4,
                       minWidth: 200,
                       boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
                       zIndex: 100
                     }}>
-                      <div style={{ padding: "6px 12px 4px 12px", color: "#7a7d92", fontSize: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Changer le type</div>
+                      <div style={{ padding: "6px 12px 4px 12px", color: cl("#7a7d92", "#5f6374"), fontSize: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Changer le type</div>
                       {Object.entries(MATERIAL_TYPES).map(([t2, c]) => (
                         <button key={t2} type="button"
                           onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); setTypeOverride(t2); setShowTypeMenu(false); }}
                           style={{
                             width: "100%", background: "transparent", border: "none",
-                            color: activeType === t2 ? c.color : "#e8eaf2",
+                            color: activeType === t2 ? c.color : cl("#e8eaf2", "#1a1d2a"),
                             textAlign: "left", padding: "7px 12px",
                             fontSize: 12, cursor: "pointer", borderRadius: 7,
                             display: "flex", alignItems: "center", gap: 7, transition: "background 0.12s",
                             fontWeight: activeType === t2 ? 600 : 500
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)"; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = cl("rgba(255, 255, 255, 0.06)", "rgba(0, 0, 0, 0.09)"); }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                           <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.color, flexShrink: 0 }}></span>
                           {c.label}
@@ -10431,7 +10436,7 @@ return (
               <div style={{ display: "grid", gridTemplateColumns: config.showDimensions ? "1fr 1fr" : "1fr", gap: 12 }}>
                 {config.showDimensions && (
                   <div>
-                    <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Dimensions</label>
                     <input type="text" value={catalogForm.dimensions}
                       onChange={(e) => setCatalogForm({ ...catalogForm, dimensions: e.target.value })}
                       placeholder={config.placeholder || "Ex: 75x175 mm"}
@@ -10439,7 +10444,7 @@ return (
                   </div>
                 )}
                 <div>
-                  <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Unite <span style={{ color: "#f0c040" }}>*</span></label>
+                  <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Unite <span style={{ color: "#f0c040" }}>*</span></label>
                   <select value={catalogForm.unite}
                     onChange={(e) => setCatalogForm({ ...catalogForm, unite: e.target.value })}
                     style={{ ...inputStyle, cursor: "pointer" }}>
@@ -10453,7 +10458,7 @@ return (
 
           {/* Prix HT */}
           <div>
-            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Prix HT <span style={{ color: "#7a7d92", fontWeight: 400, textTransform: "none" }}>(EUR)</span> <span style={{ color: "#f0c040" }}>*</span></label>
+            <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Prix HT <span style={{ color: cl("#7a7d92", "#5f6374"), fontWeight: 400, textTransform: "none" }}>(EUR)</span> <span style={{ color: "#f0c040" }}>*</span></label>
             <input type="number" step="0.01" min="0" value={catalogForm.prix_ht}
               onChange={(e) => setCatalogForm({ ...catalogForm, prix_ht: e.target.value })}
               placeholder="Ex: 12.50"
@@ -10462,7 +10467,7 @@ return (
 
           {/* Notes */}
           <div>
-            <label style={{ display: "block", color: "#9ca0b8", fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Notes <span style={{ color: "#7a7d92", fontWeight: 400, textTransform: "none" }}>(optionnel)</span></label>
+            <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Notes <span style={{ color: cl("#7a7d92", "#5f6374"), fontWeight: 400, textTransform: "none" }}>(optionnel)</span></label>
             <input type="text" value={catalogForm.notes}
               onChange={(e) => setCatalogForm({ ...catalogForm, notes: e.target.value })}
               placeholder="Ex: Fournisseur X, classe C24..."
@@ -10488,7 +10493,7 @@ return (
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.05)" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12, paddingTop: 16, borderTop: cl("1px solid rgba(255, 255, 255, 0.05)", "1px solid rgba(0, 0, 0, 0.08)") }}>
             <button onClick={() => { setShowAddCatalogModal(false); resetCatalogForm(); }}
               disabled={savingCatalog}
               style={{ ...btnSecondary, opacity: savingCatalog ? 0.5 : 1 }}>
