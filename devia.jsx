@@ -3975,6 +3975,7 @@ function Viewer3D({ params, onMetre }) {
       scene.add(new THREE.Points(geoE, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.35, transparent: true, opacity: 0.8 })));
     }
     let metreVue = null;
+    console.log("[DEVIA][3D]", JSON.stringify({ L: params.longueur, lg: params.largeur, H: params.hauteur, pente: params.pente, type: params.type_projet, debord: params.debord, sk: params.sk, dS: params.dS, murs: params.murs, essence: params.essence, finition: params.finition, nbOuvrages: (params.ouvrages || []).length }));
 
     // Construction de la scene via fonction commune
     if (params.ouvrages && params.ouvrages.length > 1) {
