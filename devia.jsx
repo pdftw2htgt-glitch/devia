@@ -243,6 +243,8 @@ function recalerQuantitesDevis(parsed, agg) {
           if (parNom[cand] !== undefined) { g = parNom[cand]; break; }
         }
         if (g === null) break;
+        po.nbPieces = g.nombre;
+        po.mlTotal = Math.round(g.longueurTotale * 10) / 10;
         const u = stripQ(po.unite);
         let q = 0;
         if (u.includes("m3") || u.includes("cube")) q = Math.round(g.volume * 1000) / 1000;
@@ -3345,6 +3347,7 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   const postes = result.postes || [];
   const ligneDetail = (p) => [
     (p.designation || "").replace(/^Ouvrage \d+ - /, ""),
+    (p.nbPieces === undefined || p.nbPieces === null) ? "-" : String(p.nbPieces),
     p.quantite ? String(p.quantite) : "-",
     p.unite || "-",
     ""
@@ -3362,13 +3365,13 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       const lignes = parCat.get(cat);
       corps.push([{
         content: cat.toUpperCase(),
-        colSpan: 4,
+        colSpan: 5,
         styles: { fillColor: [245, 245, 247], textColor: [90, 90, 100], fontStyle: "bold", fontSize: 8 }
       }]);
       lignes.forEach((p) => corps.push(ligneDetail(p)));
       const totalCat = lignes.reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
       corps.push([
-        { content: cat + " : ", colSpan: 3, styles: { halign: "right", fontStyle: "bold" } },
+        { content: cat + " : ", colSpan: 4, styles: { halign: "right", fontStyle: "bold" } },
         { content: fmtEUR(totalCat), styles: { halign: "right", fontStyle: "bold" } }
       ]);
     });
@@ -3380,13 +3383,13 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       const desc = (ouv.projet && ouv.projet.description) || "";
       tableBody.push([{
         content: "OUVRAGE " + (oi + 1) + (desc ? " - " + desc : ""),
-        colSpan: 4,
+        colSpan: 5,
         styles: { fillColor: [240, 192, 64], textColor: [25, 28, 38], fontStyle: "bold", fontSize: 8.5 }
       }]);
       lignesParCategorie(ouv.postes || [], tableBody);
       const sousHT = (ouv.postes || []).reduce((acc, p) => acc + (Number(p.totalHT) || 0), 0);
       tableBody.push([
-        { content: "Sous-total Ouvrage " + (oi + 1), colSpan: 3, styles: { halign: "right", fontStyle: "bold", textColor: [25, 28, 38], fillColor: [250, 242, 214] } },
+        { content: "Sous-total Ouvrage " + (oi + 1), colSpan: 4, styles: { halign: "right", fontStyle: "bold", textColor: [25, 28, 38], fillColor: [250, 242, 214] } },
         { content: fmtEUR(sousHT), styles: { halign: "right", fontStyle: "bold", fillColor: [250, 242, 214] } }
       ]);
     });
@@ -3397,7 +3400,7 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
 
   autoTable(doc, {
     startY: y,
-    head: [["Designation", "Qte", "Unite", "Montant HT"]],
+    head: [["Designation", "Pieces", "Qte", "Unite", "Montant HT"]],
     body: tableBody,
     theme: "striped",
     styles: {
@@ -3419,10 +3422,11 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
       fillColor: [248, 248, 250]
     },
     columnStyles: {
-      0: { cellWidth: 96 },
-      1: { cellWidth: 18, halign: "right" },
-      2: { cellWidth: 22, halign: "center" },
-      3: { cellWidth: 44, halign: "right", fontStyle: "bold" }
+      0: { cellWidth: 84 },
+      1: { cellWidth: 16, halign: "right" },
+      2: { cellWidth: 18, halign: "right" },
+      3: { cellWidth: 20, halign: "center" },
+      4: { cellWidth: 42, halign: "right", fontStyle: "bold" }
     },
     margin: { left: margin, right: margin }
   });
@@ -7828,6 +7832,7 @@ return (
                                     { label: "Categorie", align: "left" },
                                     { label: "Designation", align: "left" },
                                     { label: "U", align: "left" },
+                                    { label: "Pieces", align: "right" },
                                     { label: "Qte", align: "right" },
                                     { label: "PU HT", align: "right" },
                                     { label: "Total HT", align: "right" }
@@ -7846,6 +7851,7 @@ return (
                                     </td>
                                     <td style={{ padding: "12px 16px", color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
                                     <td style={{ padding: "12px 16px", color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{p.unite}</td>
+                                    <td style={{ padding: "12px 16px", color: cl("#9ca0b8", "#565a6c"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{(p.nbPieces === undefined || p.nbPieces === null) ? "-" : p.nbPieces}</td>
                                     <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
                                     <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
                                     <td style={{ padding: "12px 16px", color: "#f0c040", fontWeight: 600, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.totalHT ? p.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span></td>
@@ -7886,7 +7892,8 @@ return (
                           { label: "Categorie", align: "left" },
                           { label: "Designation", align: "left" },
                           { label: "U", align: "left" },
-                          { label: "Qte", align: "right" },
+                          { label: "Pieces", align: "right" },
+                                    { label: "Qte", align: "right" },
                           { label: "PU HT", align: "right" },
                           { label: "Total HT", align: "right" }
                         ].map(h => (
@@ -7904,7 +7911,8 @@ return (
                           </td>
                           <td style={{ padding: "12px 16px", color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, fontWeight: 500 }}>{p.designation}</td>
                           <td style={{ padding: "12px 16px", color: cl("#7a7d92", "#5f6374"), fontSize: 13 }}>{p.unite}</td>
-                          <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
+                          <td style={{ padding: "12px 16px", color: cl("#9ca0b8", "#565a6c"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{(p.nbPieces === undefined || p.nbPieces === null) ? "-" : p.nbPieces}</td>
+                                    <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.quantite}</td>
                           <td style={{ padding: "12px 16px", color: cl("#d0d2dc", "#3a3e50"), fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.prixUnitaireHT ? p.prixUnitaireHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#545870", fontSize: 11 }}>EUR</span></td>
                           <td style={{ padding: "12px 16px", color: "#f0c040", fontWeight: 600, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{p.totalHT ? p.totalHT.toLocaleString("fr-FR") : 0} <span style={{ color: "#a8841f", fontSize: 11 }}>EUR</span></td>
                         </tr>
