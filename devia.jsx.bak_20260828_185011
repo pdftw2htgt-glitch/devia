@@ -5350,7 +5350,7 @@ const fileInputRef = useRef(null);
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: modele || "claude-sonnet-5",
-            max_tokens: 32000,
+            max_tokens: 20000,
             thinking: { type: "adaptive" },
             output_config: { effort: effortNiveau },
             system: sysTxt,
@@ -5447,25 +5447,12 @@ const fileInputRef = useRef(null);
           console.warn("[DEVIA] Decomposition : volume " + (idx + 1) + " ecarte (type inconnu ou dimensions manquantes) : type=" + o.type + " longueur=" + o.longueur + " largeur=" + o.largeur);
         }
       });
-      const decomp = gardes.map((o, idx) => {
-        let oc = null;
-        if (o.contre) {
-          if (nouvNum[o.contre] === undefined) {
-            console.warn("[DEVIA] Decomposition : accroche contre V" + o.contre + " perdue, rattachee au volume principal");
-            oc = 1;
-          } else {
-            oc = nouvNum[o.contre];
-          }
+      const decomp = gardes.map(o => {
+        if (o.contre && nouvNum[o.contre] === undefined) {
+          console.warn("[DEVIA] Decomposition : accroche contre V" + o.contre + " perdue, rattachee au volume principal");
+          return { ...o, contre: 1 };
         }
-        if (idx === 0 && oc) {
-          console.warn("[DEVIA] Decomposition : le volume principal etait accroche, il est repose libre");
-          return { ...o, contre: null, cote: null, facade: null, alignement: null, decalage_m: null, faitage: null };
-        }
-        if (idx > 0 && oc === idx + 1) {
-          console.warn("[DEVIA] Decomposition : V" + (idx + 1) + " accroche a lui-meme, rattache au volume principal");
-          oc = 1;
-        }
-        if (oc) { return { ...o, contre: oc }; }
+        if (o.contre) { return { ...o, contre: nouvNum[o.contre] }; }
         return o;
       });
       if (decomp.length >= 2) {
@@ -5676,10 +5663,6 @@ return out;
       return;
     }
 
-    if (prompt && prompt.indexOf("D'apres le plan") === 0) {
-      console.log("[DEVIA] Description issue du plan : extraction adresse ignoree (commune lue sur le cartouche)");
-      return;
-    }
     console.log("[DEVIA] Debounce demarre, attente 1s avant extraction...");
     const timer = setTimeout(async () => {
       console.log("[DEVIA] Lancement extraction adresse pour:", prompt);
