@@ -5336,7 +5336,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p5v10";
+      const versionPrompt = vh.toString(36) + "-p4v9";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -5421,33 +5421,6 @@ const fileInputRef = useRef(null);
       const m = syn.match(/\{[\s\S]*\}/);
       if (m === null) throw new Error("synthese illisible - debut : " + (syn ? syn.slice(0, 180) : "reponse vide"));
       j = JSON.parse(m[0]);
-      // PASSE 4 : confrontation du montage avec les facades du dossier
-      if (Array.isArray(j.ouvrages) && j.ouvrages.length >= 2) {
-        try {
-          const conf = await appelAnalyse(
-            "Tu confrontes un montage de volumes a des dessins de FACADES. MONTAGE DEDUIT DU DOSSIER (volumes numerotes a partir de 1) : " + JSON.stringify(j.ouvrages.map((o, ci) => ({ volume: ci + 1, type: o.type, longueur: o.longueur, largeur: o.largeur, hauteur_murs: o.hauteur_murs, contre: o.contre, cote: o.cote, facade: o.facade, alignement: o.alignement, decalage_m: o.decalage_m, faitage: o.faitage, desc: o.desc }))) + ". ORIENTATION ETABLIE : " + orient + " REGLE DE LECTURE : face a une facade nord, l est est a gauche ; face a une facade sud, l est est a droite ; face a une facade est, le nord est a droite ; face a une facade ouest, le nord est a gauche. TRAVAIL : pour CHAQUE facade nommee du dossier, compte les volumes visibles, leur ordre gauche-droite et leurs hauteurs relatives, puis verifie que le montage les reproduit (bon cote, bon alignement, bonnes hauteurs relatives). Reponds UNIQUEMENT avec un JSON valide : {\"verdict\":\"ok|corrections\",\"corrections\":[{\"volume\":numero,\"champ\":\"cote|facade|alignement|decalage_m|faitage|hauteur_murs\",\"valeur\":\"nouvelle valeur\",\"preuve\":\"facade et page qui le montrent\"}],\"resume\":\"une phrase\"}. Ne corrige que ce que les facades PROUVENT ; en cas de doute, ne corrige pas." + pagesPour(["facade"]),
-            [...blocks, { type: "text", text: "Confronte ce montage aux facades du dossier." }],
-            "high", "claude-fable-5");
-          console.log("[DEVIA] Passe 4 (confrontation facades) : " + conf.slice(0, 250));
-          const mc = conf.match(/\{[\s\S]*\}/);
-          const jc = mc ? JSON.parse(mc[0]) : null;
-          if (jc && jc.verdict === "corrections" && Array.isArray(jc.corrections)) {
-            jc.corrections.forEach((c) => {
-              const cible = j.ouvrages[(c.volume || 0) - 1];
-              const champsOk = ["cote", "facade", "alignement", "decalage_m", "faitage", "hauteur_murs"];
-              if (cible && champsOk.includes(c.champ)) {
-                const numerique = c.champ === "decalage_m" || c.champ === "hauteur_murs";
-                const vNum = numerique ? parseFloat(c.valeur) : c.valeur;
-                const vOk = numerique ? isNaN(vNum) === false : true;
-                if (vOk) {
-                  console.log("[DEVIA] Confrontation : V" + c.volume + " " + c.champ + " -> " + c.valeur + " (" + (c.preuve || "sans preuve") + ")");
-                  cible[c.champ] = vNum;
-                }
-              }
-            });
-          }
-        } catch (eConf) { console.warn("[DEVIA] Passe 4 (confrontation) ignoree :", eConf); }
-      }
       if (uCache) {
         try {
           await supabase.from("analyses_plans").upsert({ user_id: uCache.id, empreinte: empreinte, version: versionPrompt, resultat: j }, { onConflict: "user_id,empreinte,version" });
