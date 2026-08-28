@@ -5336,7 +5336,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p4v9";
+      const versionPrompt = vh.toString(36) + "-p3v8";
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
@@ -5369,54 +5369,28 @@ const fileInputRef = useRef(null);
         return texteFinal;
       };
       if (jCache === null) {
-      // PASSE 1 : inventaire structure des vues du dossier (JSON)
-      const invBrut = await appelAnalyse(
-        "Tu inventories un dossier de permis de construire. Reponds UNIQUEMENT avec un JSON valide, sans aucun texte autour, au format : {\"pages\":[{\"page\":1,\"type\":\"plan_de_masse|plan_de_situation|plan_de_toitures|coupe|facade|plan_etage|notice|cartouche|perspective|autre\",\"titre\":\"titre lu sur la page\",\"echelle\":\"1/100 ou null\",\"contenu\":\"une phrase\"}],\"nord_visible_pages\":[numeros des pages ou une fleche du nord est visible]}",
+      // PASSE 1 : inventaire des vues du dossier
+      const inv = await appelAnalyse(
+        "Tu inventories un dossier de permis de construire. Liste chaque page et le type de vue qu'elle contient (plan de situation, plan de masse, plan de toitures, coupes, facades, plan d'etage, notice, cartouche). Reponds en texte court, une ligne par page.",
         [...blocks, { type: "text", text: "Inventorie les vues de ce dossier." }],
         "medium");
-      let pagesInv = [];
-      let nordPages = [];
-      try {
-        const mInv = invBrut.match(/\{[\s\S]*\}/);
-        const objInv = mInv ? JSON.parse(mInv[0]) : null;
-        if (objInv && Array.isArray(objInv.pages)) { pagesInv = objInv.pages; }
-        if (objInv && Array.isArray(objInv.nord_visible_pages)) { nordPages = objInv.nord_visible_pages; }
-      } catch (e) { pagesInv = []; }
-      const carteDossier = pagesInv.length > 0
-        ? pagesInv.map((p) => {
-            const ech = p.echelle === null || p.echelle === undefined || p.echelle === "null" ? "" : ", " + p.echelle;
-            return "page " + p.page + " = " + (p.titre || p.type || "?") + " (" + (p.type || "?") + ech + ")";
-          }).join(" ; ")
-        : invBrut;
-      const pagesPour = (types) => {
-        const nums = pagesInv.filter((p) => types.indexOf(p.type) >= 0).map((p) => p.page);
-        return nums.length > 0 ? " PAGES A UTILISER EN PRIORITE : " + nums.join(", ") + "." : "";
-      };
-      const inv = carteDossier;
       console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
-
-      // PASSE 1B : orientation du batiment (source de verite pour les cardinaux)
-      const orient = await appelAnalyse(
-        "Tu etablis l ORIENTATION d un batiment a partir d un dossier de permis. Croise TROIS sources : 1) la fleche du nord sur le plan de masse ou de situation" + (nordPages.length > 0 ? " (fleche visible pages " + nordPages.join(", ") + ")" : "") + ", 2) les titres des facades (Facade Nord, Facade Sud-Est...), 3) la silhouette des volumes visibles sur chaque facade. Reponds UNIQUEMENT avec un JSON valide : {\"nord\":{\"page_fleche\":numero_ou_null,\"orientation_fleche\":\"haut|bas|gauche|droite|angle\",\"confiance\":\"haute|moyenne|basse\"},\"facades\":[{\"page\":numero,\"titre\":\"Facade Nord\",\"cardinal\":\"nord|sud|est|ouest\",\"volumes_visibles\":\"description courte\"}],\"coherence\":\"ok|conflit\",\"detail\":\"une phrase\"}. Si aucune fleche du nord est visible, deduis les cardinaux depuis les titres des facades seuls et mets confiance basse. N INVENTE JAMAIS : null vaut mieux que faux. CARTE DU DOSSIER : " + carteDossier + pagesPour(["plan_de_masse", "plan_de_toitures", "facade"]),
-        [...blocks, { type: "text", text: "Etablis l orientation du batiment et le cardinal de chaque facade." }],
-        "high", "claude-fable-5");
-      console.log("[DEVIA] Passe 1B (orientation) : " + orient.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
-        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. ORIENTATION ETABLIE (source de verite pour les cardinaux - ne la recalcule pas, appuie toi dessus et signale seulement une contradiction) : " + orient + " INVENTAIRE DES VUES : " + inv + pagesPour(["plan_de_toitures", "plan_de_masse", "plan_etage"]),
+        "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
       const hauts = await appelAnalyse(
-        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv + pagesPour(["coupe", "notice", "cartouche", "facade"]),
+        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv,
         [...blocks, { type: "text", text: "Lis les hauteurs et les infos generales." }],
         "medium");
       console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
       // PASSE 3 : synthese -> JSON final, uniquement depuis les lectures
       const syn = await appelAnalyse(
         sysAnalyse + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null. EXCEPTION OBLIGATOIRE : hauteur_murs du PREMIER volume (le principal) ne doit JAMAIS etre null - prends son egout dans la lecture hauteurs ; si la lecture ne donne que son faitage, convertis : egout = faitage moins (largeur divisee par 2) multipliee par tangente de la pente. Fais de meme pour chaque volume dont l'egout figure dans les lectures.",
-        [{ type: "text", text: "ORIENTATION ETABLIE :\n" + orient + "\n\nLECTURE GEOMETRIE :\n" + geo + "\n\nLECTURE HAUTEURS ET INFOS :\n" + hauts }],
+        [{ type: "text", text: "LECTURE GEOMETRIE :\n" + geo + "\n\nLECTURE HAUTEURS ET INFOS :\n" + hauts }],
         "medium");
       const m = syn.match(/\{[\s\S]*\}/);
       if (m === null) throw new Error("synthese illisible - debut : " + (syn ? syn.slice(0, 180) : "reponse vide"));
