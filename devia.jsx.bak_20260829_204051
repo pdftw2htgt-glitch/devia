@@ -2960,16 +2960,7 @@ function assemblerOuvrages(listeOuvrages, construireOuvrage) {
           const ref = listeOuvrages[(o.pos.contre || 1) - 1];
           const pRef = places.get(ref);
           if (pRef === undefined || ref === o) { encore.push(o); return; }
-          let rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
-          if (o.type_projet === "monopente" || o.type_projet === "appentis") {
-            const fcM = o.pos.facade || "";
-            const cotM = o.pos.cote || "";
-            if (fcM === "est" || cotM === "pignon_droit") { rot = -Math.PI / 2; }
-            else if (fcM === "ouest" || cotM === "pignon_gauche") { rot = Math.PI / 2; }
-            else if (fcM === "sud" || cotM === "gouttereau_avant") { rot = Math.PI; }
-            else if (fcM === "nord" || cotM === "gouttereau_arriere") { rot = 0; }
-            console.log("[DEVIA] " + o.type_projet + " accole : sens de pente FORCE, cote haut contre V" + o.pos.contre);
-          }
+          const rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
           const dR = demiEmprise(ref, pRef.rot);
           const dA = demiEmprise(o, rot);
           const dec = o.pos.decalage || 0;
@@ -5168,22 +5159,6 @@ const fileInputRef = useRef(null);
         if (ox > 0.05 && oz > 0.05 && ecartPose < 0.5) erreurs.push("V" + (a + 1) + " et V" + (b + 1) + " se chevauchent (" + ox.toFixed(2) + " x " + oz.toFixed(2) + " m) : positions incoherentes - si l un est pose sur l autre, donne-lui une hauteur de pose");
       }
     }
-    vols.forEach((v, i) => {
-      const pV = v.pose || 0;
-      if (pV > 0.4 && rects[i]) {
-        let porte = false;
-        vols.forEach((w, k) => {
-          if (k === i || rects[k] === undefined) return;
-          const dv = demi(v, rects[i].q);
-          const dw = demi(w, rects[k].q);
-          const oxP = Math.min(rects[i].x + dv.hx, rects[k].x + dw.hx) - Math.max(rects[i].x - dv.hx, rects[k].x - dw.hx);
-          const ozP = Math.min(rects[i].z + dv.hz, rects[k].z + dw.hz) - Math.max(rects[i].z - dv.hz, rects[k].z - dw.hz);
-          const hautW = (w.pose || 0) + (w.hauteur || 0);
-          if (oxP > 0.05 && ozP > 0.05 && hautW >= pV - 0.6) { porte = true; }
-        });
-        if (porte === false) { erreurs.push("V" + (i + 1) + " est pose a " + pV + " m de haut sans volume porteur sous son emprise"); }
-      }
-    });
     vols.forEach((v, i) => {
       if (v.type === "sas" && v.pos && v.hauteur) {
         const iRef = (v.pos.contre || 1) - 1;
