@@ -2125,9 +2125,8 @@ setPiece("Echantignole");
   };
 
   const drawSasLiaison = () => {
-    // Sas de liaison a toit plat : parois laterales en ossature bois complete
-    // (lisse basse + montants 45x120 entraxe 60 + lisse haute), murailleres
-    // d appui aux pignons, solives, panneau OSB 22, etancheite, bandeaux de rive
+    // Sas de liaison a toit plat : murailleres plaquees aux pignons (appui sur les
+    // volumes voisins accoles), solives entre elles, platelage, parois de fermeture
     const [soB, soH] = sec("Solive", 0.08, 0.20);
     const [ppB, ppH] = sec("Muraillere", 0.12, 0.32);
     const hToit = Math.max(Ht, 2.2);
@@ -2135,7 +2134,7 @@ setPiece("Echantignole");
     const ySolive = hToit - soH / 2;
     const xMur = L / 2 - ppB / 2;
 
-    // ===== 2 MURAILLERES (aux pignons d appui sur les volumes voisins) =====
+    // ===== 2 MURAILLERES (sens largeur, aux extremites X = pignons d'appui) =====
     setPiece("Muraillere");
     addBox(ppB, ppH, lg, xMur, yMur, 0, woodMat);
     addBox(ppB, ppH, lg, -xMur, yMur, 0, woodMat);
@@ -2149,37 +2148,19 @@ setPiece("Echantignole");
       addBox(portee, soH, soB, 0, ySolive, z, woodMat);
     }
 
-    // ===== PAROIS LATERALES EN OSSATURE BOIS (lisses + montants entraxe 60) =====
-    const [moB, moH] = sec("Montant", 0.045, 0.12);
-    const [, liH] = sec("Lisse", 0.045, 0.12);
-    const hHautOss = hToit - soH;
-    const hMontant = Math.max(0.3, hHautOss - 2 * liH);
-    const lOss = L - 2 * ppB;
-    for (const sz of [-1, 1]) {
-      const zParoi = sz * (lg / 2 - moH / 2);
-      setPiece("Lisse");
-      addBox(lOss, liH, moH, 0, liH / 2, zParoi, woodMat);
-      addBox(lOss, liH, moH, 0, hHautOss - liH / 2, zParoi, woodMat);
-      setPiece("Montant");
-      const nbMont = Math.max(2, Math.round(lOss / 0.6) + 1);
-      for (let i = 0; i < nbMont; i++) {
-        const x = -lOss/2 + moB/2 + (i / (nbMont - 1)) * (lOss - moB);
-        addBox(moB, hMontant, moH, x, liH + hMontant / 2, zParoi, woodMat);
-      }
-    }
+    // ===== PLATELAGE TOIT PLAT (visuel) =====
+    const platMat = new THREE.MeshStandardMaterial({ color: 0x8a8f9c, roughness: 0.9, transparent: true, opacity: 0.55 });
+    const plat = new THREE.Mesh(new THREE.BoxGeometry(L, 0.04, lg), platMat);
+    plat.position.set(0, hToit + 0.02, 0);
+    scene.add(plat);
 
-    // ===== PANNEAU OSB 22 mm (au metre) + ETANCHEITE (membrane) =====
-    setPiece("Panneau OSB");
-    addBox(L, 0.022, lg, 0, hToit + 0.011, 0, woodMat);
-    const etancheMat = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.95 });
-    const memb = new THREE.Mesh(new THREE.BoxGeometry(L, 0.006, lg), etancheMat);
-    memb.position.set(0, hToit + 0.022 + 0.003, 0);
-    scene.add(memb);
-
-    // ===== BANDEAUX DE RIVE (gouttereaux) =====
-    setPiece("Bandeau de rive");
-    for (const sz of [-1, 1]) {
-      addBox(L, 0.2, 0.027, 0, hToit - 0.05, sz * (lg / 2 + 0.02), woodMat);
+    // ===== PAROIS DE FERMETURE (gouttereaux - vitrage/menuiserie hors lot charpente) =====
+    const paroiMat = new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9, transparent: true, opacity: 0.3 });
+    const hParoi = hToit - ppH;
+    for (const s of [-1, 1]) {
+      const paroi = new THREE.Mesh(new THREE.BoxGeometry(L, hParoi, 0.08), paroiMat);
+      paroi.position.set(0, hParoi / 2, s * (lg / 2 - 0.04));
+      scene.add(paroi);
     }
   };
 
@@ -5333,8 +5314,6 @@ const fileInputRef = useRef(null);
       const { data: { user: uCor } } = await supabase.auth.getUser();
       if (uCor && analyseEmpreinte) {
         await supabase.from("analyses_plans").upsert({ user_id: uCor.id, empreinte: analyseEmpreinte, version: analyseVersionRef.current || "manuel", resultat: j2 }, { onConflict: "user_id,empreinte,version" });
-        await supabase.from("analyses_plans").upsert({ user_id: uCor.id, empreinte: analyseEmpreinte, version: "corrections", resultat: j2 }, { onConflict: "user_id,empreinte,version" });
-        console.log("[DEVIA] Corrections enregistrees ET verrouillees (elles survivront aux re-analyses et mises a jour)");
         console.log("[DEVIA] Corrections enregistrees : lecture de reference du fichier mise a jour");
       }
       analyseJRef.current = j2;
@@ -5393,14 +5372,8 @@ const fileInputRef = useRef(null);
       let jCache = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
       if (uCache) {
-        const { data: ligneCorr } = await supabase.from("analyses_plans").select("resultat").eq("empreinte", empreinte).eq("version", "corrections").limit(1).maybeSingle();
-        if (ligneCorr && ligneCorr.resultat) {
-          jCache = ligneCorr.resultat;
-          console.log("[DEVIA] Corrections utilisateur servies (dossier verrouille par tes corrections)");
-        } else {
-          const { data: ligneCache } = await supabase.from("analyses_plans").select("resultat").eq("empreinte", empreinte).eq("version", versionPrompt).limit(1).maybeSingle();
-          if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
-        }
+        const { data: ligneCache } = await supabase.from("analyses_plans").select("resultat").eq("empreinte", empreinte).eq("version", versionPrompt).limit(1).maybeSingle();
+        if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
       }
       let j = null;
       const appelAnalyse = async (sysTxt, contenu, effortNiveau, modele) => {
@@ -7578,7 +7551,7 @@ return (
                     Decomposition du plan : {analyseResume}
                     <button type="button" onClick={async () => {
                       try {
-                        if (analyseEmpreinte) await supabase.from("analyses_plans").delete().eq("empreinte", analyseEmpreinte).neq("version", "corrections");
+                        if (analyseEmpreinte) await supabase.from("analyses_plans").delete().eq("empreinte", analyseEmpreinte);
                       } catch (eDel) { console.warn("[DEVIA] Purge cache impossible", eDel); }
                       analyserFichiers(files);
                     }} style={{ marginTop: 6, padding: "4px 10px", borderRadius: 7, cursor: "pointer", background: "rgba(240,192,64,0.10)", border: "1px solid rgba(240,192,64,0.4)", color: "#f0c040", fontSize: 11, fontWeight: 600, display: "block" }}>
