@@ -4843,7 +4843,6 @@ const [editeurOuvert, setEditeurOuvert] = useState(false); // pop-up decompositi
 const [volumeSel, setVolumeSel] = useState(0); // volume selectionne dans le schema
 const [modeToutEditer, setModeToutEditer] = useState(false); // onglet Tout editer
 const analyseJRef = useRef(null); // dernier JSON d'analyse (pour sauvegarder les corrections)
-const [verrouActif, setVerrouActif] = useState(false); // dossier fige par les corrections utilisateur
 const analyseVersionRef = useRef(""); // version de prompt du dernier cache
 const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -5343,7 +5342,6 @@ const fileInputRef = useRef(null);
         await supabase.from("analyses_plans").upsert({ user_id: uCor.id, empreinte: analyseEmpreinte, version: analyseVersionRef.current || "manuel", resultat: j2 }, { onConflict: "user_id,empreinte,version" });
         await supabase.from("analyses_plans").upsert({ user_id: uCor.id, empreinte: analyseEmpreinte, version: "corrections", resultat: j2 }, { onConflict: "user_id,empreinte,version" });
         console.log("[DEVIA] Corrections enregistrees ET verrouillees (elles survivront aux re-analyses et mises a jour)");
-        setVerrouActif(true);
         console.log("[DEVIA] Corrections enregistrees : lecture de reference du fichier mise a jour");
       }
       analyseJRef.current = j2;
@@ -5406,11 +5404,9 @@ const fileInputRef = useRef(null);
         if (ligneCorr && ligneCorr.resultat) {
           jCache = ligneCorr.resultat;
           console.log("[DEVIA] Corrections utilisateur servies (dossier verrouille par tes corrections)");
-          setVerrouActif(true);
         } else {
           const { data: ligneCache } = await supabase.from("analyses_plans").select("resultat").eq("empreinte", empreinte).eq("version", versionPrompt).limit(1).maybeSingle();
           if (ligneCache && ligneCache.resultat) jCache = ligneCache.resultat;
-          setVerrouActif(false);
         }
       }
       let j = null;
@@ -7587,11 +7583,6 @@ return (
                 {analyseResume ? (
                   <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(240,192,64,0.06)", border: "1px solid rgba(240,192,64,0.25)", borderRadius: 8, color: "#d8b95a", fontSize: 11.5, lineHeight: 1.5 }}>
                     Decomposition du plan : {analyseResume}
-                    {verrouActif ? (
-                      <div style={{ marginTop: 6, padding: "5px 9px", borderRadius: 7, background: "rgba(126,201,126,0.10)", border: "1px solid rgba(126,201,126,0.45)", color: "#7ec97e", fontSize: 11, fontWeight: 700 }}>DOSSIER VERROUILLE - tes corrections sont figees, ce plan ressortira identique a chaque relance</div>
-                    ) : (
-                      <div style={{ marginTop: 6, color: cl("#9ca0b8", "#565a6c"), fontSize: 10.5, lineHeight: 1.5 }}>Non verrouille : ouvre la decomposition manuelle, verifie les valeurs et clique "Verifier et enregistrer" pour figer ce dossier definitivement.</div>
-                    )}
                     <button type="button" onClick={async () => {
                       try {
                         if (analyseEmpreinte) await supabase.from("analyses_plans").delete().eq("empreinte", analyseEmpreinte).neq("version", "corrections");
