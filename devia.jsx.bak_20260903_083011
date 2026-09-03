@@ -5358,7 +5358,8 @@ const fileInputRef = useRef(null);
     setAnalyseResume("");
     setAnalyseVerdict(null);
     try {
-      let blocks = [];
+      const blocks = await buildFileBlocks(fileList);
+      if (blocks.length === 0) { setAnalyseFichier(""); return; }
       const sysAnalyse = "Tu analyses des plans/photos de projets de charpente bois. Reponds UNIQUEMENT avec un objet JSON, sans markdown : " +
         '{"type":"traditionnelle|fermette|monopente|carport|hangar|appentis|4_pans|terrasse|etage|balcon|garde_corps|sas|null",' +
         '"longueur":num_ou_null,"largeur":num_ou_null,' +
@@ -5438,9 +5439,6 @@ const fileInputRef = useRef(null);
         return texteFinal;
       };
       if (jCache === null) {
-      // Televersement UNIQUEMENT ici : le dossier n est ni en cache ni verrouille
-      blocks = await buildFileBlocks(fileList);
-      if (blocks.length === 0) { setAnalyseFichier(""); return; }
       // PASSE 1 : inventaire structure des vues du dossier (JSON)
       const invBrut = await appelAnalyse(
         "Tu inventories un dossier de permis de construire. Reponds UNIQUEMENT avec un JSON valide, sans aucun texte autour, au format : {\"pages\":[{\"page\":1,\"type\":\"plan_de_masse|plan_de_situation|plan_de_toitures|coupe|facade|plan_etage|notice|cartouche|perspective|autre\",\"titre\":\"titre lu sur la page\",\"echelle\":\"1/100 ou null\",\"contenu\":\"une phrase\"}],\"nord_visible_pages\":[numeros des pages ou une fleche du nord est visible]}",
