@@ -2980,13 +2980,6 @@ function assemblerOuvrages(listeOuvrages, construireOuvrage) {
           const pRef = places.get(ref);
           if (pRef === undefined || ref === o) { encore.push(o); return; }
           let rot = o.faitageCardinal === "nord_sud" ? Math.PI / 2 : (o.faitageCardinal === "est_ouest" ? 0 : ((o.pos.faitage === "perpendiculaire") ? pRef.rot + Math.PI / 2 : pRef.rot));
-          if (o.type_projet === "sas_liaison") {
-            const fcS = o.pos.facade || "";
-            const cotS = o.pos.cote || "";
-            if (fcS === "est" || fcS === "ouest" || cotS === "pignon_droit" || cotS === "pignon_gauche") { rot = 0; }
-            else { rot = Math.PI / 2; }
-            console.log("[DEVIA] Sas accole : orientation FORCEE, murailleres vers les volumes relies");
-          }
           if (o.type_projet === "monopente" || o.type_projet === "appentis") {
             const fcM = o.pos.facade || "";
             const cotM = o.pos.cote || "";
