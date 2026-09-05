@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { PDFDocument } from "pdf-lib";
 // ===== MOTEUR EC5 (deplace avant buildScene3D pour init) =====
 
 // ============================================================
@@ -5468,51 +5467,22 @@ const fileInputRef = useRef(null);
       const inv = carteDossier;
       console.log("[DEVIA] Passe 1 (inventaire) : " + inv.slice(0, 250));
 
-      // ===== DOSSIER REDUIT : on ne garde que les pages utiles au charpentier =====
-      let blocksUtiles = blocks;
-      try {
-        const TYPES_UTILES = ["plan_de_masse", "plan_de_toitures", "coupe", "facade", "plan_etage", "cartouche", "notice"];
-        const unSeulPdf = fileList.length === 1 && fileList[0].type === "application/pdf";
-        const numsUtiles = pagesInv.filter(p => TYPES_UTILES.indexOf(p.type) >= 0).map(p => parseInt(p.page, 10)).filter(x => isNaN(x) === false);
-        if (unSeulPdf && numsUtiles.length > 0) {
-          const docSrc = await PDFDocument.load(bufs[0]);
-          const total = docSrc.getPageCount();
-          const idx = [];
-          numsUtiles.forEach((n) => { const i = n - 1; if (i >= 0 && i < total && idx.indexOf(i) < 0) idx.push(i); });
-          idx.sort((a, b) => a - b);
-          if (idx.length > 0 && idx.length < total) {
-            const docOut = await PDFDocument.create();
-            const pages = await docOut.copyPages(docSrc, idx);
-            pages.forEach((pg) => docOut.addPage(pg));
-            const octets = await docOut.save();
-            let bin = "";
-            const CH = 8192;
-            for (let k = 0; k < octets.length; k += CH) { bin += String.fromCharCode.apply(null, octets.subarray(k, k + CH)); }
-            const b64Utiles = btoa(bin);
-            blocksUtiles = [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: b64Utiles } }];
-            console.log("[DEVIA] Dossier reduit : " + idx.length + " page(s) utile(s) sur " + total + " (pages " + idx.map(i => i + 1).join(", ") + ")");
-          } else {
-            console.log("[DEVIA] Dossier reduit : toutes les pages sont utiles, dossier complet conserve");
-          }
-        }
-      } catch (eRed) { console.warn("[DEVIA] Dossier reduit impossible, dossier complet conserve", eRed); blocksUtiles = blocks; }
-
       // PASSE 1B : orientation du batiment (source de verite pour les cardinaux)
       const orient = await appelAnalyse(
         "Tu etablis l ORIENTATION d un batiment a partir d un dossier de permis. Croise TROIS sources : 1) la fleche du nord sur le plan de masse ou de situation" + (nordPages.length > 0 ? " (fleche visible pages " + nordPages.join(", ") + ")" : "") + ", 2) les titres des facades (Facade Nord, Facade Sud-Est...), 3) la silhouette des volumes visibles sur chaque facade. Reponds UNIQUEMENT avec un JSON valide : {\"nord\":{\"page_fleche\":numero_ou_null,\"orientation_fleche\":\"haut|bas|gauche|droite|angle\",\"confiance\":\"haute|moyenne|basse\"},\"facades\":[{\"page\":numero,\"titre\":\"Facade Nord\",\"cardinal\":\"nord|sud|est|ouest\",\"volumes_visibles\":\"description courte\"}],\"coherence\":\"ok|conflit\",\"detail\":\"une phrase\"}. Si aucune fleche du nord est visible, deduis les cardinaux depuis les titres des facades seuls et mets confiance basse. N INVENTE JAMAIS : null vaut mieux que faux. CARTE DU DOSSIER : " + carteDossier + pagesPour(["plan_de_masse", "plan_de_toitures", "facade"]),
-        [...blocksUtiles, { type: "text", text: "Etablis l orientation du batiment et le cardinal de chaque facade." }],
+        [...blocks, { type: "text", text: "Etablis l orientation du batiment et le cardinal de chaque facade." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 1B (orientation) : " + orient.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
         "Tu lis la GEOMETRIE d'un dossier de permis de construire. En te concentrant sur le plan de toitures et le plan de masse, fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. ORIENTATION ETABLIE (source de verite pour les cardinaux - ne la recalcule pas, appuie toi dessus et signale seulement une contradiction) : " + orient + " INVENTAIRE DES VUES : " + inv + pagesPour(["plan_de_toitures", "plan_de_masse", "plan_etage"]),
-        [...blocksUtiles, { type: "text", text: "Lis la geometrie des volumes." }],
+        [...blocks, { type: "text", text: "Lis la geometrie des volumes." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
       const hauts = await appelAnalyse(
         "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES, la NOTICE et le CARTOUCHE, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. ATTENTION COTES NGF : une cote NGF (ex 1335.09) est une ALTITUDE ABSOLUE en metres au-dessus du niveau de la mer, PAS une hauteur - une hauteur se calcule par DIFFERENCE entre deux cotes NGF (ex egout moins terrain fini) ; ne recopie JAMAIS une cote NGF comme hauteur. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv + pagesPour(["coupe", "notice", "cartouche", "facade"]),
-        [...blocksUtiles, { type: "text", text: "Lis les hauteurs et les infos generales." }],
+        [...blocks, { type: "text", text: "Lis les hauteurs et les infos generales." }],
         "medium");
       console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
       // PASSE 3 : synthese -> JSON final, uniquement depuis les lectures
@@ -5528,7 +5498,7 @@ const fileInputRef = useRef(null);
         try {
           const conf = await appelAnalyse(
             "Tu confrontes un montage de volumes a des dessins de FACADES. MONTAGE DEDUIT DU DOSSIER (volumes numerotes a partir de 1) : " + JSON.stringify(j.ouvrages.map((o, ci) => ({ volume: ci + 1, type: o.type, longueur: o.longueur, largeur: o.largeur, hauteur_murs: o.hauteur_murs, contre: o.contre, cote: o.cote, facade: o.facade, alignement: o.alignement, decalage_m: o.decalage_m, faitage: o.faitage, desc: o.desc }))) + ". ORIENTATION ETABLIE : " + orient + " REGLE DE LECTURE : face a une facade nord, l est est a gauche ; face a une facade sud, l est est a droite ; face a une facade est, le nord est a droite ; face a une facade ouest, le nord est a gauche. TRAVAIL : pour CHAQUE facade nommee du dossier, compte les volumes visibles, leur ordre gauche-droite et leurs hauteurs relatives, puis verifie que le montage les reproduit (bon cote, bon alignement, bonnes hauteurs relatives). Reponds UNIQUEMENT avec un JSON valide : {\"verdict\":\"ok|corrections\",\"corrections\":[{\"volume\":numero,\"champ\":\"cote|facade|alignement|decalage_m|faitage|hauteur_murs\",\"valeur\":\"nouvelle valeur\",\"preuve\":\"facade et page qui le montrent\"}],\"resume\":\"une phrase\"}. Ne corrige que ce que les facades PROUVENT ; en cas de doute, ne corrige pas." + pagesPour(["facade"]),
-            [...blocksUtiles, { type: "text", text: "Confronte ce montage aux facades du dossier." }],
+            [...blocks, { type: "text", text: "Confronte ce montage aux facades du dossier." }],
             "high", "claude-fable-5");
           console.log("[DEVIA] Passe 4 (confrontation facades) : " + conf.slice(0, 250));
           const mc = conf.match(/\{[\s\S]*\}/);
