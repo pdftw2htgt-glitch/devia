@@ -5485,17 +5485,11 @@ const fileInputRef = useRef(null);
             const pages = await docOut.copyPages(docSrc, idx);
             pages.forEach((pg) => docOut.addPage(pg));
             const octets = await docOut.save();
-            if (octets.length > SEUIL_FICHIER_LOURD) {
-              const fReduit = new File([octets], "dossier_reduit.pdf", { type: "application/pdf" });
-              const urlReduit = await uploadFichierLourd(fReduit);
-              blocksUtiles = [{ type: "document", source: { type: "url", url: urlReduit } }];
-              console.log("[DEVIA] Dossier reduit envoye par lien signe (" + Math.round(octets.length / 1048576 * 10) / 10 + " Mo)");
-            } else {
-              let bin = "";
-              const CH = 8192;
-              for (let k = 0; k < octets.length; k += CH) { bin += String.fromCharCode.apply(null, octets.subarray(k, k + CH)); }
-              blocksUtiles = [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: btoa(bin) } }];
-            }
+            let bin = "";
+            const CH = 8192;
+            for (let k = 0; k < octets.length; k += CH) { bin += String.fromCharCode.apply(null, octets.subarray(k, k + CH)); }
+            const b64Utiles = btoa(bin);
+            blocksUtiles = [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: b64Utiles } }];
             console.log("[DEVIA] Dossier reduit : " + idx.length + " page(s) utile(s) sur " + total + " (pages " + idx.map(i => i + 1).join(", ") + ")");
           } else {
             console.log("[DEVIA] Dossier reduit : toutes les pages sont utiles, dossier complet conserve");
