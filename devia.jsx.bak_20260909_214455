@@ -5834,21 +5834,6 @@ const fileInputRef = useRef(null);
       console.warn("[DEVIA] Analyse fichier:", e);
       setAnalyseErreur(e && e.message ? String(e.message) : "erreur inconnue");
       setAnalyseFichier("erreur");
-    } finally {
-      // NETTOYAGE DU STOCKAGE : les plans televerses ont fini leur office
-      // (la lecture est terminee, le lien signe expire). On vide le dossier.
-      try {
-        const { data: { user: uPurge } } = await supabase.auth.getUser();
-        if (uPurge) {
-          const { data: restes } = await supabase.storage.from("plans").list(uPurge.id, { limit: 200 });
-          if (Array.isArray(restes) && restes.length > 0) {
-            const chemins = restes.map(r => uPurge.id + "/" + r.name);
-            const { error: eRm } = await supabase.storage.from("plans").remove(chemins);
-            if (eRm) console.warn("[DEVIA] Nettoyage du stockage impossible", eRm);
-            else console.log("[DEVIA] Stockage nettoye : " + chemins.length + " plan(s) temporaire(s) supprime(s)");
-          }
-        }
-      } catch (ePurge) { console.warn("[DEVIA] Nettoyage du stockage impossible", ePurge); }
     }
   };
 
