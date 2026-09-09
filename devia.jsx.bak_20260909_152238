@@ -16,7 +16,7 @@ const EC5_KMOD = {
   3:{permanent:0.5,long:0.55,moyen:0.65,court:0.7,instant:0.9},
 };
 const EC5_KDEF = {1:0.6,2:0.8,3:2.0};
-const EC5_FLECHE_ADM = { courant:{winst:300,wnetfin:200}, agricole:{winst:200,wnetfin:150}, plancher:{winst:300,wnetfin:250} };
+const EC5_FLECHE_ADM = { courant:{winst:300,wnetfin:200}, agricole:{winst:200,wnetfin:150} };
 
 // Sections standard FR (b x h mm)
 const EC5_SECTIONS = [
@@ -65,9 +65,6 @@ const SOLAIRE_KWC = { "3": { nb: 6, surface: 13.2 }, "6": { nb: 12, surface: 26.
 const EC5_MU_NEIGE = 0.8;         // coef forme toiture (A VALIDER, depend pente)
 const EC5_Q_TOITURE = 0.0;        // kN/m2 exploitation toiture (A VALIDER)
 const EC5_G_TO_KN = 0.0098;       // kg/m2 -> kN/m2
-// --- CHARGES DE PLANCHER (decisions Mathis, a valider prof) ---
-const EC5_PLANCHER_REV = 60 * 0.0098;   // 60 kg/m2 : panneau 22, parquet, isolant, plafond
-const EC5_PLANCHER_Q = 150 * 0.0098;    // 150 kg/m2 : exploitation habitation, categorie A
 
 // Coefficient de forme mu1 selon la pente (formulaire RDM TCB p8)
 function ec5Mu1(pente) {
@@ -472,18 +469,12 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
                   : (g.nom === "Poutre porteuse" || g.nom === "Muraillere") ? 2.5
                   : (g.nom === "Sabliere" || g.nom === "Aretier") ? 1.0
                   : 1.0;
-    // PLANCHER : un solivage d etage porte des meubles et des gens, pas de la neige
-    const typeOuvrage = (params && (params.type_projet || params.type)) || "";
-    const piecesPlancher = ["Solive", "Poutre porteuse", "Muraillere"];
-    const estPlancher = typeOuvrage === "etage" && piecesPlancher.indexOf(g.nom) >= 0;
     const charge = {
       portee: porteeCalc, entraxe,
-      G: estPlancher ? (EC5_PLANCHER_REV + EC5_POIDS_CHARPENTE) : ch.G,
-      Q: estPlancher ? EC5_PLANCHER_Q : ch.Q,
-      S: estPlancher ? 0 : ch.S,
+      G: ch.G, Q: ch.Q, S: ch.S,
       classeService: 2,
-      typeBatiment: estPlancher ? "plancher" : (((params && params.type_projet) === "hangar") ? "agricole" : "courant"),
-      dureeVariable: estPlancher ? "moyen" : "court",
+      typeBatiment: ((params && params.type_projet) === "hangar") ? "agricole" : "courant",
+      dureeVariable: "court",
       altitude: (params && Number(params.altitude)) || 0,
       console: g.nom === "Solive balcon",
     };
