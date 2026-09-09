@@ -2906,36 +2906,8 @@ purple: "#a78bfa", orange: "#f97316",
 // construireOuvrage(o, extraOpts, decoupes) doit construire, ajouter a la
 // scene et renvoyer le THREE.Group de l'ouvrage. Retourne les groupes places.
 // ================================================================
-function ajusterProlongements(liste) {
-  if (Array.isArray(liste) === false) return;
-  liste.forEach((o) => {
-    if (o === undefined || o === null) return;
-    const t = o.type_projet || o.type || "";
-    if (t !== "monopente" && t !== "appentis") return;
-    if (o.pos === undefined || o.pos === null) return;
-    const ref = liste[(o.pos.contre || 1) - 1];
-    if (ref === undefined || ref === null || ref === o) return;
-    const pO = Number(o.pente) || 0;
-    const pR = Number(ref.pente) || 0;
-    if (pO <= 0 || pR <= 0) return;
-    if (Math.abs(pO - pR) > 2) return;           // pentes differentes : batiment independant
-    const hRef = Number(ref.hauteur) || 0;
-    const lgO = Number(o.largeur) || 0;
-    if (hRef <= 0 || lgO <= 0) return;
-    const hBas = Math.round((hRef - lgO * Math.tan((pR * Math.PI) / 180)) * 100) / 100;
-    if (hBas < 0.5) {
-      console.warn("[DEVIA] Prolongement de rampant impossible : le mur bas tomberait a " + hBas.toFixed(2) + " m, hauteurs conservees");
-      return;
-    }
-    o.pente = pR;
-    o.hauteur = hBas;
-    console.log("[DEVIA] Prolongement de rampant : " + t + " calee sur l egout du porteur (mur bas " + hBas.toFixed(2) + " m, pente " + pR + " degres)");
-  });
-}
-
 function assemblerOuvrages(listeOuvrages, construireOuvrage) {
       const gap = 2.0;
-      ajusterProlongements(listeOuvrages);
       const groupes = [];
       const construire = (o, extraOpts) => {
         const grp = construireOuvrage(o, extraOpts, decoupesParOuvrage.get(o) || null);
@@ -6617,7 +6589,6 @@ return out;
         const s = structures[i];
         setLoadingStep(Math.min(4, i + 1));
         setLoadingProgress(Math.round(5 + (i / structures.length) * 85));
-        ajusterProlongements(structures);
         const fp = {
           type: s.type, couverture: s.couverture, essence: s.essence, finition: s.finition,
           combles: s.combles, longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur,
