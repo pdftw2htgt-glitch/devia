@@ -2234,14 +2234,7 @@ setPiece("Echantignole");
 
     // ===== PANNEAU DE PLANCHER (pose sur les solives, chiffre au m2) =====
     setPiece("Panneau plancher");
-    const panMat = new THREE.MeshStandardMaterial({
-      color: modeReal === true ? 0xc9a978 : 0xb99a6a,
-      roughness: 0.9,
-      transparent: modeReal === false,
-      opacity: modeReal === true ? 1.0 : 0.28,
-      depthWrite: modeReal === true,
-    });
-    addBox(L, 0.022, lg, 0, hPlancher + 0.011, 0, panMat);
+    addBox(L, 0.022, lg, 0, hPlancher + 0.011, 0, woodMat);
   };
 
   const drawBalcon = () => {
