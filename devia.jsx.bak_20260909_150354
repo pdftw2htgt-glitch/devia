@@ -179,7 +179,6 @@ function metreTexteDepuisParams(p) {
       couverture: p.couverture || "tuile_terre",
       debord: p.debord || 0,
       murs: p.murs,
-      appuis: p.appuis,
       sk: (p.sk === undefined || p.sk === null) ? undefined : Number(p.sk),
       dS: (p.dS === undefined || p.dS === null) ? undefined : Number(p.dS),
       solaire: p.solaire,
@@ -291,7 +290,6 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       solaire: Boolean(parsed && parsed._solaire),
       sk: sk || 0.45,
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
-      appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
       debord: (src && src.debord !== undefined && src.debord !== null) ? src.debord : ((parsed && parsed._debord) || 0),
       altitude: (src && src.altitude) || undefined,
     };
@@ -2199,21 +2197,14 @@ setPiece("Echantignole");
     const zMur = lg / 2 - ppB / 2;                   // murailleres en rive
 
     // ===== POTEAUX (2 files laterales sous les murailleres, entraxe max 3m) =====
-    // Uniquement si le plancher est autoporte : sur murs porteurs (sous-sol maconne),
-    // les solives reposent sur les murailleres et leurs sabots, sans poteau bois.
-    const appuisEtage = ((params && params.appuis) === "murs") ? "murs" : "poteaux";
-    if (appuisEtage === "poteaux") {
-      setPiece("Poteau");
-      const ENTRAXE_MAX_POTEAUX = 3.0;
-      const nbPotX = Math.max(2, Math.ceil(L / ENTRAXE_MAX_POTEAUX) + 1);
-      for (const zf of [-zMur, zMur]) {
-        for (let i = 0; i < nbPotX; i++) {
-          const x = -L/2 + potB/2 + (i / (nbPotX - 1)) * (L - potB);
-          addBox(potB, hPot, potB, x, hPot / 2, zf);
-        }
+    setPiece("Poteau");
+    const ENTRAXE_MAX_POTEAUX = 3.0;
+    const nbPotX = Math.max(2, Math.ceil(L / ENTRAXE_MAX_POTEAUX) + 1);
+    for (const zf of [-zMur, zMur]) {
+      for (let i = 0; i < nbPotX; i++) {
+        const x = -L/2 + potB/2 + (i / (nbPotX - 1)) * (L - potB);
+        addBox(potB, hPot, potB, x, hPot / 2, zf);
       }
-    } else {
-      console.log("[DEVIA] Plancher sur murs porteurs : aucun poteau bois chiffre");
     }
 
     // ===== 2 MURAILLERES (sens L, en rive, sur les tetes de poteaux) =====
@@ -4731,7 +4722,6 @@ const [formEssence, setFormEssence] = useState("");
 const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
 const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
-const [formAppuis, setFormAppuis] = useState("poteaux"); // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
@@ -6610,7 +6600,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, appuis: s.appuis || undefined, debord: s.debord || undefined,
+        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, debord: s.debord || undefined,
         pos: s.pos || undefined,
         pose: s.pose || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
@@ -6720,7 +6710,6 @@ if (files && files.length > 0) {
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
-  if (finalParams.appuis) parsed._appuis = finalParams.appuis;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   if (finalParams.debord) parsed._debord = finalParams.debord;
   if (finalParams.essence) parsed._essence = finalParams.essence;
@@ -6739,7 +6728,6 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: finalParams.murs || undefined,
-        appuis: finalParams.appuis || undefined,
         solaire: finalParams.solaire || undefined,
         debord: finalParams.debord || undefined,
         essence: finalParams.essence || undefined,
@@ -6851,7 +6839,6 @@ const loadProjectDetails = (project) => {
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: project.devis_data._murs || undefined,
-        appuis: project.devis_data._appuis || undefined,
         solaire: project.devis_data._solaire || undefined,
         debord: project.devis_data._debord || undefined,
         essence: project.devis_data._essence || undefined,
@@ -7075,7 +7062,6 @@ const loadProjectDetails = (project) => {
     const params = {
       type: formType || undefined,
       murs: formMurs || undefined,
-      appuis: formAppuis || undefined,
       solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
       essence: formEssence || undefined,
@@ -7385,7 +7371,6 @@ return (
                       const structure = {
                         type: formSousType,
                         murs: formMurs || undefined,
-                        appuis: formAppuis || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
                         pente: (formPente && !sansToit) ? parseFloat(formPente) : undefined,
@@ -7438,15 +7423,6 @@ return (
                   <div style={{ display: typeEffectif === "garde_corps" ? "none" : undefined }}>
                     <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
                     <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "terrasse" ? "Hauteur du platelage (m)" : typeEffectif === "etage" ? "Hauteur sous plancher (m)" : typeEffectif === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
-                {typeEffectif === "etage" ? (
-                  <div style={{ marginTop: 10 }}>
-                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Le plancher porte sur</label>
-                    <select value={formAppuis} onChange={e => setFormAppuis(e.target.value)} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
-                      <option value="poteaux">des poteaux bois (plancher autoporte, mezzanine)</option>
-                      <option value="murs">les murs porteurs (sous-sol, murs existants) - sans poteaux</option>
-                    </select>
-                  </div>
-                ) : null}
                   </div>
                 </div>
               </div>
