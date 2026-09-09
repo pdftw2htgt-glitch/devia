@@ -180,7 +180,6 @@ function metreTexteDepuisParams(p) {
       debord: p.debord || 0,
       murs: p.murs,
       appuis: p.appuis,
-      remede: p.remede,
       sk: (p.sk === undefined || p.sk === null) ? undefined : Number(p.sk),
       dS: (p.dS === undefined || p.dS === null) ? undefined : Number(p.dS),
       solaire: p.solaire,
@@ -293,7 +292,6 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       sk: sk || 0.45,
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
-      remede: (src && src.remede) || (parsed && parsed._remede) || undefined,
       debord: (src && src.debord !== undefined && src.debord !== null) ? src.debord : ((parsed && parsed._debord) || 0),
       altitude: (src && src.altitude) || undefined,
     };
@@ -2226,38 +2224,10 @@ setPiece("Echantignole");
     // ===== SOLIVES (sens lg, ENTRE les murailleres, dessus affleurant) =====
     setPiece("Solive");
     const lgSolive = lg - 2 * ppB;                   // s'arretent contre les murailleres
-    const remedeP = (params && params.remede) || "";
-    const entraxeSol = remedeP === "dense" ? 0.4 : 0.5;
-    const nbSolives = Math.max(2, Math.round(L / entraxeSol) + 1);
-    if (remedeP === "porteuse") {
-      // Poutre porteuse centrale : les solives portent en DEUX travees
-      const [pbB, pbH] = sec("Poutre porteuse", 0.12, 0.30);
-      setPiece("Poutre porteuse");
-      addBox(L, pbH, pbB, 0, ySolive - soH / 2 - pbH / 2, 0, woodMat);
-      if (appuisEtage === "poteaux") {
-        setPiece("Poteau");
-        const nbPotC = Math.max(2, Math.ceil(L / 3.0) + 1);
-        const hPotC = ySolive - soH / 2 - pbH;
-        for (let i = 0; i < nbPotC; i++) {
-          const x = -L/2 + potB/2 + (i / (nbPotC - 1)) * (L - potB);
-          addBox(potB, hPotC, potB, x, hPotC / 2, 0);
-        }
-      }
-      setPiece("Solive");
-      const demi = (lgSolive - pbB) / 2;
-      for (let i = 0; i < nbSolives; i++) {
-        const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
-        for (const sz of [-1, 1]) {
-          addBox(soB, soH, demi, x, ySolive, sz * (pbB / 2 + demi / 2), woodMat);
-        }
-      }
-      console.log("[DEVIA] Plancher : poutre porteuse centrale, solives en 2 travees de " + demi.toFixed(2) + " m");
-    } else {
-      for (let i = 0; i < nbSolives; i++) {
-        const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
-        addBox(soB, soH, lgSolive, x, ySolive, 0, woodMat);
-      }
-      if (remedeP === "dense") console.log("[DEVIA] Plancher : solivage resserre a 40 cm");
+    const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
+    for (let i = 0; i < nbSolives; i++) {
+      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
+      addBox(soB, soH, lgSolive, x, ySolive, 0, woodMat);
     }
 
     // ===== SABOTS METALLIQUES : 2 par solive, aux appuis sur les murailleres =====
@@ -4761,8 +4731,7 @@ const [formEssence, setFormEssence] = useState("");
 const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
 const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
-const [formAppuis, setFormAppuis] = useState("poteaux");
-const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
+const [formAppuis, setFormAppuis] = useState("poteaux"); // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
 const [formLargeur, setFormLargeur] = useState("");
@@ -6641,7 +6610,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, appuis: s.appuis || undefined, remede: s.remede || undefined, debord: s.debord || undefined,
+        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, appuis: s.appuis || undefined, debord: s.debord || undefined,
         pos: s.pos || undefined,
         pose: s.pose || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
@@ -6752,7 +6721,6 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.appuis) parsed._appuis = finalParams.appuis;
-  if (finalParams.remede) parsed._remede = finalParams.remede;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   if (finalParams.debord) parsed._debord = finalParams.debord;
   if (finalParams.essence) parsed._essence = finalParams.essence;
@@ -6772,7 +6740,6 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         couverture: p.couverture || "tuile_terre",
         murs: finalParams.murs || undefined,
         appuis: finalParams.appuis || undefined,
-        remede: finalParams.remede || undefined,
         solaire: finalParams.solaire || undefined,
         debord: finalParams.debord || undefined,
         essence: finalParams.essence || undefined,
@@ -6885,7 +6852,6 @@ const loadProjectDetails = (project) => {
         couverture: p.couverture || "tuile_terre",
         murs: project.devis_data._murs || undefined,
         appuis: project.devis_data._appuis || undefined,
-        remede: project.devis_data._remede || undefined,
         solaire: project.devis_data._solaire || undefined,
         debord: project.devis_data._debord || undefined,
         essence: project.devis_data._essence || undefined,
@@ -7110,7 +7076,6 @@ const loadProjectDetails = (project) => {
       type: formType || undefined,
       murs: formMurs || undefined,
       appuis: formAppuis || undefined,
-      remede: formRemede || undefined,
       solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
       essence: formEssence || undefined,
@@ -7421,7 +7386,6 @@ return (
                         type: formSousType,
                         murs: formMurs || undefined,
                         appuis: formAppuis || undefined,
-                        remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
                         pente: (formPente && !sansToit) ? parseFloat(formPente) : undefined,
@@ -7481,38 +7445,6 @@ return (
                       <option value="poteaux">des poteaux bois (plancher autoporte, mezzanine)</option>
                       <option value="murs">les murs porteurs (sous-sol, murs existants) - sans poteaux</option>
                     </select>
-                    {(() => {
-                      const lgP = parseFloat(String(formLargeur || "").replace(",", "."));
-                      if (isNaN(lgP) || lgP <= 0) return null;
-                      const porteeBrute = Math.max(0.5, lgP - 0.24);
-                      const porteeEff = formRemede === "porteuse" ? porteeBrute / 2 : porteeBrute;
-                      const entraxeEff = formRemede === "dense" ? 0.4 : 0.5;
-                      let dimP = null;
-                      try {
-                        const zP = getZone(commune || "", altitude || 200);
-                        const chP = ec5DescenteCharge(formCouverture || "tuile_terre", zP ? zP.sk : 0.45, 0, zP ? zP.dS : 0, false);
-                        dimP = dimensionnerPiece("Solive", { portee: porteeEff, entraxe: entraxeEff, G: chP.G, Q: chP.Q, S: chP.S, classeService: 2, dureeVariable: "moyen", typeBatiment: "courant", altitude: parseFloat(altitude) || 200, console: false });
-                      } catch (eP) { dimP = null; }
-                      if (dimP && formRemede === "") return null;
-                      if (dimP) {
-                        return (
-                          <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(126,201,126,0.10)", border: "1px solid rgba(126,201,126,0.4)", color: "#7ec97e", fontSize: 11.5, lineHeight: 1.5 }}>
-                            {formRemede === "porteuse" ? "Poutre porteuse au milieu : les solives portent en deux travees de " + porteeEff.toFixed(2) + " m, le calcul passe." : "Solivage resserre a 40 cm : le calcul passe."}
-                            <button type="button" onClick={() => setFormRemede("")} style={{ marginLeft: 8, padding: "2px 8px", borderRadius: 6, cursor: "pointer", background: "transparent", border: "1px solid rgba(126,201,126,0.5)", color: "#7ec97e", fontSize: 11 }}>annuler</button>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div style={{ marginTop: 8, padding: "9px 11px", borderRadius: 8, background: "rgba(224,82,82,0.08)", border: "1px solid rgba(224,82,82,0.45)" }}>
-                          <div style={{ color: "#e05252", fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>Portee trop grande : {porteeBrute.toFixed(2)} m entre appuis, aucune section de solive ne tient le calcul.</div>
-                          <div style={{ color: cl("#b8bccc", "#565a6c"), fontSize: 11, lineHeight: 1.5, marginTop: 3 }}>Choisis le remede :</div>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                            <button type="button" onClick={() => setFormRemede("porteuse")} style={{ padding: "5px 12px", borderRadius: 7, cursor: "pointer", background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.5)", color: "#f0c040", fontSize: 11.5, fontWeight: 700 }}>Poutre porteuse au milieu</button>
-                            <button type="button" onClick={() => setFormRemede("dense")} style={{ padding: "5px 12px", borderRadius: 7, cursor: "pointer", background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.5)", color: "#f0c040", fontSize: 11.5, fontWeight: 700 }}>Solives plus rapprochees (40 cm)</button>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 ) : null}
                   </div>
