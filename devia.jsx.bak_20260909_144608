@@ -46,7 +46,7 @@ const EC5_LARGEUR_MINI = {
   Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
-  "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
+  "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
@@ -2220,21 +2220,6 @@ setPiece("Echantignole");
       const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
       addBox(soB, soH, lgSolive, x, ySolive, 0, woodMat);
     }
-
-    // ===== SABOTS METALLIQUES : 2 par solive, aux appuis sur les murailleres =====
-    setPiece("Sabot");
-    const sabotMat = new THREE.MeshStandardMaterial({ color: 0x9aa0ab, roughness: 0.55, metalness: 0.75 });
-    for (let i = 0; i < nbSolives; i++) {
-      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
-      for (const sz of [-1, 1]) {
-        const zS = sz * (lgSolive / 2 - 0.03);
-        addBox(soB + 0.008, soH * 0.75, 0.06, x, ySolive - soH * 0.1, zS, sabotMat);
-      }
-    }
-
-    // ===== PANNEAU DE PLANCHER (pose sur les solives, chiffre au m2) =====
-    setPiece("Panneau plancher");
-    addBox(L, 0.022, lg, 0, hPlancher + 0.011, 0, woodMat);
   };
 
   const drawBalcon = () => {
