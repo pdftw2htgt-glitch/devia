@@ -5204,7 +5204,7 @@ const fileInputRef = useRef(null);
     if (user === null || user === undefined) throw new Error("Fichier de plus de 3 Mo : connexion requise (stockage securise du plan)");
     const ext = ((f.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 8);
     const chemin = user.id + "/plan_" + Date.now() + "_" + Math.floor(Math.random() * 100000) + "." + ext;
-    const { error: upErr } = await supabase.storage.from("plans").upload(chemin, f, { cacheControl: "0" });
+    const { error: upErr } = await supabase.storage.from("plans").upload(chemin, f, { upsert: true, cacheControl: "0" });
     if (upErr) throw new Error("Upload du plan impossible : " + (upErr.message || "erreur stockage") + " - le bucket prive plans existe-t-il ?");
     const { data: signed, error: signErr } = await supabase.storage.from("plans").createSignedUrl(chemin, 600);
     if (signErr) throw new Error("URL signee impossible : " + (signErr.message || "erreur stockage"));
