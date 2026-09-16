@@ -5233,7 +5233,6 @@ const fileInputRef = useRef(null);
   // Rend des pages du PDF en images JPEG (base64) pretes pour l analyse.
   // nums vide = toutes les pages. largeurMax en pixels sur le grand cote.
   const [analyseHauteursDeduites, setAnalyseHauteursDeduites] = useState([]);
-  const [analyseManqueBas, setAnalyseManqueBas] = useState(false);
   const rendrePagesImages = async (buf, nums, largeurMax, qualite) => {
     const doc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
     const total = doc.numPages;
@@ -5584,7 +5583,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p6v17";
+      const versionPrompt = vh.toString(36) + "-p6v16";
       let jCache = null;
       let ancienJ = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
@@ -5613,7 +5612,6 @@ const fileInputRef = useRef(null);
         }
       }
       let j = null;
-      let pagesNiveauBas = [];
       const appelAnalyse = async (sysTxt, contenu, effortNiveau, modele) => {
         const rep = await fetch("/api/chat", {
           method: "POST",
@@ -5674,12 +5672,6 @@ const fileInputRef = useRef(null);
         return nums.length > 0 ? " PAGES A UTILISER EN PRIORITE : " + nums.join(", ") + "." : "";
       };
       const inv = carteDossier;
-      const RX_BAS = /(r\s*[-\u2013]\s*1|sous[\s-]?sol|soussol|niveau\s*[-\u2013]\s*1|\bcave\b|\bcaves\b|semi[\s-]?enterre|infrastructure)/i;
-      pagesNiveauBas = pagesInv.filter((p) => RX_BAS.test(String(p.titre || "") + " " + String(p.contenu || ""))).map((p) => p.page);
-      const indiceBas = pagesNiveauBas.length > 0
-        ? " NIVEAU BAS CONFIRME PAR LE LOGICIEL : le dossier comporte un plan de niveau BAS en page(s) " + pagesNiveauBas.join(", ") + " (R-1, sous-sol, cave ou niveau semi-enterre). Ce niveau EXISTE, ce n est pas a discuter : donne son emprise lue sur ce plan et sa hauteur sous plafond lue sur la coupe, et dis explicitement s il est enterre, semi-enterre ou de plain-pied."
-        : "";
-      if (pagesNiveauBas.length > 0) console.log("[DEVIA] Niveau bas repere par le logiciel : page(s) " + pagesNiveauBas.join(", "));
       const typesPresents = pagesInv.map((p) => p.type).filter((t) => typeof t === "string");
       const vuesAbsentes = (types) => {
         const manque = types.filter((t) => typesPresents.indexOf(t) < 0);
@@ -5744,19 +5736,19 @@ const fileInputRef = useRef(null);
       console.log("[DEVIA] Passe 1B (orientation) : " + orient.slice(0, 250));
       // PASSE 2A : geometrie des volumes (plan de toitures + plan de masse), effort maximal
       const geo = await appelAnalyse(
-        "Tu lis la GEOMETRIE d'un dossier de construction. En te concentrant sur le plan de toitures et le plan de masse QUAND ILS EXISTENT, et sinon sur les plans d etage et les COUPES transmis (une coupe donne l emprise, les niveaux et les decrochements), fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. LISTE AUSSI LES NIVEAUX : a partir des plans de niveaux et des coupes, donne pour CHAQUE niveau du batiment (R-1 ou sous-sol, rez-de-chaussee, etage, mezzanine, combles) son emprise cotee et sa hauteur sous plafond, et dis lequel est ENTERRE ou SEMI-ENTERRE - une coupe ou le terrain naturel remonte au-dessus du plancher bas le prouve. Un niveau enterre ne porte aucun faitage : il ne se voit pas sur un plan de toitures, il se lit sur son plan de niveau et sur les coupes. Ne l omets jamais sous pretexte qu il n a pas de charpente. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. ORIENTATION ETABLIE (source de verite pour les cardinaux - ne la recalcule pas, appuie toi dessus et signale seulement une contradiction) : " + orient + " INVENTAIRE DES VUES : " + inv + pagesPour(["plan_de_toitures", "plan_de_masse", "plan_etage", "coupe"]) + vuesAbsentes(["plan_de_toitures", "plan_de_masse"]) + indiceBas,
+        "Tu lis la GEOMETRIE d'un dossier de construction. En te concentrant sur le plan de toitures et le plan de masse QUAND ILS EXISTENT, et sinon sur les plans d etage et les COUPES transmis (une coupe donne l emprise, les niveaux et les decrochements), fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. ORIENTATION ETABLIE (source de verite pour les cardinaux - ne la recalcule pas, appuie toi dessus et signale seulement une contradiction) : " + orient + " INVENTAIRE DES VUES : " + inv + pagesPour(["plan_de_toitures", "plan_de_masse", "plan_etage", "coupe"]) + vuesAbsentes(["plan_de_toitures", "plan_de_masse"]),
         [...blocsGeo, { type: "text", text: "Lis la geometrie des volumes." }],
         "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2B : hauteurs et infos generales (coupes + notice + cartouche)
       const hauts = await appelAnalyse(
-        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES et les FACADES transmises, puis sur la notice et le cartouche QUAND ILS EXISTENT, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. ATTENTION COTES NGF : une cote NGF (ex 1335.09) est une ALTITUDE ABSOLUE en metres au-dessus du niveau de la mer, PAS une hauteur - une hauteur se calcule par DIFFERENCE entre deux cotes NGF (ex egout moins terrain fini) ; ne recopie JAMAIS une cote NGF comme hauteur. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv + pagesPour(["coupe", "notice", "cartouche", "facade", "perspective", "autre"]) + vuesAbsentes(["notice", "cartouche"]) + indiceBas,
+        "Tu lis un dossier de permis de construire. En te concentrant sur les COUPES et les FACADES transmises, puis sur la notice et le cartouche QUAND ILS EXISTENT, donne : la hauteur de chaque volume (egout et faitage, en precisant de quel volume il s'agit - un corps a etage est plus haut qu'un corps en rez-de-chaussee ; un sas a toit plat est plus BAS que ses deux voisins, sa hauteur = celle de sa toiture plate ; CHAQUE volume doit repartir avec une hauteur d'egout, le volume principal aussi), la pente de toiture telle qu'ecrite avec son unite, la couverture, la commune du chantier, les combles, et ce que la notice dit de la composition des volumes. ATTENTION COTES NGF : une cote NGF (ex 1335.09) est une ALTITUDE ABSOLUE en metres au-dessus du niveau de la mer, PAS une hauteur - une hauteur se calcule par DIFFERENCE entre deux cotes NGF (ex egout moins terrain fini) ; ne recopie JAMAIS une cote NGF comme hauteur. Cite la page de chaque info. Reponds en texte structure. INVENTAIRE DES VUES : " + inv + pagesPour(["coupe", "notice", "cartouche", "facade", "perspective", "autre"]) + vuesAbsentes(["notice", "cartouche"]),
         [...blocsHauteurs, { type: "text", text: "Lis les hauteurs et les infos generales." }],
         "medium");
       console.log("[DEVIA] Passe 2B (hauteurs) : " + hauts.slice(0, 300));
       // PASSE 3 : synthese -> JSON final, uniquement depuis les lectures
       const syn = await appelAnalyse(
-        sysAnalyse + indiceBas + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Si les lectures mentionnent un niveau R-1, un sous-sol, une cave ou un garage enterre, il DOIT ressortir comme un volume de type etage avec un pose_hauteur_m negatif : ne le laisse jamais de cote. Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null. EXCEPTION OBLIGATOIRE : hauteur_murs du PREMIER volume (le principal) ne doit JAMAIS etre null - prends son egout dans la lecture hauteurs ; si la lecture ne donne que son faitage, convertis : egout = faitage moins (largeur divisee par 2) multipliee par tangente de la pente. Fais de meme pour chaque volume dont l'egout figure dans les lectures.",
+        sysAnalyse + " SYNTHESE FINALE : construis le JSON UNIQUEMENT a partir des deux lectures fournies (geometrie, puis hauteurs et infos). Si les lectures mentionnent un niveau R-1, un sous-sol, une cave ou un garage enterre, il DOIT ressortir comme un volume de type etage avec un pose_hauteur_m negatif : ne le laisse jamais de cote. Ne reinvente aucun chiffre : si une valeur manque dans les lectures, mets null. EXCEPTION OBLIGATOIRE : hauteur_murs du PREMIER volume (le principal) ne doit JAMAIS etre null - prends son egout dans la lecture hauteurs ; si la lecture ne donne que son faitage, convertis : egout = faitage moins (largeur divisee par 2) multipliee par tangente de la pente. Fais de meme pour chaque volume dont l'egout figure dans les lectures.",
         [{ type: "text", text: "ORIENTATION ETABLIE :\n" + orient + "\n\nLECTURE GEOMETRIE :\n" + geo + "\n\nLECTURE HAUTEURS ET INFOS :\n" + hauts }],
         "medium");
       const m = syn.match(/\{[\s\S]*\}/);
@@ -5909,10 +5901,6 @@ const fileInputRef = useRef(null);
           }
           return notes;
         };
-        const aEnterre = structs.some(s => typeof s.pose === "number" && s.pose < -0.05);
-        const manqueBas = pagesNiveauBas.length > 0 && aEnterre === false;
-        setAnalyseManqueBas(manqueBas);
-        if (manqueBas) console.warn("[DEVIA] Plan de niveau bas page(s) " + pagesNiveauBas.join(", ") + " mais aucun volume enterre monte");
         const notesH = completerHauteurs(structs);
         if (notesH.length > 0) {
           notesH.forEach(t => console.warn("[DEVIA] Hauteur deduite - " + t));
@@ -8015,13 +8003,6 @@ return (
                     }} style={{ marginTop: 6, padding: "4px 10px", borderRadius: 7, cursor: "pointer", background: "rgba(240,192,64,0.10)", border: "1px solid rgba(240,192,64,0.4)", color: "#f0c040", fontSize: 11, fontWeight: 600, display: "block" }}>
                       Demander une nouvelle lecture (tu compareras avant de remplacer)
                     </button>
-                    {analyseManqueBas ? (
-                      <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(240,192,64,0.07)", border: "1px solid rgba(240,192,64,0.35)" }}>
-                        <div style={{ color: "#f0c040", fontSize: 11.5, fontWeight: 700 }}>NIVEAU BAS NON MONTE</div>
-                        <div style={{ marginTop: 4, color: cl("#b8bccc", "#565a6c"), fontSize: 11, lineHeight: 1.5 }}>Le dossier contient un plan de niveau bas (R-1, sous-sol ou cave) mais aucun volume enterre n a ete monte. Ajoute-le, puis regle son emprise et sa hauteur sur le plan.</div>
-                        <button type="button" onClick={() => { ajouterVolume("enterre"); setEditeurOuvert(true); }} style={{ marginTop: 6, padding: "6px 14px", borderRadius: 8, cursor: "pointer", background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.5)", color: "#f0c040", fontSize: 11.5, fontWeight: 700, display: "block" }}>Ajouter le niveau enterre</button>
-                      </div>
-                    ) : null}
                     {analyseHauteursDeduites.length > 0 ? (
                       <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "rgba(240,192,64,0.07)", border: "1px solid rgba(240,192,64,0.35)" }}>
                         <div style={{ color: "#f0c040", fontSize: 11.5, fontWeight: 700 }}>HAUTEURS DEDUITES ({analyseHauteursDeduites.length})</div>
