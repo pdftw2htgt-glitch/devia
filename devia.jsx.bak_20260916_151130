@@ -5584,7 +5584,7 @@ const fileInputRef = useRef(null);
       setAnalyseEmpreinte(empreinte);
       let vh = 5381;
       for (let vi = 0; vi < sysAnalyse.length; vi++) { vh = ((vh * 33) ^ sysAnalyse.charCodeAt(vi)) >>> 0; }
-      const versionPrompt = vh.toString(36) + "-p7v19";
+      const versionPrompt = vh.toString(36) + "-p7v18";
       let jCache = null;
       let ancienJ = null;
       const { data: { user: uCache } } = await supabase.auth.getUser();
@@ -5619,24 +5619,19 @@ const fileInputRef = useRef(null);
       const appelAnalyse = async (sysTxt, contenu, effortNiveau, modele) => {
         compteurPasse += 1;
         const etiquette = "Passe " + (NOMS_PASSES[compteurPasse - 1] || String(compteurPasse));
-        const corpsPour = (rapide) => {
-          const obj = {
-            model: modele || "claude-sonnet-5",
-            max_tokens: rapide ? 12000 : 32000,
-            output_config: { effort: rapide ? "low" : effortNiveau },
-            system: sysTxt,
-            messages: [{ role: "user", content: contenu }],
-          };
-          if (rapide === false) obj.thinking = { type: "adaptive" };
-          return JSON.stringify(obj);
-        };
+        const corpsTxt = JSON.stringify({
+          model: modele || "claude-sonnet-5",
+          max_tokens: 32000,
+          thinking: { type: "adaptive" },
+          output_config: { effort: effortNiveau },
+          system: sysTxt,
+          messages: [{ role: "user", content: contenu }],
+        });
+        console.log("[DEVIA] " + etiquette + " : envoi de " + Math.round(corpsTxt.length / 1000) + " ko");
         const tDebut = Date.now();
         let rep = null;
         let brut2 = "";
-        let rapide = false;
-        for (let essai = 1; essai <= 3; essai++) {
-          const corpsTxt = corpsPour(rapide);
-          if (essai === 1) console.log("[DEVIA] " + etiquette + " : envoi de " + Math.round(corpsTxt.length / 1000) + " ko");
+        for (let essai = 1; essai <= 2; essai++) {
           try {
             rep = await fetch("/api/chat", {
               method: "POST",
@@ -5644,23 +5639,15 @@ const fileInputRef = useRef(null);
               body: corpsTxt,
             });
             brut2 = await rep.text();
+            break;
           } catch (eRes) {
-            const secE = Math.round((Date.now() - tDebut) / 1000);
-            console.warn("[DEVIA] " + etiquette + " : connexion perdue apres " + secE + " s (essai " + essai + " sur 3)", eRes);
-            if (essai === 3) throw new Error(etiquette + " : connexion perdue apres " + secE + " s");
-            rapide = true;
-            await new Promise(r => setTimeout(r, 2000));
-            continue;
+            const secP = Math.round((Date.now() - tDebut) / 1000);
+            console.warn("[DEVIA] " + etiquette + " : connexion perdue apres " + secP + " s (essai " + essai + " sur 2)", eRes);
+            if (essai === 2) throw new Error(etiquette + " : connexion perdue apres " + secP + " s - la passe a probablement depasse le temps autorise par l hebergeur");
+            await new Promise(r => setTimeout(r, 2500));
           }
-          const secR = Math.round((Date.now() - tDebut) / 1000);
-          if ((rep.status === 504 || rep.status === 502) && essai < 3) {
-            console.warn("[DEVIA] " + etiquette + " : coupee par l hebergeur apres " + secR + " s - nouvelle tentative en lecture rapide");
-            rapide = true;
-            continue;
-          }
-          console.log("[DEVIA] " + etiquette + " : reponse recue en " + secR + " s" + (rapide ? " (lecture rapide)" : ""));
-          break;
         }
+        console.log("[DEVIA] " + etiquette + " : reponse recue en " + Math.round((Date.now() - tDebut) / 1000) + " s");
         if (rep.status === 413) throw new Error(etiquette + " : dossier trop lourd - relance l analyse, le lot sera reduit");
         if (rep.status === 504 || rep.status === 502) throw new Error(etiquette + " : l hebergeur a coupe la passe (trop longue) - relance l analyse");
         if (rep.ok === false) throw new Error(etiquette + " - HTTP " + rep.status + " : " + brut2.slice(0, 200));
@@ -5781,7 +5768,7 @@ const fileInputRef = useRef(null);
       const geo = await appelAnalyse(
         "Tu lis la GEOMETRIE d'un dossier de construction. En te concentrant sur le plan de toitures et le plan de masse QUAND ILS EXISTENT, et sinon sur les plans d etage et les COUPES transmis (une coupe donne l emprise, les niveaux et les decrochements), fais la liste des volumes batis : un faitage dessine = un volume, une toiture plate de liaison = un volume aussi. Pour CHAQUE volume : ses cotes d'emprise ECRITES sur le plan (jamais estimees, jamais arrondies), le sens de son faitage par rapport a celui du volume principal (parallele ou perpendiculaire), contre quel volume il s'accole, sur quel cote (pignon = petit cote, gouttereau = long cote), et le DECALAGE : un volume accole est rarement centre - s'il est aligne sur un bord du volume de reference (bords affleurants sur le plan), decalage = (longueur du mur de reference moins longueur du volume) / 2, signe positif vers la droite ou l'avant ; mets 0 UNIQUEMENT si le volume est visiblement centre sur le mur. ORIENTATION CARDINALE (prioritaire) : repere la fleche du NORD dessinee sur le plan de masse ou le plan de toitures, puis donne pour chaque volume accole la FACADE cardinale du volume de reference contre laquelle il se colle (nord, sud, est ou ouest) et son ALIGNEMENT (aligne sur le bord est, ouest, nord ou sud du mur, ou centre). Verifie ces facades contre les noms des facades du dossier (facade nord, sud, est, ouest) quand elles existent. Donne aussi pour CHAQUE volume le sens cardinal de son faitage : est_ouest ou nord_sud (toit plat : null). Donne aussi pour CHAQUE volume son DEPASSE DE TOITURE (debord du toit au-dela des murs) tel qu'ecrit sur le plan de toitures ou les coupes, avec son unite. ATTENTION : le contour dessine du plan de toitures inclut les depasses (contour = murs plus 2 fois le depasse) - les cotes d'emprise des murs viennent des plans d'etage ou du plan de masse, ne confonds jamais les deux. Cite la page d'ou vient chaque chiffre. Reponds en texte structure, un paragraphe par volume. ORIENTATION ETABLIE (source de verite pour les cardinaux - ne la recalcule pas, appuie toi dessus et signale seulement une contradiction) : " + orient + " INVENTAIRE DES VUES : " + inv + pagesPour(["plan_de_toitures", "plan_de_masse", "plan_etage"]) + vuesAbsentes(["plan_de_toitures", "plan_de_masse"]),
         [...blocsGeo, { type: "text", text: "Lis la geometrie des volumes." }],
-        "medium", "claude-fable-5");
+        "high", "claude-fable-5");
       console.log("[DEVIA] Passe 2A (geometrie) : " + geo.slice(0, 300));
       // PASSE 2A-2 : les NIVEAUX du batiment, lus sur les coupes (passe courte et ciblee)
       const niveaux = await appelAnalyse(
