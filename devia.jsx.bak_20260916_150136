@@ -5614,43 +5614,22 @@ const fileInputRef = useRef(null);
       }
       let j = null;
       let pagesNiveauBas = [];
-      let compteurPasse = 0;
-      const NOMS_PASSES = ["1 inventaire", "1B orientation", "2A geometrie", "2B hauteurs", "3 synthese", "4 confrontation"];
       const appelAnalyse = async (sysTxt, contenu, effortNiveau, modele) => {
-        compteurPasse += 1;
-        const etiquette = "Passe " + (NOMS_PASSES[compteurPasse - 1] || String(compteurPasse));
-        const corpsTxt = JSON.stringify({
-          model: modele || "claude-sonnet-5",
-          max_tokens: 32000,
-          thinking: { type: "adaptive" },
-          output_config: { effort: effortNiveau },
-          system: sysTxt,
-          messages: [{ role: "user", content: contenu }],
+        const rep = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: modele || "claude-sonnet-5",
+            max_tokens: 32000,
+            thinking: { type: "adaptive" },
+            output_config: { effort: effortNiveau },
+            system: sysTxt,
+            messages: [{ role: "user", content: contenu }],
+          }),
         });
-        console.log("[DEVIA] " + etiquette + " : envoi de " + Math.round(corpsTxt.length / 1000) + " ko");
-        const tDebut = Date.now();
-        let rep = null;
-        let brut2 = "";
-        for (let essai = 1; essai <= 2; essai++) {
-          try {
-            rep = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: corpsTxt,
-            });
-            brut2 = await rep.text();
-            break;
-          } catch (eRes) {
-            const secP = Math.round((Date.now() - tDebut) / 1000);
-            console.warn("[DEVIA] " + etiquette + " : connexion perdue apres " + secP + " s (essai " + essai + " sur 2)", eRes);
-            if (essai === 2) throw new Error(etiquette + " : connexion perdue apres " + secP + " s - la passe a probablement depasse le temps autorise par l hebergeur");
-            await new Promise(r => setTimeout(r, 2500));
-          }
-        }
-        console.log("[DEVIA] " + etiquette + " : reponse recue en " + Math.round((Date.now() - tDebut) / 1000) + " s");
-        if (rep.status === 413) throw new Error(etiquette + " : dossier trop lourd - relance l analyse, le lot sera reduit");
-        if (rep.status === 504 || rep.status === 502) throw new Error(etiquette + " : l hebergeur a coupe la passe (trop longue) - relance l analyse");
-        if (rep.ok === false) throw new Error(etiquette + " - HTTP " + rep.status + " : " + brut2.slice(0, 200));
+        const brut2 = await rep.text();
+        if (rep.status === 413) throw new Error("Dossier trop lourd pour une passe d analyse - relance l analyse, le lot sera reduit");
+        if (rep.ok === false) throw new Error("HTTP " + rep.status + " : " + brut2.slice(0, 200));
         let dat = null;
         try { dat = JSON.parse(brut2); } catch (pe) { throw new Error("Reponse serveur illisible : " + brut2.slice(0, 200)); }
         if (dat && dat.error) throw new Error("API analyse : " + (dat.error.message || JSON.stringify(dat.error)));
