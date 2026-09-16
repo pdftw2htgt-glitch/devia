@@ -4392,9 +4392,7 @@ function Viewer3D({ params, onMetre }) {
     controls.minDistance = 0.8;             // limite zoom in (inspection rapprochee des assemblages)
     controls.maxDistance = document.fullscreenElement ? 120 : 80; // limite zoom out (elargie en plein ecran)
     controls.minPolarAngle = 0.1;           // empeche de passer en dessous
-    // Avec un niveau enterre, la camera doit pouvoir descendre sous le terrain
-    controls.maxPolarAngle = aDuEnterre ? Math.PI * 0.93 : Math.PI / 2.1;
-    if (aDuEnterre) console.log("[DEVIA] Camera libre sous le terrain (niveau enterre present)");
+    controls.maxPolarAngle = Math.PI / 2.1; // empeche de passer sous le sol
     controls.autoRotate = false;            // CAO : pas de rotation automatique
     controls.zoomToCursor = true;           // CAO : la molette zoome vers le point pointe (style Cadwork)
     controls.screenSpacePanning = true;     // pan dans le plan ecran (plus naturel en CAO)
