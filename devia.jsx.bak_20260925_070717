@@ -768,14 +768,13 @@ function buildScene3D(scene, params, opts) {
   let currentPiece = "Divers";
   const setPiece = (nom) => { currentPiece = nom; };
   // longueur estimee = plus grande dimension de la piece
-  const logPiece = (a, b, c, place, nomForce, matiere) => {
+  const logPiece = (a, b, c, place) => {
     const dims = [a, b, c].sort((u, v) => v - u);
     const longueur = dims[0];
     const sx = dims[1], sy = dims[2];
     const volume = a * b * c;
     metre.push({
-      matiere: matiere || "bois",
-      nom: nomForce || currentPiece,
+      nom: currentPiece,
       section: [Math.round(sx*1000), Math.round(sy*1000)], // mm
       longueur: longueur,                                   // m
       volume: volume,                                       // m3
@@ -1086,9 +1085,7 @@ function buildScene3D(scene, params, opts) {
     if (rot) m.rotation.set(...rot);
     m.castShadow = true;
     scene.add(m);
-    if (!mat || mat === woodMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }); // bois
-    else if (mat === betonMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }, "Mur beton", "beton");
-    else if (mat === dalleMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }, "Dalle beton", "beton");
+    if (!mat || mat === woodMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }); // bois uniquement
   };
 
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
@@ -3914,12 +3911,8 @@ function genererIFC(metre, params) {
   const relAggBldg = nextId(); E(relAggBldg, "IFCRELAGGREGATES('" + guid() + "',#" + owner + ",$,$,#" + building + ",(#" + storey + "));");
 
   // --- Classe IFC d apres le role de la piece (un logiciel de charpente s en sert) ---
-  const classeDe = (p) => {
-    const n = String((p && p.nom) || "").toLowerCase();
-    if (p && p.matiere === "beton") {
-      if (n.indexOf("dalle") >= 0 || n.indexOf("plancher") >= 0) return ["IFCSLAB", ".FLOOR."];
-      return ["IFCWALL", ".SOLIDWALL."];
-    }
+  const classeDe = (nom) => {
+    const n = String(nom || "").toLowerCase();
     if (n.indexOf("poteau") >= 0 || n.indexOf("montant") >= 0 || n.indexOf("poincon") >= 0 || n.indexOf("plot") >= 0) return ["IFCCOLUMN", ".COLUMN."];
     if (n.indexOf("panneau") >= 0 || n.indexOf("lame") >= 0 || n.indexOf("planche") >= 0 || n.indexOf("bandeau") >= 0) return ["IFCPLATE", ".SHEET."];
     if (n.indexOf("panne") >= 0 || n.indexOf("solive") >= 0 || n.indexOf("poutre") >= 0 || n.indexOf("muraillere") >= 0
@@ -3930,8 +3923,6 @@ function genererIFC(metre, params) {
 
   // --- Une piece -> un element IFC ---
   const memberIds = [];
-  const idsBois = [];
-  const idsBeton = [];
   piecesBois.forEach((p, iP) => {
     // --- Dimensions Three.js d'origine ---
     const sx = Math.abs(p.dimsBrutes[0]);
@@ -3998,30 +3989,22 @@ function genererIFC(metre, params) {
     const shapeRep = nextId(); E(shapeRep, "IFCSHAPEREPRESENTATION(#" + bodyCtx + ",'Body','SweptSolid',(#" + solid + "));");
     const prodDef = nextId(); E(prodDef, "IFCPRODUCTDEFINITIONSHAPE($,$,(#" + shapeRep + "));");
 
-    const cls = classeDe(p);
+    const cls = classeDe(p.nom);
     const member = nextId();
     E(member, cls[0] + "('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Piece") + "',$,$,#" + plcPiece + ",#" + prodDef + ",'" + (iP + 1) + "'," + cls[1] + ");");
     memberIds.push(member);
-    if (p.matiere === "beton") idsBeton.push(member); else idsBois.push(member);
   });
 
   // Rattacher tous les elements au niveau
   if (memberIds.length > 0) {
     const relContain = nextId();
     E(relContain, "IFCRELCONTAINEDINSPATIALSTRUCTURE('" + guid() + "',#" + owner + ",$,$,(#" + memberIds.join(",#") + "),#" + storey + ");");
-  }
-  // Chaque famille repart avec sa vraie matiere
-  if (idsBois.length > 0) {
+    // Matiere : toute la charpente est du bois massif
     const matBois = nextId(); E(matBois, "IFCMATERIAL('Bois massif C24',$,'Bois');");
-    const relB = nextId();
-    E(relB, "IFCRELASSOCIATESMATERIAL('" + guid() + "',#" + owner + ",$,$,(#" + idsBois.join(",#") + "),#" + matBois + ");");
+    const relMat = nextId();
+    E(relMat, "IFCRELASSOCIATESMATERIAL('" + guid() + "',#" + owner + ",$,$,(#" + memberIds.join(",#") + "),#" + matBois + ");");
   }
-  if (idsBeton.length > 0) {
-    const matBet = nextId(); E(matBet, "IFCMATERIAL('Beton arme C25/30',$,'Beton');");
-    const relC = nextId();
-    E(relC, "IFCRELASSOCIATESMATERIAL('" + guid() + "',#" + owner + ",$,$,(#" + idsBeton.join(",#") + "),#" + matBet + ");");
-  }
-  console.log("[DEVIA] IFC : " + idsBois.length + " piece(s) bois et " + idsBeton.length + " element(s) beton");
+  console.log("[DEVIA] IFC : " + memberIds.length + " element(s) exporte(s)");
 
   const footer = "ENDSEC;\nEND-ISO-10303-21;\n";
   return header + lines.join("\n") + "\n" + footer;
@@ -4034,7 +4017,6 @@ function agregerMetre(metre, densiteBois) {
   if (!metre || metre.length === 0) return { groupes: [], totalVolume: 0, totalPoids: 0, nbPieces: 0 };
   const map = {};
   metre.forEach((p) => {
-    if (p.matiere === "beton") return; // la maconnerie n est pas du bois : hors metre et hors EC5
     // cle = nom + section (pour distinguer p.ex. chevrons de sections differentes)
     const secKey = p.section[0] + "x" + p.section[1];
     const key = p.nom + "|" + secKey;
@@ -4385,7 +4367,6 @@ function Viewer3D({ params, onMetre }) {
       const matSol = new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.85, metalness: 0.0 });
       const parNom = {};
       metreVue.forEach((p) => {
-        if (p.matiere === "beton") return;
         const nomP = p.nom || "Piece";
         if (parNom[nomP] === undefined) parNom[nomP] = [];
         parNom[nomP].push(p);
