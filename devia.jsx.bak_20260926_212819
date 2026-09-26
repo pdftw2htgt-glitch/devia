@@ -185,7 +185,6 @@ function metreTexteDepuisParams(p) {
       couverture: p.couverture || "tuile_terre",
       debord: p.debord || 0,
       murs: p.murs,
-      pignon: p.pignon,
       appuis: p.appuis,
       remede: p.remede,
       sk: (p.sk === undefined || p.sk === null) ? undefined : Number(p.sk),
@@ -299,7 +298,6 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       solaire: Boolean(parsed && parsed._solaire),
       sk: sk || 0.45,
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
-      pignon: (src && src.pignon) || (parsed && parsed._pignon) || undefined,
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
       remede: (src && src.remede) || (parsed && parsed._remede) || undefined,
       debord: (src && src.debord !== undefined && src.debord !== null) ? src.debord : ((parsed && parsed._debord) || 0),
@@ -1102,21 +1100,15 @@ function buildScene3D(scene, params, opts) {
       addBox(ep, Hb, seg, xPos, Hb/2, (pw/2 + seg/2), betonMat);
       if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);
     };
-    // --- MUR DE PIGNON : plein (jusque sous les pannes) / egout (arrete a la sabliere) / aucun ---
-    const modePignon = (params && params.pignon) || "plein";
-    if (modePignon === "aucun") {
-      console.log("[DEVIA] Pignons : aucun mur, la ferme reste apparente");
-    } else {
-      sansFace === "pignon_droit" ? null : murZ(Lb/2, true);
-      sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
-      const htTriangle = (lgb / 2) * Math.tan((pente * Math.PI) / 180);
-      if (modePignon === "plein" && htTriangle > 0.05) {
-        if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep);
-        if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep);
-        console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
-      } else {
-        console.log("[DEVIA] Pignons arretes a la sabliere (triangle ouvert)");
-      }
+    sansFace === "pignon_droit" ? null : murZ(Lb/2, true);
+    sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
+
+    // --- TRIANGLES DE PIGNON : la maconnerie monte jusqu aux rampants ---
+    const htTriangle = (lgb / 2) * Math.tan((pente * Math.PI) / 180);
+    if (htTriangle > 0.05) {
+      if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep);
+      if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep);
+      console.log("[DEVIA] Pignons fermes : triangle de " + htTriangle.toFixed(2) + " m de haut");
     }
 
     // --- PLANCHERS INTERMEDIAIRES (un par etage) ---
@@ -5012,7 +5004,6 @@ const [formEssence, setFormEssence] = useState("");
 const [formFinition, setFormFinition] = useState(""); // rabote / brut / traite (apparait si essence choisie)
 const [formCombles, setFormCombles] = useState("");
 const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
-const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
 const [formAppuis, setFormAppuis] = useState("poteaux");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
@@ -7127,7 +7118,7 @@ return out;
       const TYPE_TO_PROJET = { traditionnelle: "charpente_trad", fermette: "charpente_trad", monopente: "monopente", carport: "carport", hangar: "hangar", appentis: "appentis", "4_pans": "4_pans", terrasse: "terrasse", etage: "etage", balcon: "balcon", sas: "sas_liaison" };
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
-        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, pignon: s.pignon || undefined, appuis: s.appuis || undefined, remede: s.remede || undefined, debord: s.debord || undefined,
+        couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, appuis: s.appuis || undefined, remede: s.remede || undefined, debord: s.debord || undefined,
         pos: s.pos || undefined,
         pose: s.pose || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
@@ -7237,7 +7228,6 @@ if (files && files.length > 0) {
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
   if (finalParams.murs) parsed._murs = finalParams.murs;
-  if (finalParams.pignon) parsed._pignon = finalParams.pignon;
   if (finalParams.appuis) parsed._appuis = finalParams.appuis;
   if (finalParams.remede) parsed._remede = finalParams.remede;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
@@ -7258,7 +7248,6 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: finalParams.murs || undefined,
-        pignon: finalParams.pignon || undefined,
         appuis: finalParams.appuis || undefined,
         remede: finalParams.remede || undefined,
         solaire: finalParams.solaire || undefined,
@@ -7372,7 +7361,6 @@ const loadProjectDetails = (project) => {
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
         murs: project.devis_data._murs || undefined,
-        pignon: project.devis_data._pignon || undefined,
         appuis: project.devis_data._appuis || undefined,
         remede: project.devis_data._remede || undefined,
         solaire: project.devis_data._solaire || undefined,
@@ -7598,7 +7586,6 @@ const loadProjectDetails = (project) => {
     const params = {
       type: formType || undefined,
       murs: formMurs || undefined,
-      pignon: formPignon || undefined,
       appuis: formAppuis || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
@@ -7910,7 +7897,6 @@ return (
                       const structure = {
                         type: formSousType,
                         murs: formMurs || undefined,
-                        pignon: formPignon || undefined,
                         appuis: formAppuis || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
@@ -8130,22 +8116,6 @@ return (
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormMurs(opt.val)}
                       style={{ background: formMurs === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formMurs === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formMurs === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Mur de pignon */}
-              <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","4_pans"].includes(typeEffectif) ? undefined : "none" }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Mur de pignon</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  {[
-                    { val: "plein", label: "Maconne jusque sous les pannes" },
-                    { val: "egout", label: "Maconne jusqu a la sabliere" },
-                    { val: "aucun", label: "Sans mur : ferme apparente" }
-                  ].map(opt => (
-                    <button key={opt.val} type="button" onClick={() => setFormPignon(opt.val)}
-                      style={{ background: formPignon === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formPignon === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formPignon === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
