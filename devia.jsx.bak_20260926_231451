@@ -1041,10 +1041,7 @@ function buildScene3D(scene, params, opts) {
     let hSommet = htTri;
     res.forEach((e) => { if (e.yhNet > hSommet) hSommet = e.yhNet; });
     const JEU_CHEVRON = 0.01;   // 1 cm de jeu pour que le beton ne frotte pas le bois
-    // Le haut du mur suit le rampant : meme PENTE que le toit (htTri sur la demi-largeur),
-    // abaissee du jeu. Une droite partant de zero au bord se rapprocherait du rampant en
-    // montant et viendrait se coller a l arbaletrier au faitage.
-    const hMur = (x) => Math.max(0.02, hSommet - (Math.abs(x) / (lgb / 2)) * htTri - JEU_CHEVRON);
+    const hMur = (x) => Math.max(0.02, hSommet * (1 - Math.abs(x) / (lgb / 2)) - JEU_CHEVRON);
     // Contour superieur, de gauche a droite, creuse a chaque passage de panne
     const haut = [];
     let dernierX = -lgb / 2;
