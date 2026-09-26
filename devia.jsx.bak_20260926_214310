@@ -1023,36 +1023,12 @@ function buildScene3D(scene, params, opts) {
 
   // Pignon maconne : le triangle entre le haut des murs et les rampants.
   // Sans lui, un trou reste ouvert sous la toiture aux deux pignons.
-  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep, reservations) => {
+  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep) => {
     const shp = new THREE.Shape();
     shp.moveTo(-lgb / 2, 0);
     shp.lineTo(lgb / 2, 0);
     shp.lineTo(0, htTri);
     shp.closePath();
-    // RESERVATIONS : le mur est perce au passage de chaque panne (1 cm de jeu au pourtour).
-    // Un trou n est ouvert que s il tient entierement dans le triangle, rampants compris.
-    let nbPerces = 0;
-    (reservations || []).forEach((r) => {
-      const hx = r.b / 2 + 0.01;
-      const hy = r.h / 2 + 0.01;
-      const yc = r.y - Hb;
-      const xg = r.z - hx, xd = r.z + hx;
-      const hautDispo = (xx) => htTri * (1 - Math.abs(xx) / (lgb / 2));
-      const tient = (yc - hy) > 0.02
-        && (yc + hy) < hautDispo(xg) - 0.02
-        && (yc + hy) < hautDispo(xd) - 0.02;
-      if (tient) {
-        const ph = new THREE.Path();
-        ph.moveTo(xg, yc - hy);
-        ph.lineTo(xd, yc - hy);
-        ph.lineTo(xd, yc + hy);
-        ph.lineTo(xg, yc + hy);
-        ph.closePath();
-        shp.holes.push(ph);
-        nbPerces += 1;
-      }
-    });
-    if (nbPerces > 0) console.log("[DEVIA] Pignon : " + nbPerces + " reservation(s) percee(s) pour les pannes");
     const geo = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
     const m = new THREE.Mesh(geo, betonMat);
     m.rotation.y = Math.PI / 2;            // le plan du triangle devient le plan du pignon
@@ -1074,7 +1050,7 @@ function buildScene3D(scene, params, opts) {
     });
   };
 
-  const drawMursBeton = (Lb, lgb, Hb, reservations) => {
+  const drawMursBeton = (Lb, lgb, Hb) => {
     const ep = 0.2;
     const sansFace = (opts && opts.sansMurFace) || "";
     setPiece("Divers");
@@ -1135,8 +1111,8 @@ function buildScene3D(scene, params, opts) {
       sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
       const htTriangle = (lgb / 2) * Math.tan((pente * Math.PI) / 180);
       if (modePignon === "plein" && htTriangle > 0.05) {
-        if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep, reservations);
-        if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep, reservations);
+        if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep);
+        if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep);
         console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
       } else {
         console.log("[DEVIA] Pignons arretes a la sabliere (triangle ouvert)");
@@ -1332,22 +1308,7 @@ function buildScene3D(scene, params, opts) {
     const dPerp0 = arH0 / 2 + (pnH0 + 0.03) * cosA0;
     const hMurSousSabliere = Ht + dPerp0 / cosA0 + (sbB0 / 2) * tanA0 - sbH0;
     console.log("[DEVIA] Murs montes a " + hMurSousSabliere.toFixed(3) + " m (sous-face de la sabliere)");
-    // Ou passent les pannes dans le pignon : memes formules que leur pose plus bas.
-    // (la sabliere sort du triangle par les cotes, elle n a pas de reservation)
-    const sinA0 = Math.sin(ang);
-    const [pfB0, pfH0] = sec("Panne faitiere", 0.14, 0.14);
-    const reservPignon = [];
-    const nbPannesPan0 = 2;
-    for (let p0 = 1; p0 <= nbPannesPan0; p0++) {
-      const t0 = p0 / (nbPannesPan0 + 1);
-      const yRef0 = Ht + hf * t0 + (arH0 / 2) * cosA0;
-      const zRef0 = (lg / 2) * (1 - t0) + (arH0 / 2) * sinA0;
-      const yP0 = yRef0 + (pnB0 / 2) * tanA0 + 0.03 + pnH0 / 2;
-      reservPignon.push({ z: zRef0, y: yP0, b: pnB0, h: pnH0 });
-      reservPignon.push({ z: -zRef0, y: yP0, b: pnB0, h: pnH0 });
-    }
-    reservPignon.push({ z: 0, y: Ht + hf + dPerp0 / cosA0 - pfH0 / 2, b: pfB0, h: pfH0 });
-    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon); }
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
