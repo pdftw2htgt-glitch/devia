@@ -8138,10 +8138,11 @@ return (
               {/* Mur de pignon */}
               <div style={{ marginBottom: 18, display: ["traditionnelle","fermette","4_pans"].includes(typeEffectif) ? undefined : "none" }}>
                 <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Mur de pignon</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   {[
-                    { val: "plein", label: "Mur pignon beton" },
-                    { val: "egout", label: "Mur pignon avec ferme apparente" }
+                    { val: "plein", label: "Maconne jusque sous les pannes" },
+                    { val: "egout", label: "Maconne jusqu a la sabliere" },
+                    { val: "aucun", label: "Sans mur : ferme apparente" }
                   ].map(opt => (
                     <button key={opt.val} type="button" onClick={() => setFormPignon(opt.val)}
                       style={{ background: formPignon === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formPignon === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formPignon === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
