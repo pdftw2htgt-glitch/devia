@@ -1031,17 +1031,14 @@ function buildScene3D(scene, params, opts) {
         x0: r.z - (r.b / 2 + 0.01),
         x1: r.z + (r.b / 2 + 0.01),
         yb: (r.y - r.h / 2 - 0.01) - Hb,   // sous-face de la panne, jeu compris
-        yh: (r.y + r.h / 2 + 0.01) - Hb,   // dessus de la panne, jeu compris
-        yhNet: (r.y + r.h / 2) - Hb,       // dessus exact : c est le plan des chevrons
+        yh: (r.y + r.h / 2 + 0.01) - Hb,   // dessus de la panne
       }))
       .filter((e) => e.x1 > -lgb / 2 + 0.02 && e.x0 < lgb / 2 - 0.02)
       .sort((a, b) => a.x0 - b.x0);
-    // Le pignon monte jusqu au dessus des pannes, JAMAIS plus haut : au-dela il entrerait
-    // dans les chevrons (le dessus de la panne la plus haute EST le plan de sous-face des chevrons).
+    // Le pignon monte au moins au-dessus de la panne la plus haute, sinon rien a encocher
     let hSommet = htTri;
-    res.forEach((e) => { if (e.yhNet > hSommet) hSommet = e.yhNet; });
-    const JEU_CHEVRON = 0.01;   // 1 cm de jeu pour que le beton ne frotte pas le bois
-    const hMur = (x) => Math.max(0.02, hSommet * (1 - Math.abs(x) / (lgb / 2)) - JEU_CHEVRON);
+    res.forEach((e) => { if (e.yh + 0.03 > hSommet) hSommet = e.yh + 0.03; });
+    const hMur = (x) => hSommet * (1 - Math.abs(x) / (lgb / 2));
     // Contour superieur, de gauche a droite, creuse a chaque passage de panne
     const haut = [];
     let dernierX = -lgb / 2;
