@@ -1028,10 +1028,10 @@ function buildScene3D(scene, params, opts) {
     // Chaque panne donne donc une ENCOCHE ouverte par le haut, ou la panne vient se poser.
     const res = (reservations || [])
       .map((r) => ({
-        x0: r.z - (r.b / 2 + 0.035),        // 3,5 cm de part et d autre : la reservation se voit
-        x1: r.z + (r.b / 2 + 0.035),
-        yb: (r.y - r.h / 2 - 0.035) - Hb,   // et elle descend sous la panne
-        yh: (r.y + r.h / 2 + 0.035) - Hb,
+        x0: r.z - (r.b / 2 + 0.01),
+        x1: r.z + (r.b / 2 + 0.01),
+        yb: (r.y - r.h / 2 - 0.01) - Hb,   // sous-face de la panne, jeu compris
+        yh: (r.y + r.h / 2 + 0.01) - Hb,   // dessus de la panne, jeu compris
         yhNet: (r.y + r.h / 2) - Hb,       // dessus exact : c est le plan des chevrons
       }))
       .filter((e) => e.x1 > -lgb / 2 + 0.02 && e.x0 < lgb / 2 - 0.02)
@@ -1040,7 +1040,7 @@ function buildScene3D(scene, params, opts) {
     // dans les chevrons (le dessus de la panne la plus haute EST le plan de sous-face des chevrons).
     let hSommet = htTri;
     res.forEach((e) => { if (e.yhNet > hSommet) hSommet = e.yhNet; });
-    const JEU_CHEVRON = 0.004;  // le mur monte au ras du bois entre deux reservations
+    const JEU_CHEVRON = 0.01;   // 1 cm de jeu pour que le beton ne frotte pas le bois
     // Le haut du mur suit le rampant : meme PENTE que le toit (htTri sur la demi-largeur),
     // abaissee du jeu. Une droite partant de zero au bord se rapprocherait du rampant en
     // montant et viendrait se coller a l arbaletrier au faitage.
