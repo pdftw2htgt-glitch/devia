@@ -1046,7 +1046,7 @@ function buildScene3D(scene, params, opts) {
     // montant et viendrait se coller a l arbaletrier au faitage.
     const hMur = (x) => Math.max(0.02, hSommet - (Math.abs(x) / (lgb / 2)) * htTri - JEU_CHEVRON);
     // Contour superieur, de gauche a droite, creuse a chaque passage de panne
-    const haut = [[-lgb / 2, hMur(-lgb / 2)]];   // depart du rampant au nu du mur
+    const haut = [];
     let dernierX = -lgb / 2;
     let sommetPose = false;
     let nbEnc = 0;
@@ -1065,7 +1065,6 @@ function buildScene3D(scene, params, opts) {
       nbEnc += 1;
     });
     if (sommetPose === false) haut.push([0, hMur(0)]);
-    haut.push([lgb / 2, hMur(lgb / 2)]);        // arrivee du rampant au nu du mur
     const shp = new THREE.Shape();
     shp.moveTo(-lgb / 2, 0);
     shp.lineTo(lgb / 2, 0);
