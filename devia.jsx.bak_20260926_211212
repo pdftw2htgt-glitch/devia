@@ -1353,13 +1353,8 @@ setPiece("Sabliere");
     // (sous-face des chevrons), l extrados des arbaletriers etant a arH/2 perpendiculaire de leur axe.
     const [sbB, sbH] = sec("Sabliere", 0.14, 0.14);
     const [arBr, arHr] = sec("Arbaletrier", 0.16, 0.16);
-    const [pnBr, pnHr] = sec("Panne", 0.12, 0.12);
     const cosR = Math.cos(ang), tanR = Math.tan(ang);
-    // Le plan porteur n est PAS l extrados des arbaletriers : les chevrons passent par-dessus les
-    // pannes (voir dPerpChevron plus bas). Sabliere et faitiere doivent atteindre CE plan, sinon
-    // les chevrons flottent au-dessus d elles.
-    const dPerpSousChevron = arHr / 2 + (pnHr + 0.03) * cosR;
-    const yPlanRampant = Ht + dPerpSousChevron / cosR;        // sous-face des chevrons a l aplomb du mur
+    const yPlanRampant = Ht + (arHr / 2) / cosR;              // plan des chevrons a l aplomb du mur
     const ySabl = yPlanRampant + (sbB / 2) * tanR - sbH / 2;  // coin amont de la sabliere sur ce plan
     addBox(L + 0.3, sbH, sbB, 0, ySabl, lg/2, woodMat);
     addBox(L + 0.3, sbH, sbB, 0, ySabl, -lg/2, woodMat);
@@ -1367,9 +1362,9 @@ setPiece("Sabliere");
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE : posee sur les poincons, son dessus a l arete du toit =====
     const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
-    const yFaitPanne = yFait + dPerpSousChevron / cosR - pfH / 2;
+    const yFaitPanne = yFait + (arHr / 2) / cosR - pfH / 2;
     addBox(L + 0.4 + debLX, pfH, pfB, debCX, yFaitPanne, 0, woodMat);
-    console.log("[DEVIA] Pannes : dessus sabliere " + (ySabl + sbH / 2).toFixed(3) + " m, dessus faitiere " + (yFaitPanne + pfH / 2).toFixed(3) + " m, sous-face chevrons au mur " + yPlanRampant.toFixed(3) + " m");
+    console.log("[DEVIA] Pannes : sabliere a " + ySabl.toFixed(3) + " m, faitiere a " + yFaitPanne.toFixed(3) + " m (dessus dans le plan du rampant)");
 
     // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
     // Toute la geometrie du pan derive de cette ligne par decalages perpendiculaires dPerp :
