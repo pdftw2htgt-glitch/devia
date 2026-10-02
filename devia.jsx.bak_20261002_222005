@@ -1152,13 +1152,8 @@ function buildScene3D(scene, params, opts) {
     } else {
       sansFace === "pignon_droit" ? null : murZ(Lb/2, true);
       sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
-      // Un triangle de pignon ne se justifie que sur un toit A DEUX PANS, qui a declare ou
-      // passent ses pannes. Un toit 4 pans n a pas de pignon du tout : ses quatre cotes
-      // descendent en croupe et les murs s arretent a l horizontale.
-      const aDesPannes = Array.isArray(reservations) && reservations.length > 0;
       const htTriangle = (lgb / 2) * Math.tan((pente * Math.PI) / 180);
-      if (aDesPannes === false) console.log("[DEVIA] Pas de pignon maconne : ce toit n a pas de rampant de pignon");
-      if (modePignon === "plein" && aDesPannes && htTriangle > 0.05) {
+      if (modePignon === "plein" && htTriangle > 0.05) {
         if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep, reservations);
         if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep, reservations);
         console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
