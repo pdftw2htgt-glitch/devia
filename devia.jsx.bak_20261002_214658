@@ -1865,13 +1865,9 @@ setPiece("Chevron");
 
     setPiece("Sabliere");
     // ===== SABLIERES (basse avant + haute arriere) =====
-    // Les chevrons sont poses a +0.07 de la ligne de rampant, hauteur 0.08 : leur SOUS-FACE
-    // est donc a +0.03. Sablieres et pannes etaient centrees SUR la ligne, donc traversees
-    // par les chevrons sur la moitie de leur hauteur. Elles s arretent maintenant a ce plan.
-    const SOUS_CHEVRON_MP = 0.03;
     const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    addBox(L + 0.3, sbH, sbB, 0, Hbas + SOUS_CHEVRON_MP - sbH / 2, -lg/2, woodMat);
-    addBox(L + 0.3, sbH, sbB, 0, Hhaut + SOUS_CHEVRON_MP - sbH / 2, lg/2, woodMat);
+    addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
+    addBox(L + 0.3, sbH, sbB, 0, Hhaut, lg/2, woodMat);
 
     setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (4, bien reparties entre sablieres) =====
@@ -1882,8 +1878,7 @@ setPiece("Chevron");
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
       const [pnB, pnH] = sec("Panne", 0.14, 0.14);
-      const yPanneMP = y + (pnB / 2) * Math.tan(ang) + SOUS_CHEVRON_MP - pnH / 2;
-      addBox(L + 0.3, pnH, pnB, 0, yPanneMP, z, woodMat);
+      addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
       pannePositions.push({ y, z, t });
     }
 
