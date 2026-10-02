@@ -2803,22 +2803,16 @@ setPiece("Echantignole");
 
 setPiece("Sabliere");
     // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
-    // Les chevrons sont tendus SUR la ligne de rampant (de l egout au faitage), donc leur
-    // sous-face est a -chH/2 perpendiculairement. Sablieres, pannes et faitage etaient eux
-    // aussi centres sur cette ligne : les chevrons les traversaient de part en part.
-    const cosQ = Math.cos(angLong), tanQ = Math.tan(angLong);
-    const SOUS_CHEV_Q = (secChevron / 2) / cosQ;   // retrait vertical sous la ligne de rampant
     const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    const ySablQ = Ht - SOUS_CHEV_Q + (sbB / 2) * tanQ - sbH / 2;
-    addBox(L + 0.2, sbH, sbB, 0, ySablQ, lg/2, woodMat);
-    addBox(L + 0.2, sbH, sbB, 0, ySablQ, -lg/2, woodMat);
-    addBox(sbB, sbH, lg, -L/2, ySablQ, 0, woodMat);
-    addBox(sbB, sbH, lg, L/2, ySablQ, 0, woodMat);
+    addBox(L + 0.2, sbH, sbB, 0, Ht, lg/2, woodMat);
+    addBox(L + 0.2, sbH, sbB, 0, Ht, -lg/2, woodMat);
+    addBox(sbB, sbH, lg, -L/2, Ht, 0, woodMat);
+    addBox(sbB, sbH, lg, L/2, Ht, 0, woodMat);
 
 setPiece("Faitage");
-    // ===== FAITAGE (central) : il porte les abouts hauts des chevrons =====
+    // ===== FAITAGE (central) =====
     const [ftB, ftH] = sec("Faitage", 0.15, 0.15);
-    addBox(Lfait, ftH, ftB, 0, yFait - SOUS_CHEV_Q - ftH / 2, 0, woodMat);
+    addBox(Lfait, ftH, ftB, 0, yFait, 0, woodMat);
 
 setPiece("Aretier");
     // ===== ARETIERS (faitage -> 4 coins) =====
@@ -2841,9 +2835,8 @@ setPiece("Panne");
       const zPanne = (lg / 2) * (1 - t);
       const lenPanne = Lfait + (L - Lfait) * (1 - t);
       const [pnB, pnH] = sec("Panne", 0.12, 0.12);
-      const yPanneQ = yPanne - SOUS_CHEV_Q + (pnB / 2) * tanQ - pnH / 2;
-      addBox(lenPanne, pnH, pnB, 0, yPanneQ, zPanne, woodMat);
-      addBox(lenPanne, pnH, pnB, 0, yPanneQ, -zPanne, woodMat);
+      addBox(lenPanne, pnH, pnB, 0, yPanne, zPanne, woodMat);
+      addBox(lenPanne, pnH, pnB, 0, yPanne, -zPanne, woodMat);
     }
 
 setPiece("Chevron");
