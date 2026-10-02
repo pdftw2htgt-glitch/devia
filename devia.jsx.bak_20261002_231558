@@ -2407,20 +2407,6 @@ setPiece("Echantignole");
       }
     } else {
       console.log("[DEVIA] Plancher sur murs porteurs : aucun poteau bois chiffre");
-      // NIVEAU ENTERRE : jusqu ici le plancher flottait au-dessus du vide. On dessine le volume
-      // maconne qui le porte - 4 murs peripheriques + dalle basse - uniquement quand le volume
-      // est reellement enterre (pose negative). Sur des murs existants hors sol, ces murs
-      // appartiennent au batiment en place et n ont pas a etre representes ni chiffres.
-      const poseEtage = (params && typeof params.pose === "number") ? params.pose : 0;
-      if (poseEtage < -0.05) {
-        const epSS = 0.2;
-        addBox(L, hPot, epSS, 0, hPot / 2, lg / 2 - epSS / 2, betonMat);
-        addBox(L, hPot, epSS, 0, hPot / 2, -lg / 2 + epSS / 2, betonMat);
-        addBox(epSS, hPot, lg - 2 * epSS, L / 2 - epSS / 2, hPot / 2, 0, betonMat);
-        addBox(epSS, hPot, lg - 2 * epSS, -L / 2 + epSS / 2, hPot / 2, 0, betonMat);
-        drawDalleBeton(L, lg, 0);
-        console.log("[DEVIA] Niveau enterre : 4 murs beton de " + hPot.toFixed(2) + " m et dalle basse (hors chiffrage bois)");
-      }
     }
 
     // ===== 2 MURAILLERES (sens L, en rive, sur les tetes de poteaux) =====
