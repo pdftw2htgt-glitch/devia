@@ -1402,22 +1402,10 @@ setPiece("Ferme");
       scene.add(m);
       logPiece(arBw, arHw, zE / cosAa, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
     };
-    // Un mur pignon maconne porte lui-meme les pannes dans ses reservations : il n y a donc
-    // PAS de ferme en rive. En dessiner une la noierait dans le beton (arbaletriers visibles
-    // dans la maconnerie) et la ferait payer pour rien.
-    const smfF = (opts && opts.sansMurFace) || "";
-    const pignonPorteur = (params.murs === "ossature_bois") === false && ((params.pignon || "plein") === "aucun") === false;
-    const sansFermeGauche = pignonPorteur && (smfF === "pignon_gauche") === false;
-    const sansFermeDroite = pignonPorteur && (smfF === "pignon_droit") === false;
-    if (sansFermeGauche || sansFermeDroite) console.log("[DEVIA] Ferme de rive supprimee : le pignon maconne porte les pannes");
     const fermeXs = [];
-    const fermesDessinees = [];
     for (let i = 0; i <= nbFermes; i++) {
       const x = -L/2 + (i / nbFermes) * L;
       fermeXs.push(x);
-      if (i === 0 && sansFermeGauche) continue;
-      if (i === nbFermes && sansFermeDroite) continue;
-      fermesDessinees.push(x);
 
       // ENTRAIT (poutre horizontale basse, sur toute la largeur)
       setPiece("Entrait");
@@ -1548,7 +1536,7 @@ setPiece("Echantignole");
       logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
     };
     pannesInfo.forEach(({ zRef, yRef }) => {
-      fermesDessinees.forEach((fx) => {
+      fermeXs.forEach((fx) => {
         addEchantignole(fx, zRef, yRef, 1);
         addEchantignole(fx, zRef, yRef, -1);
       });
