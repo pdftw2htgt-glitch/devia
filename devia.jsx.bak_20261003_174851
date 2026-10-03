@@ -1066,17 +1066,10 @@ function buildScene3D(scene, params, opts) {
     });
     if (sommetPose === false) haut.push([0, hMur(0)]);
     haut.push([lgb / 2, hMur(lgb / 2)]);        // arrivee du rampant au nu du mur
-    // Contour UNIQUE, partage par la 3D et par l export IFC : c est ce qui garantit que le
-    // fichier remis au charpentier porte exactement les encoches vues a l ecran.
-    const cont = [[-lgb / 2, 0], [lgb / 2, 0]];
-    for (let i = haut.length - 1; i >= 0; i--) {
-      const px = haut[i][0], py = haut[i][1];
-      const prec = cont[cont.length - 1];
-      if (Math.abs(px - prec[0]) > 0.0002 || Math.abs(py - prec[1]) > 0.0002) cont.push([px, py]);
-    }
     const shp = new THREE.Shape();
-    shp.moveTo(cont[0][0], cont[0][1]);
-    for (let i = 1; i < cont.length; i++) shp.lineTo(cont[i][0], cont[i][1]);
+    shp.moveTo(-lgb / 2, 0);
+    shp.lineTo(lgb / 2, 0);
+    for (let i = haut.length - 1; i >= 0; i--) shp.lineTo(haut[i][0], haut[i][1]);
     shp.closePath();
     console.log("[DEVIA] Pignon : " + nbEnc + " encoche(s) de panne, sommet a " + hSommet.toFixed(2) + " m au-dessus du mur");
     const geo = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
@@ -1093,7 +1086,7 @@ function buildScene3D(scene, params, opts) {
       longueur: lgb,
       volume: (lgb * hSommet / 2) * ep,
       dimsBrutes: [ep, hSommet, lgb],
-      tri: { b: lgb, h: hSommet, ep: ep, contour: cont },  // profil EXACT repris a l export IFC
+      tri: { b: lgb, h: hSommet, ep: ep },  // profil repris a l export IFC (encoches non exportees)
       pos: [xPos, Hb, 0],
       rot: null,
       quat: null,
@@ -4151,18 +4144,10 @@ function genererIFC(metre, params) {
       };
       const vIfcT = (v) => [v[0], -v[2], v[1]];
       const demiB = p.tri.b / 2;
-      // Le repere du profil IFC coincide point pour point avec celui de la Shape Three
-      // (x du profil = x de la forme, y = hauteur), donc le contour se recopie tel quel.
-      const contT = (Array.isArray(p.tri.contour) && p.tri.contour.length >= 3)
-        ? p.tri.contour
-        : [[-demiB, 0], [demiB, 0], [0, p.tri.h]];
-      const idsT = contT.map((q) => {
-        const idq = nextId();
-        E(idq, "IFCCARTESIANPOINT((" + num(q[0]) + "," + num(q[1]) + "));");
-        return idq;
-      });
-      const polyT = nextId(); E(polyT, "IFCPOLYLINE((#" + idsT.join(",#") + ",#" + idsT[0] + "));");
-      if (contT.length > 3) console.log("[DEVIA] IFC : pignon exporte avec " + contT.length + " points, encoches de pannes comprises");
+      const ptA = nextId(); E(ptA, "IFCCARTESIANPOINT((" + num(-demiB) + ",0.));");
+      const ptB = nextId(); E(ptB, "IFCCARTESIANPOINT((" + num(demiB) + ",0.));");
+      const ptC = nextId(); E(ptC, "IFCCARTESIANPOINT((0.," + num(p.tri.h) + "));");
+      const polyT = nextId(); E(polyT, "IFCPOLYLINE((#" + ptA + ",#" + ptB + ",#" + ptC + ",#" + ptA + "));");
       const profT = nextId(); E(profT, "IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,#" + polyT + ");");
       const posT = nextId(); E(posT, "IFCCARTESIANPOINT((" + num(p.pos[0]) + "," + num(-p.pos[2]) + "," + num(p.pos[1]) + "));");
       const dzT = nextId(); E(dzT, "IFCDIRECTION(" + dirT(vIfcT(axNormale)) + ");");
