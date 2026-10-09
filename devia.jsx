@@ -3147,6 +3147,10 @@ setPiece("Empannon de croupe");
     yCentre = Ht/2 + (lg/2 * Math.tan((pente * Math.PI) / 180)) / 2;
   }
 
+  // Marque les pieces en BOIS. Un seul point de passage : tout ce qui porte le materiau bois
+  // est marque ici, le viewer n a plus qu a lire ce drapeau pour tracer les aretes.
+  scene.traverse((oM) => { if (oM.isMesh === true && oM.material === woodMat) oM.userData.boisDevia = true; });
+
   return { yCentre, metre, densiteBois, essence };
 }
 import { useAuth } from "./src/hooks/useAuth.js";
@@ -4795,6 +4799,7 @@ function Viewer3D({ params, onMetre }) {
           const meshP = new THREE.Mesh(new THREE.BoxGeometry(Lp, ep, larg), matSol);
           meshP.position.set(Lp / 2, ep / 2 + 0.001, zCur + larg / 2);
           meshP.castShadow = true;
+          meshP.userData.boisDevia = true;
           scene.add(meshP);
           zCur += larg + 0.12;
           if (Lp > xMax) xMax = Lp;
@@ -4812,6 +4817,37 @@ function Viewer3D({ params, onMetre }) {
     const typeProjet = params.type_projet || "charpente_trad";
 
         // SOL (commun à tous les types)
+    // ===== ARETES DES BOIS =====
+    // Deux pieces de meme teinte qui se touchent se fondent l une dans l autre : la charpente
+    // parait molle et les sections paraissent plus maigres qu elles ne sont. Une arete sur
+    // chaque piece lui rend son volume. Toutes les aretes sont empilees dans UNE geometrie
+    // (coordonnees monde), donc un seul objet a dessiner : aucun cout d affichage notable.
+    const ptsAretes = [];
+    scene.updateMatrixWorld(true);
+    scene.traverse((oA) => {
+      if (oA.isMesh === true && oA.userData && oA.userData.boisDevia === true && oA.geometry) {
+        const egA = new THREE.EdgesGeometry(oA.geometry, 25);
+        const paA = egA.attributes.position;
+        const vA = new THREE.Vector3();
+        for (let iA = 0; iA < paA.count; iA++) {
+          vA.set(paA.getX(iA), paA.getY(iA), paA.getZ(iA)).applyMatrix4(oA.matrixWorld);
+          ptsAretes.push(vA.x, vA.y, vA.z);
+        }
+        egA.dispose();
+      }
+    });
+    if (ptsAretes.length > 0) {
+      const gAr = new THREE.BufferGeometry();
+      gAr.setAttribute("position", new THREE.BufferAttribute(new Float32Array(ptsAretes), 3));
+      const arSombre = (params.mode3D === "realiste");
+      scene.add(new THREE.LineSegments(gAr, new THREE.LineBasicMaterial({
+        color: arSombre ? 0x4a3118 : 0x2e2114,
+        transparent: true,
+        opacity: arSombre ? 0.45 : 0.6,
+      })));
+      console.log("[DEVIA] Aretes des bois : " + Math.round(ptsAretes.length / 6) + " segments en un seul objet");
+    }
+
     const listeSol = Array.isArray(params.ouvrages) ? params.ouvrages : [];
     // On ne se fie plus seulement aux parametres : on regarde ce qui a REELLEMENT ete dessine
     // sous le niveau zero. Un volume enterre arrive par des chemins differents (analyse de plan,
