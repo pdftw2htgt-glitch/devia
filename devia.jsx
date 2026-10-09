@@ -1023,30 +1023,93 @@ function buildScene3D(scene, params, opts) {
 
   // Pignon maconne : le triangle entre le haut des murs et les rampants.
   // Sans lui, un trou reste ouvert sous la toiture aux deux pignons.
-  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep, reservations) => {
-    // Le maçon ne laisse pas un trou ferme autour d une panne : il descend le mur sous elle.
+  // ===== MUR BETON D UNE SEULE PIECE =====
+  // Un mur n est pas une pile de trumeaux, d alleges et d impostes : c est UNE piece percee.
+  // Le decouper en boites le livrait en six a huit morceaux dans le logiciel du charpentier.
+  // axe "z" : mur gouttereau (contour dans le plan XY, epaisseur selon Z)
+  // axe "x" : mur de pignon (contour tourne d un quart de tour, epaisseur selon X)
+  // ATTENTION : pos enregistre l ORIGINE du contour (son point 0,0), pas le centre de la
+  // piece - c est ce que le placement IFC attend pour poser le profil au bon endroit.
+  const drawMurPerce = (axe, posFixe, contour, trous, ep, nom) => {
+    const shp = new THREE.Shape();
+    shp.moveTo(contour[0][0], contour[0][1]);
+    for (let i = 1; i < contour.length; i++) shp.lineTo(contour[i][0], contour[i][1]);
+    shp.closePath();
+    const trousOk = [];
+    (trous || []).forEach((t) => {
+      if (Array.isArray(t) === false || t.length < 3) return;
+      const h = new THREE.Path();
+      h.moveTo(t[0][0], t[0][1]);
+      for (let i = 1; i < t.length; i++) h.lineTo(t[i][0], t[i][1]);
+      h.closePath();
+      shp.holes.push(h);
+      trousOk.push(t);
+    });
+    const geo = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
+    const m = new THREE.Mesh(geo, betonMat);
+    if (axe === "x") { m.rotation.y = Math.PI / 2; m.position.set(posFixe - ep / 2, 0, 0); }
+    else { m.position.set(0, 0, posFixe - ep / 2); }
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+    // Volume NET : aire du contour moins celle des baies (formule du lacet)
+    const aire = (pts) => {
+      let s = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        s += a[0] * b[1] - b[0] * a[1];
+      }
+      return Math.abs(s) / 2;
+    };
+    let surf = aire(contour);
+    trousOk.forEach((t) => { surf -= aire(t); });
+    let xm = contour[0][0], xM = contour[0][0], ym = contour[0][1], yM = contour[0][1];
+    contour.forEach((q) => {
+      if (q[0] < xm) xm = q[0];
+      if (q[0] > xM) xM = q[0];
+      if (q[1] < ym) ym = q[1];
+      if (q[1] > yM) yM = q[1];
+    });
+    const lgC = xM - xm, htC = yM - ym;
+    metre.push({
+      matiere: "beton",
+      nom: nom || "Mur beton",
+      section: [Math.round(ep * 1000), Math.round(htC * 1000)],
+      longueur: lgC,
+      volume: Math.max(0, surf) * ep,
+      dimsBrutes: (axe === "x") ? [ep, htC, lgC] : [lgC, htC, ep],
+      murP: { contour: contour, trous: trousOk, ep: ep, axe: axe },
+      pos: (axe === "x") ? [posFixe, 0, 0] : [0, 0, posFixe],
+      rot: null,
+      quat: null,
+    });
+    console.log("[DEVIA] " + (nom || "Mur beton") + " en UNE piece : " + lgC.toFixed(2) + " x " + htC.toFixed(2) + " m, " + trousOk.length + " baie(s), " + (Math.max(0, surf) * ep).toFixed(2) + " m3 net");
+  };
+
+  // ===== MUR DE PIGNON : UNE piece, du sol jusqu au rampant =====
+  // htTri a 0 (toit sans rampant de pignon, comme un 4 pans) arrete le mur a l horizontale.
+  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep, reservations, avecPorte) => {
+    // Le macon ne laisse pas un trou ferme autour d une panne : il descend le mur sous elle.
     // Chaque panne donne donc une ENCOCHE ouverte par le haut, ou la panne vient se poser.
     const res = (reservations || [])
       .map((r) => ({
         x0: r.z - (r.b / 2 + 0.035),        // 3,5 cm de part et d autre : la reservation se voit
         x1: r.z + (r.b / 2 + 0.035),
-        yb: (r.y - r.h / 2 - 0.035) - Hb,   // et elle descend sous la panne
-        yh: (r.y + r.h / 2 + 0.035) - Hb,
-        yhNet: (r.y + r.h / 2) - Hb,       // dessus exact : c est le plan des chevrons
+        yb: r.y - r.h / 2 - 0.035,          // et elle descend sous la panne
+        yhNet: r.y + r.h / 2,               // dessus exact : c est la sous-face des chevrons
       }))
       .filter((e) => e.x1 > -lgb / 2 + 0.02 && e.x0 < lgb / 2 - 0.02)
       .sort((a, b) => a.x0 - b.x0);
     // Le pignon monte jusqu au dessus des pannes, JAMAIS plus haut : au-dela il entrerait
-    // dans les chevrons (le dessus de la panne la plus haute EST le plan de sous-face des chevrons).
-    let hSommet = htTri;
-    res.forEach((e) => { if (e.yhNet > hSommet) hSommet = e.yhNet; });
-    const JEU_CHEVRON = 0.004;  // le mur monte au ras du bois entre deux reservations
-    // Le haut du mur suit le rampant : meme PENTE que le toit (htTri sur la demi-largeur),
-    // abaissee du jeu. Une droite partant de zero au bord se rapprocherait du rampant en
-    // montant et viendrait se coller a l arbaletrier au faitage.
-    const hMur = (x) => Math.max(0.02, hSommet - (Math.abs(x) / (lgb / 2)) * htTri - JEU_CHEVRON);
-    // Contour superieur, de gauche a droite, creuse a chaque passage de panne
-    const haut = [[-lgb / 2, hMur(-lgb / 2)]];   // depart du rampant au nu du mur
+    // dans les chevrons (le dessus de la panne la plus haute EST leur sous-face).
+    let ySommet = Hb + htTri;
+    res.forEach((e) => { if (e.yhNet > ySommet) ySommet = e.yhNet; });
+    const JEU_CHEVRON = (htTri > 0.01) ? 0.004 : 0;  // au ras du bois entre deux reservations
+    // Le haut du mur suit le rampant : meme PENTE que le toit (htTri sur la demi-largeur).
+    // Une droite partant de zero au bord se rapprocherait du rampant en montant et viendrait
+    // se coller a l arbaletrier au faitage.
+    const hMur = (x) => Math.max(Hb * 0.5, ySommet - (Math.abs(x) / (lgb / 2)) * htTri - JEU_CHEVRON);
+    const haut = [[-lgb / 2, hMur(-lgb / 2)]];
     let dernierX = -lgb / 2;
     let sommetPose = false;
     let nbEnc = 0;
@@ -1056,7 +1119,7 @@ function buildScene3D(scene, params, opts) {
       if (b <= a || a < dernierX) return;               // encoches jointives : on garde la premiere
       if (a > 0 && dernierX < 0 && sommetPose === false) { haut.push([0, hMur(0)]); sommetPose = true; }
       if (a < 0 && b > 0) sommetPose = true;            // l encoche emporte le faitage
-      const fond = Math.max(0.02, Math.min(e.yb, Math.min(hMur(a), hMur(b)) - 0.01));
+      const fond = Math.max(Hb * 0.5, Math.min(e.yb, Math.min(hMur(a), hMur(b)) - 0.01));
       haut.push([a, hMur(a)]);
       haut.push([a, fond]);
       haut.push([b, fond]);
@@ -1065,39 +1128,24 @@ function buildScene3D(scene, params, opts) {
       nbEnc += 1;
     });
     if (sommetPose === false) haut.push([0, hMur(0)]);
-    haut.push([lgb / 2, hMur(lgb / 2)]);        // arrivee du rampant au nu du mur
-    // Contour UNIQUE, partage par la 3D et par l export IFC : c est ce qui garantit que le
-    // fichier remis au charpentier porte exactement les encoches vues a l ecran.
+    haut.push([lgb / 2, hMur(lgb / 2)]);
+    // Contour complet : la base au sol, puis le haut parcouru de droite a gauche
     const cont = [[-lgb / 2, 0], [lgb / 2, 0]];
     for (let i = haut.length - 1; i >= 0; i--) {
       const px = haut[i][0], py = haut[i][1];
       const prec = cont[cont.length - 1];
       if (Math.abs(px - prec[0]) > 0.0002 || Math.abs(py - prec[1]) > 0.0002) cont.push([px, py]);
     }
-    const shp = new THREE.Shape();
-    shp.moveTo(cont[0][0], cont[0][1]);
-    for (let i = 1; i < cont.length; i++) shp.lineTo(cont[i][0], cont[i][1]);
-    shp.closePath();
-    console.log("[DEVIA] Pignon : " + nbEnc + " encoche(s) de panne, sommet a " + hSommet.toFixed(2) + " m au-dessus du mur");
-    const geo = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
-    const m = new THREE.Mesh(geo, betonMat);
-    m.rotation.y = Math.PI / 2;            // le plan du pignon devient perpendiculaire au faitage
-    m.position.set(xPos - ep / 2, Hb, 0);  // epaisseur centree sur le nu du mur
-    m.castShadow = true;
-    m.receiveShadow = true;
-    scene.add(m);
-    metre.push({
-      matiere: "beton",
-      nom: "Mur pignon beton",
-      section: [Math.round(ep * 1000), Math.round(hSommet * 1000)],
-      longueur: lgb,
-      volume: (lgb * hSommet / 2) * ep,
-      dimsBrutes: [ep, hSommet, lgb],
-      tri: { b: lgb, h: hSommet, ep: ep, contour: cont },  // profil EXACT repris a l export IFC
-      pos: [xPos, Hb, 0],
-      rot: null,
-      quat: null,
-    });
+    // Porte du pignon avant : un VRAI percement dans la piece, avec un seuil de 5 cm
+    // (un trou qui touche le bord bas ne serait plus un trou mais une echancrure).
+    const trous = [];
+    const phP = Math.min(2.1, Hb - 0.2);
+    if (avecPorte === true && lgb > 1.6 && phP > 0.5) {
+      const pw = 0.9;
+      trous.push([[-pw / 2, 0.05], [pw / 2, 0.05], [pw / 2, phP], [-pw / 2, phP]]);
+    }
+    console.log("[DEVIA] Pignon : " + nbEnc + " encoche(s) de panne, sommet a " + ySommet.toFixed(2) + " m");
+    drawMurPerce("x", xPos, cont, trous, ep, "Mur pignon beton");
   };
 
   const drawMursBeton = (Lb, lgb, Hb, reservations) => {
@@ -1109,68 +1157,51 @@ function buildScene3D(scene, params, opts) {
     const hEtage = Hb / nbNiveaux;
     const pfB = opts && opts.pfBalcon; // { cx, w, yPlancher } : porte-fenetre balcon sur le gouttereau Z+
 
-    // --- Bande de mur gouttereau (a z fixe, de yBase a yBase+hBande) avec ouvertures [{cx,w,y0,y1}] ---
-    const bandeX = (zPos, yBase, hBande, ouvertures) => {
-      const fs = ouvertures.filter(f => f.cx - f.w/2 > -Lb/2 + 0.3 && f.cx + f.w/2 < Lb/2 - 0.3).sort((a,b) => a.cx - b.cx);
-      let cursor = -Lb/2;
-      for (const f of fs) {
-        const x0 = f.cx - f.w/2, x1 = f.cx + f.w/2;
-        if (x0 > cursor) addBox(x0 - cursor, hBande, ep, (cursor + x0)/2, yBase + hBande/2, zPos, betonMat);
-        if (f.y0 > 0.05) addBox(f.w, f.y0, ep, f.cx, yBase + f.y0/2, zPos, betonMat);                       // allege
-        if (f.y1 < hBande - 0.05) addBox(f.w, hBande - f.y1, ep, f.cx, yBase + (f.y1 + hBande)/2, zPos, betonMat); // imposte
-        cursor = x1;
-      }
-      if (cursor < Lb/2) addBox(Lb/2 - cursor, hBande, ep, (cursor + Lb/2)/2, yBase + hBande/2, zPos, betonMat);
-    };
-
-    // --- Gouttereaux : fenetres a CHAQUE niveau + porte-fenetre balcon au niveau concerne ---
+    // --- GOUTTEREAUX : un mur = UNE piece, les baies de TOUS les niveaux en percements ---
+    const baiesAv = [];
+    const baiesAr = [];
     for (let k = 0; k < nbNiveaux; k++) {
       const yBase = k * hEtage;
-      const y0F = 1.0, y1F = Math.min(2.0, hEtage - 0.3);
-      let ouvAv = [{ cx: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { cx: Lb/4, w: 1.2, y0: y0F, y1: y1F }];
-      if (pfB) {
-        // PF balcon : intersection avec CETTE bande (l'ouverture peut traverser plusieurs niveaux)
-        const pfStart = pfB.yPlancher, pfEnd = pfB.yPlancher + 2.1;
-        const i0 = Math.max(pfStart, yBase), i1 = Math.min(pfEnd, yBase + hEtage);
-        if (i1 - i0 > 0.05) {
-          const pf = { cx: pfB.cx || 0, w: pfB.w || 1.4, y0: i0 - yBase, y1: i1 - yBase };
-          ouvAv = ouvAv.filter(f => Math.abs(f.cx - pf.cx) > (f.w + pf.w)/2 + 0.2);
-          ouvAv.push(pf);
-        }
-      }
-      sansFace === "gouttereau_avant" ? null : bandeX(lgb/2, yBase, hEtage, ouvAv);
-      sansFace === "gouttereau_arriere" ? null : bandeX(-lgb/2, yBase, hEtage, [{ cx: 0, w: 1.2, y0: y0F, y1: y1F }]);
+      const y0F = yBase + 1.0, y1F = yBase + Math.min(2.0, hEtage - 0.3);
+      baiesAv.push({ cx: -Lb / 4, w: 1.2, y0: y0F, y1: y1F });
+      baiesAv.push({ cx: Lb / 4, w: 1.2, y0: y0F, y1: y1F });
+      baiesAr.push({ cx: 0, w: 1.2, y0: y0F, y1: y1F });
     }
+    if (pfB) {
+      // Porte-fenetre de balcon : elle remplace les fenetres qu elle recouvre
+      const pf = { cx: pfB.cx || 0, w: pfB.w || 1.4, y0: pfB.yPlancher + 0.05, y1: pfB.yPlancher + 2.1 };
+      const gardees = baiesAv.filter((f) => Math.abs(f.cx - pf.cx) > (f.w + pf.w) / 2 + 0.2 || f.y1 < pf.y0 || f.y0 > pf.y1);
+      baiesAv.length = 0;
+      gardees.forEach((f) => baiesAv.push(f));
+      baiesAv.push(pf);
+    }
+    const rectMur = [[-Lb / 2, 0], [Lb / 2, 0], [Lb / 2, Hb], [-Lb / 2, Hb]];
+    const baiesEnTrous = (baies) => baies
+      .filter((f) => f.cx - f.w / 2 > -Lb / 2 + 0.3 && f.cx + f.w / 2 < Lb / 2 - 0.3
+        && f.y1 - f.y0 > 0.1 && f.y1 < Hb - 0.05 && f.y0 > 0.04)
+      .map((f) => [[f.cx - f.w / 2, f.y0], [f.cx + f.w / 2, f.y0], [f.cx + f.w / 2, f.y1], [f.cx - f.w / 2, f.y1]]);
+    if ((sansFace === "gouttereau_avant") === false) drawMurPerce("z", lgb / 2, rectMur, baiesEnTrous(baiesAv), ep, "Mur beton");
+    if ((sansFace === "gouttereau_arriere") === false) drawMurPerce("z", -lgb / 2, rectMur, baiesEnTrous(baiesAr), ep, "Mur beton");
 
-    // --- Pignons : porte au RDC (avant), plein au-dessus et a l'arriere ---
-    const murZ = (xPos, avecPorte) => {
-      if (!avecPorte || lgb < 1.6) { addBox(ep, Hb, lgb, xPos, Hb/2, 0, betonMat); return; }
-      const pw = 0.9;
-      const ph = Math.min(2.1, hEtage - 0.2);
-      const seg = lgb/2 - pw/2;
-      addBox(ep, Hb, seg, xPos, Hb/2, -(pw/2 + seg/2), betonMat);
-      addBox(ep, Hb, seg, xPos, Hb/2, (pw/2 + seg/2), betonMat);
-      if (Hb > ph) addBox(ep, Hb - ph, pw, xPos, (ph + Hb)/2, 0, betonMat);
-    };
-    // --- MUR DE PIGNON : plein (jusque sous les pannes) / egout (arrete a la sabliere) / aucun ---
+    // --- PIGNONS : UNE piece chacun, du sol au rampant, porte percee au pignon avant ---
     const modePignon = (params && params.pignon) || "plein";
     if (modePignon === "aucun") {
       console.log("[DEVIA] Pignons : aucun mur, la ferme reste apparente");
     } else {
-      sansFace === "pignon_droit" ? null : murZ(Lb/2, true);
-      sansFace === "pignon_gauche" ? null : murZ(-Lb/2, false);
-      // Un triangle de pignon ne se justifie que sur un toit A DEUX PANS, qui a declare ou
+      // Un rampant de pignon ne se justifie que sur un toit A DEUX PANS, qui declare ou
       // passent ses pannes. Un toit 4 pans n a pas de pignon du tout : ses quatre cotes
       // descendent en croupe et les murs s arretent a l horizontale.
       const aDesPannes = Array.isArray(reservations) && reservations.length > 0;
       const htTriangle = (lgb / 2) * Math.tan((pente * Math.PI) / 180);
-      if (aDesPannes === false) console.log("[DEVIA] Pas de pignon maconne : ce toit n a pas de rampant de pignon");
-      if (modePignon === "plein" && aDesPannes && htTriangle > 0.05) {
-        if ((sansFace === "pignon_droit") === false) drawPignonBeton(Lb / 2, lgb, Hb, htTriangle, ep, reservations);
-        if ((sansFace === "pignon_gauche") === false) drawPignonBeton(-Lb / 2, lgb, Hb, htTriangle, ep, reservations);
-        console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
-      } else {
-        console.log("[DEVIA] Pignons arretes a la sabliere (triangle ouvert)");
+      const triActif = (modePignon === "plein" && aDesPannes && htTriangle > 0.05);
+      if (aDesPannes === false) console.log("[DEVIA] Pas de rampant de pignon sur ce toit : murs arretes a l horizontale");
+      else if (triActif) console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
+      else console.log("[DEVIA] Pignons arretes a la sabliere");
+      if ((sansFace === "pignon_droit") === false) {
+        drawPignonBeton(Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], true);
+      }
+      if ((sansFace === "pignon_gauche") === false) {
+        drawPignonBeton(-Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], false);
       }
     }
 
@@ -4161,48 +4192,71 @@ function genererIFC(metre, params) {
   const idsBois = [];
   const idsBeton = [];
   piecesBois.forEach((p, iP) => {
-    // --- Pignon maconne : profil triangulaire reel (pas une boite approchee) ---
-    if (p.tri && p.tri.b > 0.05 && p.tri.h > 0.05 && p.tri.ep > 0.01) {
+    // --- Element maconne plan : UNE piece, contour reel et baies percees ---
+    // murP = { contour, trous, ep, axe } pour les murs et les pignons.
+    // tri = ancien format (triangle de pignon seul), garde en repli pour un metre deja en base.
+    const planP = p.murP
+      ? p.murP
+      : ((p.tri && p.tri.b > 0.05 && p.tri.h > 0.05 && p.tri.ep > 0.01)
+          ? {
+              contour: (Array.isArray(p.tri.contour) && p.tri.contour.length >= 3)
+                ? p.tri.contour
+                : [[-p.tri.b / 2, 0], [p.tri.b / 2, 0], [0, p.tri.h]],
+              trous: [], ep: p.tri.ep, axe: "x",
+            }
+          : null);
+    if (planP && Array.isArray(planP.contour) && planP.contour.length >= 3 && planP.ep > 0.01) {
       const mRT = new THREE.Matrix4();
       if (p.quat) mRT.makeRotationFromQuaternion(new THREE.Quaternion(p.quat[0], p.quat[1], p.quat[2], p.quat[3]));
       else if (p.rot) mRT.makeRotationFromEuler(new THREE.Euler(p.rot[0] || 0, p.rot[1] || 0, p.rot[2] || 0, "XYZ"));
       const eT = mRT.elements;
-      const axNormale = [eT[0], eT[1], eT[2]];   // X local : perpendiculaire au pignon
-      const axBase = [eT[8], eT[9], eT[10]];     // Z local : base du triangle
+      const axXl = [eT[0], eT[1], eT[2]];      // X local
+      const axZl = [eT[8], eT[9], eT[10]];     // Z local
+      // L epaisseur part selon la normale du mur : X local pour un pignon, Z local pour un
+      // gouttereau. Le profil garde ainsi le meme repere que la forme dessinee a l ecran.
+      const axNormale = (planP.axe === "z") ? axZl : axXl;
+      const axProfX = (planP.axe === "z") ? axXl : [-axZl[0], -axZl[1], -axZl[2]];
       const dirT = (v) => {
-        const n = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]) || 1;
-        return "(" + num(v[0]/n, 6) + "," + num(v[1]/n, 6) + "," + num(v[2]/n, 6) + ")";
+        const n = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
+        return "(" + num(v[0] / n, 6) + "," + num(v[1] / n, 6) + "," + num(v[2] / n, 6) + ")";
       };
       const vIfcT = (v) => [v[0], -v[2], v[1]];
-      const demiB = p.tri.b / 2;
-      // Le repere du profil IFC coincide point pour point avec celui de la Shape Three
-      // (x du profil = x de la forme, y = hauteur), donc le contour se recopie tel quel.
-      const contT = (Array.isArray(p.tri.contour) && p.tri.contour.length >= 3)
-        ? p.tri.contour
-        : [[-demiB, 0], [demiB, 0], [0, p.tri.h]];
-      const idsT = contT.map((q) => {
-        const idq = nextId();
-        E(idq, "IFCCARTESIANPOINT((" + num(q[0]) + "," + num(q[1]) + "));");
-        return idq;
-      });
-      const polyT = nextId(); E(polyT, "IFCPOLYLINE((#" + idsT.join(",#") + ",#" + idsT[0] + "));");
-      if (contT.length > 3) console.log("[DEVIA] IFC : pignon exporte avec " + contT.length + " points, encoches de pannes comprises");
-      const profT = nextId(); E(profT, "IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,#" + polyT + ");");
+      const courbe = (pts) => {
+        const idsQ = pts.map((q) => {
+          const idq = nextId();
+          E(idq, "IFCCARTESIANPOINT((" + num(q[0]) + "," + num(q[1]) + "));");
+          return idq;
+        });
+        const idp = nextId();
+        E(idp, "IFCPOLYLINE((#" + idsQ.join(",#") + ",#" + idsQ[0] + "));");
+        return idp;
+      };
+      const polyExt = courbe(planP.contour);
+      const trousP = Array.isArray(planP.trous) ? planP.trous.filter((t) => Array.isArray(t) && t.length >= 3) : [];
+      const profT = nextId();
+      if (trousP.length > 0) {
+        const idsIn = trousP.map((t) => courbe(t));
+        E(profT, "IFCARBITRARYPROFILEDEFWITHVOIDS(.AREA.,$,#" + polyExt + ",(#" + idsIn.join(",#") + "));");
+      } else {
+        E(profT, "IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,#" + polyExt + ");");
+      }
       const posT = nextId(); E(posT, "IFCCARTESIANPOINT((" + num(p.pos[0]) + "," + num(-p.pos[2]) + "," + num(p.pos[1]) + "));");
       const dzT = nextId(); E(dzT, "IFCDIRECTION(" + dirT(vIfcT(axNormale)) + ");");
-      const dxT = nextId(); E(dxT, "IFCDIRECTION(" + dirT(vIfcT([-axBase[0], -axBase[1], -axBase[2]])) + ");");
+      const dxT = nextId(); E(dxT, "IFCDIRECTION(" + dirT(vIfcT(axProfX)) + ");");
       const axT = nextId(); E(axT, "IFCAXIS2PLACEMENT3D(#" + posT + ",#" + dzT + ",#" + dxT + ");");
       const plcT = nextId(); E(plcT, "IFCLOCALPLACEMENT(#" + storeyPlc + ",#" + axT + ");");
-      const exPtT = nextId(); E(exPtT, "IFCCARTESIANPOINT((0.,0.," + num(-p.tri.ep / 2) + "));");
+      const exPtT = nextId(); E(exPtT, "IFCCARTESIANPOINT((0.,0.," + num(-planP.ep / 2) + "));");
       const exAxT = nextId(); E(exAxT, "IFCAXIS2PLACEMENT3D(#" + exPtT + ",$,$);");
       const exDirT = nextId(); E(exDirT, "IFCDIRECTION((0.,0.,1.));");
-      const solT = nextId(); E(solT, "IFCEXTRUDEDAREASOLID(#" + profT + ",#" + exAxT + ",#" + exDirT + "," + num(p.tri.ep) + ");");
+      const solT = nextId(); E(solT, "IFCEXTRUDEDAREASOLID(#" + profT + ",#" + exAxT + ",#" + exDirT + "," + num(planP.ep) + ");");
       const repT = nextId(); E(repT, "IFCSHAPEREPRESENTATION(#" + bodyCtx + ",'Body','SweptSolid',(#" + solT + "));");
       const pdT = nextId(); E(pdT, "IFCPRODUCTDEFINITIONSHAPE($,$,(#" + repT + "));");
+      const clsM = classeDe(p);
       const murT = nextId();
-      E(murT, "IFCWALL('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Mur pignon") + "',$,$,#" + plcT + ",#" + pdT + ",'" + (iP + 1) + "',.SOLIDWALL.);");
+      E(murT, clsM[0] + "('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Mur") + "',$,$,#" + plcT + ",#" + pdT + ",'" + (iP + 1) + "'," + clsM[1] + ");");
       memberIds.push(murT);
       idsBeton.push(murT);
+      console.log("[DEVIA] IFC : " + (p.nom || "Mur") + " en une piece, " + planP.contour.length + " points et " + trousP.length + " baie(s) percee(s)");
       return;
     }
     // --- Dimensions Three.js d'origine ---
