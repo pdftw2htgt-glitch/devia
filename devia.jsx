@@ -46,8 +46,8 @@ const SECTIONS_REGIONALES_MONTAGNE = {
   Poincon: [180, 180], Poteau: [150, 150],
 };
 const EC5_LARGEUR_MINI = {
-  Chevron:60, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
-  Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:60, "Empannon de croupe":60,
+  Chevron:80, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
+  Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:80, "Empannon de croupe":80,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
@@ -505,6 +505,25 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       if (pot && pot.b < wSab) { pot.b = wSab; pot.h = wSab; }
     });
   }
+  // PLANCHER METIER : l EC5 valide des sections que personne ne pose. Un poincon et une
+  // contrefiche de ferme traditionnelle ne descendent pas sous 150 mm de cote, meme quand le
+  // calcul passe a 100x100 - sinon la piece maitresse parait sous-dimensionnee au milieu
+  // d arbaletriers de 140x280. Applique en SORTIE, donc valable pour tous les chemins de calcul
+  // et pour tout l aval : devis, fiches techniques, 3D et export IFC disent la meme chose.
+  const PLANCHER_METIER = { Poincon: 150, Contrefiche: 150 };
+  Object.keys(PLANCHER_METIER).forEach((nomP) => {
+    const miniP = PLANCHER_METIER[nomP];
+    const rP = result[nomP];
+    if (rP === undefined || rP === null) return;
+    let releve = false;
+    ["mini", "conseillee"].forEach((mode) => {
+      const s = rP[mode];
+      if (s === undefined || s === null) return;
+      if (s.b < miniP) { s.b = miniP; releve = true; }
+      if (s.h < miniP) { s.h = miniP; releve = true; }
+    });
+    if (releve) console.log("[DEVIA] EC5 : " + nomP + " releve au plancher metier de " + miniP + " mm");
+  });
   return result;
 }
 
@@ -1534,7 +1553,7 @@ setPiece("Panne faitiere");
     // y = yLigne + dPerp*cos(ang), z = zLigne +- dPerp*sin(ang)
     const [arB2, arH2] = sec("Arbaletrier", 0.16, 0.16);
     const [pnB, pnH] = sec("Panne", 0.12, 0.12);
-    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const [chB, chH] = sec("Chevron", 0.08, 0.10);
     const cosA = Math.cos(ang), sinA = Math.sin(ang);
 
 setPiece("Panne");
@@ -1816,7 +1835,7 @@ setPiece("Chevron");
     const yCentre = Hbas + denivele/2;
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.08, 0.08);
+      const [chB, chH] = sec("Chevron", 0.08, 0.10);
       addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
     }
 
@@ -1936,7 +1955,7 @@ setPiece("Chevron");
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.08, 0.08);
+      const [chB, chH] = sec("Chevron", 0.08, 0.10);
       addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
     }
 
@@ -2169,7 +2188,7 @@ setPiece("Echantignole");
     setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
     const ENTRAXE_CHEVRON_MAX_H = 0.6;
-    const [chB, chH] = sec("Chevron", 0.07, 0.07);
+    const [chB, chH] = sec("Chevron", 0.08, 0.10);
     const chevronXsH = [];
     for (let t = 0; t < fermeXsH.length - 1; t++) {
       const x0 = fermeXsH[t], x1 = fermeXsH[t + 1];
@@ -3054,7 +3073,7 @@ setPiece("Empannon de croupe");
     // Greffe COPLANAIRE a la couverture de l'aile : meme decalage perpendiculaire que le pan trad
     const [arB3, arH3] = sec("Arbaletrier", 0.16, 0.16);
     const [pnB3, pnH3] = sec("Panne", 0.12, 0.12);
-    const [chB3, chH3] = sec("Chevron", 0.07, 0.07);
+    const [chB3, chH3] = sec("Chevron", 0.08, 0.10);
     const cosA3 = Math.cos(aRad), sinA3 = Math.sin(aRad);
     const dPerp3 = arH3/2 + (pnH3 + 0.03) * cosA3 + chH3 + 0.01;
     const hcr3 = dPerp3 / cosA3;                        // remontee au faitage : ferme le joint central
