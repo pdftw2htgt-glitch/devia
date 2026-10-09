@@ -510,19 +510,28 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // calcul passe a 100x100 - sinon la piece maitresse parait sous-dimensionnee au milieu
   // d arbaletriers de 140x280. Applique en SORTIE, donc valable pour tous les chemins de calcul
   // et pour tout l aval : devis, fiches techniques, 3D et export IFC disent la meme chose.
-  const PLANCHER_METIER = { Poincon: 150, Contrefiche: 150 };
+  // La table de reference est celle des chantiers de Mathis (ex-table montagne) : elle devient
+  // le MINIMUM partout, le calcul pouvant toujours aller au-dessus mais jamais en dessous.
+  const PLANCHER_METIER = {
+    Chevron: [80, 100], Empannon: [80, 100], "Empannon de croupe": [80, 100],
+    Panne: [120, 240], "Panne faitiere": [120, 240], Sabliere: [120, 240],
+    Muraillere: [120, 240], Aretier: [120, 240],
+    Arbaletrier: [160, 160], Entrait: [160, 160], Contrefiche: [160, 160],
+    Poincon: [180, 180], Poteau: [150, 150],
+  };
   Object.keys(PLANCHER_METIER).forEach((nomP) => {
-    const miniP = PLANCHER_METIER[nomP];
+    const bMin = PLANCHER_METIER[nomP][0];
+    const hMin = PLANCHER_METIER[nomP][1];
     const rP = result[nomP];
     if (rP === undefined || rP === null) return;
     let releve = false;
     ["mini", "conseillee"].forEach((mode) => {
       const s = rP[mode];
       if (s === undefined || s === null) return;
-      if (s.b < miniP) { s.b = miniP; releve = true; }
-      if (s.h < miniP) { s.h = miniP; releve = true; }
+      if (s.b < bMin) { s.b = bMin; releve = true; }
+      if (s.h < hMin) { s.h = hMin; releve = true; }
     });
-    if (releve) console.log("[DEVIA] EC5 : " + nomP + " releve au plancher metier de " + miniP + " mm");
+    if (releve) console.log("[DEVIA] EC5 : " + nomP + " releve au plancher metier " + bMin + "x" + hMin);
   });
   return result;
 }
@@ -1406,7 +1415,7 @@ function buildScene3D(scene, params, opts) {
     // ===== MURS : ils montent jusqu a la SOUS-FACE DE LA SABLIERE =====
     // La sabliere est calee dans le plan porteur des chevrons, donc au-dessus de l arase brute :
     // sans cela un vide reste ouvert entre le haut du mur et la panne basse.
-    const [sbB0, sbH0] = sec("Sabliere", 0.14, 0.14);
+    const [sbB0, sbH0] = sec("Sabliere", 0.12, 0.24);
     const [arB0, arH0] = sec("Arbaletrier", 0.16, 0.16);
     const [pnB0, pnH0] = sec("Panne", 0.12, 0.12);
     const cosA0 = Math.cos(ang), tanA0 = Math.tan(ang);
@@ -1416,7 +1425,7 @@ function buildScene3D(scene, params, opts) {
     // Ou passent les pannes dans le pignon : memes formules que leur pose plus bas.
     // (la sabliere sort du triangle par les cotes, elle n a pas de reservation)
     const sinA0 = Math.sin(ang);
-    const [pfB0, pfH0] = sec("Panne faitiere", 0.14, 0.14);
+    const [pfB0, pfH0] = sec("Panne faitiere", 0.12, 0.24);
     const reservPignon = [];
     const nbPannesPan0 = 2;
     for (let p0 = 1; p0 <= nbPannesPan0; p0++) {
@@ -1494,7 +1503,7 @@ setPiece("Ferme");
 
       // POINCON (poteau vertical central, du faitage a l'entrait)
       setPiece("Poincon");
-      const [poB, poH] = sec("Poincon", 0.15, 0.15);
+      const [poB, poH] = sec("Poincon", 0.18, 0.18);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
 
       // LIENS DE FAITAGE (echarpes ~45deg du poincon vers la sous-face de la faitiere)
@@ -1518,7 +1527,7 @@ setPiece("Ferme");
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
       setPiece("Contrefiche");
-      const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
+      const cfSec = sec("Contrefiche", 0.16, 0.16)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);   // vers pan Z+
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);  // vers pan Z-
     }
@@ -1528,7 +1537,7 @@ setPiece("Sabliere");
     // Elles etaient centrees sur l axe des arbaletriers, donc noyees dedans et ne portaient rien.
     // Regle unique pour les trois niveaux de pannes : le DESSUS est dans le plan du rampant
     // (sous-face des chevrons), l extrados des arbaletriers etant a arH/2 perpendiculaire de leur axe.
-    const [sbB, sbH] = sec("Sabliere", 0.14, 0.14);
+    const [sbB, sbH] = sec("Sabliere", 0.12, 0.24);
     const [arBr, arHr] = sec("Arbaletrier", 0.16, 0.16);
     const [pnBr, pnHr] = sec("Panne", 0.12, 0.12);
     const cosR = Math.cos(ang), tanR = Math.tan(ang);
@@ -1543,7 +1552,7 @@ setPiece("Sabliere");
 
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE : posee sur les poincons, son dessus a l arete du toit =====
-    const [pfB, pfH] = sec("Panne faitiere", 0.14, 0.14);
+    const [pfB, pfH] = sec("Panne faitiere", 0.12, 0.24);
     const yFaitPanne = yFait + dPerpSousChevron / cosR - pfH / 2;
     addBox(L + 0.4 + debLX, pfH, pfB, debCX, yFaitPanne, 0, woodMat);
     console.log("[DEVIA] Pannes : dessus sabliere " + (ySabl + sbH / 2).toFixed(3) + " m, dessus faitiere " + (yFaitPanne + pfH / 2).toFixed(3) + " m, sous-face chevrons au mur " + yPlanRampant.toFixed(3) + " m");
@@ -1552,7 +1561,7 @@ setPiece("Panne faitiere");
     // Toute la geometrie du pan derive de cette ligne par decalages perpendiculaires dPerp :
     // y = yLigne + dPerp*cos(ang), z = zLigne +- dPerp*sin(ang)
     const [arB2, arH2] = sec("Arbaletrier", 0.16, 0.16);
-    const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+    const [pnB, pnH] = sec("Panne", 0.12, 0.24);
     const [chB, chH] = sec("Chevron", 0.08, 0.10);
     const cosA = Math.cos(ang), sinA = Math.sin(ang);
 
@@ -1824,7 +1833,7 @@ setPiece("Panne");
       const t = i / (nbPannes - 1);
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
-      const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+      const [pnB, pnH] = sec("Panne", 0.12, 0.24);
       addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
     }
 
@@ -2092,7 +2101,7 @@ setPiece("Ferme");
       addBox(arB, arH, pl, x, Ht + hf/2, -lg/4, woodMat, [-ang, 0, 0]);
       // Poincon (vertical central)
       setPiece("Poincon");
-      const [poB, poH] = sec("Poincon", 0.15, 0.15);
+      const [poB, poH] = sec("Poincon", 0.18, 0.18);
       addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
 
       // Liens de faitage (echarpes ~45deg du poincon vers la sous-face de la faitiere)
@@ -2114,7 +2123,7 @@ setPiece("Ferme");
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg/2) * (1 - cfT);
       setPiece("Contrefiche");
-      const cfSec = sec("Contrefiche", 0.13, 0.13)[0];
+      const cfSec = sec("Contrefiche", 0.16, 0.16)[0];
       addBeam(x, cfBaseY, 0, x, cfEndY, cfEndZ, cfSec, woodMat);
       addBeam(x, cfBaseY, 0, x, cfEndY, -cfEndZ, cfSec, woodMat);
     }
@@ -2916,7 +2925,7 @@ setPiece("Panne");
       const yPanne = Ht + hf * t;
       const zPanne = (lg / 2) * (1 - t);
       const lenPanne = Lfait + (L - Lfait) * (1 - t);
-      const [pnB, pnH] = sec("Panne", 0.12, 0.12);
+      const [pnB, pnH] = sec("Panne", 0.12, 0.24);
       const yPanneQ = yPanne - SOUS_CHEV_Q + (pnB / 2) * tanQ - pnH / 2;
       addBox(lenPanne, pnH, pnB, 0, yPanneQ, zPanne, woodMat);
       addBox(lenPanne, pnH, pnB, 0, yPanneQ, -zPanne, woodMat);
