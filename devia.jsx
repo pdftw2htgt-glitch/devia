@@ -25,7 +25,7 @@ const EC5_FLECHE_ADM = { courant:{winst:300,wnetfin:200}, agricole:{winst:200,wn
 const EC5_SECTIONS = [
   // Sections SCIERIE FRANCAISE - gamme continue (sans trous, toutes commerciales)
   // Chevrons / petites pieces
-  [60,80],[80,80],[60,100],[80,100],[63,150],[75,150],
+  [60,80],[80,80],[60,100],[80,100],[100,120],[100,140],[63,150],[75,150],
   // Intermediaires (le trou 100->200 comble)
   [63,175],[75,175],[63,200],[75,200],
   // Pannes / madriers
@@ -45,9 +45,26 @@ const SECTIONS_REGIONALES_MONTAGNE = {
   Arbaletrier: [160, 160], Entrait: [160, 160], Contrefiche: [160, 160],
   Poincon: [180, 180], Poteau: [150, 150],
 };
+// ============================================================
+// PLANCHER METIER - LA TABLE A AJUSTER POUR L ALLURE DE LA CHARPENTE
+// ============================================================
+// L EC5 valide des sections que personne ne pose (il sortait des chevrons de 60x80).
+// Cette table est le MINIMUM impose a chaque piece : le calcul peut toujours aller
+// AU-DESSUS si la portee l exige, jamais en dessous. Format [largeur, hauteur] en mm.
+// Pour changer l allure d une piece dans la 3D, c est ICI et nulle part ailleurs :
+// le devis, les fiches techniques, la 3D et l export IFC suivent tous automatiquement.
+// Rester sur des sections de scierie (voir EC5_SECTIONS plus haut), sinon le devis
+// annonce un bois qui ne se commande pas.
+const PLANCHER_METIER = {
+  Chevron: [100, 140], Empannon: [100, 140], "Empannon de croupe": [100, 140],
+  Panne: [120, 240], "Panne faitiere": [120, 240], Sabliere: [120, 240],
+  Muraillere: [120, 240], Aretier: [120, 240],
+  Arbaletrier: [160, 160], Entrait: [160, 160], Contrefiche: [160, 160],
+  Poincon: [180, 180], Poteau: [150, 150],
+};
 const EC5_LARGEUR_MINI = {
-  Chevron:80, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
-  Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:80, "Empannon de croupe":80,
+  Chevron:100, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
+  Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:100, "Empannon de croupe":100,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
@@ -510,15 +527,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // calcul passe a 100x100 - sinon la piece maitresse parait sous-dimensionnee au milieu
   // d arbaletriers de 140x280. Applique en SORTIE, donc valable pour tous les chemins de calcul
   // et pour tout l aval : devis, fiches techniques, 3D et export IFC disent la meme chose.
-  // La table de reference est celle des chantiers de Mathis (ex-table montagne) : elle devient
-  // le MINIMUM partout, le calcul pouvant toujours aller au-dessus mais jamais en dessous.
-  const PLANCHER_METIER = {
-    Chevron: [80, 100], Empannon: [80, 100], "Empannon de croupe": [80, 100],
-    Panne: [120, 240], "Panne faitiere": [120, 240], Sabliere: [120, 240],
-    Muraillere: [120, 240], Aretier: [120, 240],
-    Arbaletrier: [160, 160], Entrait: [160, 160], Contrefiche: [160, 160],
-    Poincon: [180, 180], Poteau: [150, 150],
-  };
+  // Plancher metier : voir la table PLANCHER_METIER en tete de fichier.
   Object.keys(PLANCHER_METIER).forEach((nomP) => {
     const bMin = PLANCHER_METIER[nomP][0];
     const hMin = PLANCHER_METIER[nomP][1];
@@ -1562,7 +1571,7 @@ setPiece("Panne faitiere");
     // y = yLigne + dPerp*cos(ang), z = zLigne +- dPerp*sin(ang)
     const [arB2, arH2] = sec("Arbaletrier", 0.16, 0.16);
     const [pnB, pnH] = sec("Panne", 0.12, 0.24);
-    const [chB, chH] = sec("Chevron", 0.08, 0.10);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
     const cosA = Math.cos(ang), sinA = Math.sin(ang);
 
 setPiece("Panne");
@@ -1844,7 +1853,7 @@ setPiece("Chevron");
     const yCentre = Hbas + denivele/2;
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.08, 0.10);
+      const [chB, chH] = sec("Chevron", 0.10, 0.14);
       addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
     }
 
@@ -1964,7 +1973,7 @@ setPiece("Chevron");
     const nbChevrons = Math.max(2, Math.floor(L / espChevron));
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.08, 0.10);
+      const [chB, chH] = sec("Chevron", 0.10, 0.14);
       addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
     }
 
@@ -2197,7 +2206,7 @@ setPiece("Echantignole");
     setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE (repartis entre les fermes, entraxe maxi 0.6m) =====
     const ENTRAXE_CHEVRON_MAX_H = 0.6;
-    const [chB, chH] = sec("Chevron", 0.08, 0.10);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
     const chevronXsH = [];
     for (let t = 0; t < fermeXsH.length - 1; t++) {
       const x0 = fermeXsH[t], x1 = fermeXsH[t + 1];
@@ -3082,7 +3091,7 @@ setPiece("Empannon de croupe");
     // Greffe COPLANAIRE a la couverture de l'aile : meme decalage perpendiculaire que le pan trad
     const [arB3, arH3] = sec("Arbaletrier", 0.16, 0.16);
     const [pnB3, pnH3] = sec("Panne", 0.12, 0.12);
-    const [chB3, chH3] = sec("Chevron", 0.08, 0.10);
+    const [chB3, chH3] = sec("Chevron", 0.10, 0.14);
     const cosA3 = Math.cos(aRad), sinA3 = Math.sin(aRad);
     const dPerp3 = arH3/2 + (pnH3 + 0.03) * cosA3 + chH3 + 0.01;
     const hcr3 = dPerp3 / cosA3;                        // remontee au faitage : ferme le joint central
