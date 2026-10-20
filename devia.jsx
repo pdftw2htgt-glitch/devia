@@ -72,7 +72,7 @@ const PLANCHER_METIER = {
 const FINITIONS_MUR = {
   "":      { label: "Beton apparent",   couleur: 0xb4b4b8, rugosite: 0.95, texture: "beton_mur.png", motif: null,    taille: 2.5 },
   crepi:   { label: "Crepi",            couleur: 0xe9e3d7, rugosite: 1.00, texture: "crepi.jpg",     motif: "grain", taille: 0.6 },
-  enduit:  { label: "Enduit lisse",     couleur: 0xe3ded3, rugosite: 0.75, texture: null,        motif: null,     taille: 1.5 },
+  enduit:  { label: "Enduit lisse",     couleur: 0xdbd7d4, rugosite: 0.75, texture: "enduit.jpg",    motif: null,    taille: 1.0 },
   brique:  { label: "Brique",           couleur: 0x8f8b87, rugosite: 0.90, texture: "brique.jpg",    motif: "brique", taille: 1.25 },
   pierre:  { label: "Pierre apparente", couleur: 0xb0a590, rugosite: 1.00, texture: "pierre.jpg",    motif: "pierre", taille: 2.0 },
 };
