@@ -776,6 +776,11 @@ function buildScene3D(scene, params, opts) {
   const Ht = params.hauteur || 3;
   const pente = params.pente || 35;
   const debord = Math.max(0, parseFloat(params.debord) || 0); // depasse de toiture (m), egouts + rives
+  // DELARDEMENT DES PANNES (m). Une panne d aplomb ne touche le chevron que par l arete AVAL
+  // de son dessus : on y coupe un plat parallele au rampant pour que le chevron porte a plat.
+  // Saisi en MILLIMETRES dans le formulaire, 15 par defaut (usinage courant de charpentier).
+  const delardement = Math.max(0, (params.delardement === undefined || params.delardement === null || params.delardement === "")
+    ? 15 : (parseFloat(params.delardement) || 0)) / 1000;
   const typeProjet = params.type_projet || "charpente_trad";
 
   // Helper sections EC5 : si opts.sections[nom] existe, l'utilise (mm->m), sinon fallback
@@ -1259,6 +1264,66 @@ function buildScene3D(scene, params, opts) {
     else if (mat === dalleMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }, "Dalle beton", "beton");
   };
 
+  // ===== PANNE DELARDEE =====
+  // Section de la panne dans le plan (y, z), relative a son centre, une fois delardee.
+  // tanP = tangente de la pente ; del = profondeur du plat a l arete aval (m).
+  // signAval : +1 la pente descend vers les z croissants, -1 l inverse, 0 des deux cotes
+  // (faitiere : un chevron vient mourir dessus de chaque cote, donc deux plats).
+  const sectionDelardee = (h, b, tanP, signAval, del) => {
+    const d = Math.max(0, Math.min(del, h * 0.6));          // jamais plus de 60 pour cent de la hauteur
+    const plat = (tanP > 0.0001) ? d / tanP : 0;            // portee horizontale du plat
+    let pts;
+    if (d < 0.0005 || plat < 0.0005) {
+      pts = [[-h/2, -b/2], [-h/2, b/2], [h/2, b/2], [h/2, -b/2]];
+    } else if (signAval === 0) {
+      const p2 = Math.min(plat, b/2);
+      pts = (p2 >= b/2 - 0.0005)
+        ? [[-h/2, -b/2], [-h/2, b/2], [h/2 - d, b/2], [h/2 - d + (b/2) * tanP, 0], [h/2 - d, -b/2]]
+        : [[-h/2, -b/2], [-h/2, b/2], [h/2 - d, b/2], [h/2, b/2 - p2], [h/2, -b/2 + p2], [h/2 - d, -b/2]];
+    } else {
+      const p1 = Math.min(plat, b);
+      pts = (p1 >= b - 0.0005)
+        ? [[-h/2, -b/2], [-h/2, b/2], [h/2 - d, b/2], [h/2 - Math.max(0, d - b * tanP), -b/2]]
+        : [[-h/2, -b/2], [-h/2, b/2], [h/2 - d, b/2], [h/2, b/2 - p1], [h/2, -b/2]];
+      if (signAval < 0) pts = pts.map((q) => [q[0], -q[1]]);
+    }
+    // Sens trigonometrique impose : un profil IFC parcouru a l envers donne une aire negative.
+    let aire = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const q = pts[i], r = pts[(i + 1) % pts.length];
+      aire += q[0] * r[1] - r[0] * q[1];
+    }
+    if (aire < 0) pts = pts.slice().reverse();
+    return pts;
+  };
+
+  // Prisme de section quelconque file selon X. Remplace addBox pour les pannes delardees.
+  const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
+    const pts = sectionDelardee(h, b, tanP, signAval, del);
+    const x1 = px - lgX / 2, x2 = px + lgX / 2;
+    const S1 = pts.map((q) => [x1, py + q[0], pz + q[1]]);
+    const S2 = pts.map((q) => [x2, py + q[0], pz + q[1]]);
+    const pos = [];
+    const tri = (a, c, e) => { pos.push(a[0],a[1],a[2], c[0],c[1],c[2], e[0],e[1],e[2]); };
+    for (let i = 1; i < pts.length - 1; i++) { tri(S1[0], S1[i + 1], S1[i]); tri(S2[0], S2[i], S2[i + 1]); }
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      tri(S1[i], S1[j], S2[j]); tri(S1[i], S2[j], S2[i]);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat || woodMat);
+    m.castShadow = true;
+    scene.add(m);
+    // Le metre garde la SECTION NOMINALE : le delardement est un usinage, pas une section de
+    // debit. On commande bien une panne pleine. Seul l export IFC recoit le profil reel.
+    logPiece(lgX, h, b, { pos: [px, py, pz], rot: null, quat: null }, nomForce);
+    // Delardement nul : la section reste un rectangle, l IFC garde son profil rectangulaire.
+    const plein = pts.every((q) => Math.abs(Math.abs(q[0]) - h / 2) < 0.000001);
+    if (plein === false) metre[metre.length - 1].profil = { pts: pts, len: lgX, axe: "x" };
+  };
+
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
   const addBeam = (x1, y1, z1, x2, y2, z2, thick, mat) => {
     const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
@@ -1426,10 +1491,12 @@ function buildScene3D(scene, params, opts) {
     // sans cela un vide reste ouvert entre le haut du mur et la panne basse.
     const [sbB0, sbH0] = sec("Sabliere", 0.12, 0.24);
     const [arB0, arH0] = sec("Arbaletrier", 0.16, 0.16);
-    const [pnB0, pnH0] = sec("Panne", 0.12, 0.12);
+    const [pnB0, pnH0] = sec("Panne", 0.12, 0.24);
     const cosA0 = Math.cos(ang), tanA0 = Math.tan(ang);
-    const dPerp0 = arH0 / 2 + (pnH0 + 0.03) * cosA0;
-    const hMurSousSabliere = Ht + dPerp0 / cosA0 + (sbB0 / 2) * tanA0 - sbH0;
+    // Le chevron porte sur l arete AVAL du dessus de la panne, moins le delardement :
+    // la largeur de la panne compte donc dans la hauteur du plan porteur.
+    const dPerp0 = arH0 / 2 + (pnH0 + 0.03 - delardement) * cosA0 + pnB0 * Math.sin(ang);
+    const hMurSousSabliere = Ht + dPerp0 / cosA0 - (sbB0 / 2) * tanA0 + delardement - sbH0;
     console.log("[DEVIA] Murs montes a " + hMurSousSabliere.toFixed(3) + " m (sous-face de la sabliere)");
     // Ou passent les pannes dans le pignon : memes formules que leur pose plus bas.
     // (la sabliere sort du triangle par les cotes, elle n a pas de reservation)
@@ -1445,7 +1512,7 @@ function buildScene3D(scene, params, opts) {
       reservPignon.push({ z: zRef0, y: yP0, b: pnB0, h: pnH0 });
       reservPignon.push({ z: -zRef0, y: yP0, b: pnB0, h: pnH0 });
     }
-    reservPignon.push({ z: 0, y: Ht + hf + dPerp0 / cosA0 - pfH0 / 2, b: pfB0, h: pfH0 });
+    reservPignon.push({ z: 0, y: Ht + hf + dPerp0 / cosA0 - (pfB0 / 2) * tanA0 + delardement - pfH0 / 2, b: pfB0, h: pfH0 });
     if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon); }
     drawDalleBeton(L, lg, 0);
 
@@ -1548,22 +1615,22 @@ setPiece("Sabliere");
     // (sous-face des chevrons), l extrados des arbaletriers etant a arH/2 perpendiculaire de leur axe.
     const [sbB, sbH] = sec("Sabliere", 0.12, 0.24);
     const [arBr, arHr] = sec("Arbaletrier", 0.16, 0.16);
-    const [pnBr, pnHr] = sec("Panne", 0.12, 0.12);
+    const [pnBr, pnHr] = sec("Panne", 0.12, 0.24);
     const cosR = Math.cos(ang), tanR = Math.tan(ang);
     // Le plan porteur n est PAS l extrados des arbaletriers : les chevrons passent par-dessus les
     // pannes (voir dPerpChevron plus bas). Sabliere et faitiere doivent atteindre CE plan, sinon
     // les chevrons flottent au-dessus d elles.
-    const dPerpSousChevron = arHr / 2 + (pnHr + 0.03) * cosR;
+    const dPerpSousChevron = arHr / 2 + (pnHr + 0.03 - delardement) * cosR + pnBr * Math.sin(ang);
     const yPlanRampant = Ht + dPerpSousChevron / cosR;        // sous-face des chevrons a l aplomb du mur
-    const ySabl = yPlanRampant + (sbB / 2) * tanR - sbH / 2;  // coin amont de la sabliere sur ce plan
-    addBox(L + 0.3, sbH, sbB, 0, ySabl, lg/2, woodMat);
-    addBox(L + 0.3, sbH, sbB, 0, ySabl, -lg/2, woodMat);
+    const ySabl = yPlanRampant - (sbB / 2) * tanR + delardement - sbH / 2;  // dessus delarde dans le plan des chevrons
+    addPanneDelardee(L + 0.3, sbH, sbB, 0, ySabl, lg/2, tanR, 1, delardement, woodMat);
+    addPanneDelardee(L + 0.3, sbH, sbB, 0, ySabl, -lg/2, tanR, -1, delardement, woodMat);
 
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE : posee sur les poincons, son dessus a l arete du toit =====
     const [pfB, pfH] = sec("Panne faitiere", 0.12, 0.24);
-    const yFaitPanne = yFait + dPerpSousChevron / cosR - pfH / 2;
-    addBox(L + 0.4 + debLX, pfH, pfB, debCX, yFaitPanne, 0, woodMat);
+    const yFaitPanne = yFait + dPerpSousChevron / cosR - (pfB / 2) * tanR + delardement - pfH / 2;
+    addPanneDelardee(L + 0.4 + debLX, pfH, pfB, debCX, yFaitPanne, 0, tanR, 0, delardement, woodMat);
     console.log("[DEVIA] Pannes : dessus sabliere " + (ySabl + sbH / 2).toFixed(3) + " m, dessus faitiere " + (yFaitPanne + pfH / 2).toFixed(3) + " m, sous-face chevrons au mur " + yPlanRampant.toFixed(3) + " m");
 
     // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
@@ -1586,8 +1653,8 @@ setPiece("Panne");
       const eEch = 0.03;                             // epaisseur mini de l'echantignole sous le coin amont
       const yP = yRef + (pnB/2) * tanA + eEch + pnH/2; // la panne repose SUR le dessus de la cale
       pannesInfo.push({ zRef, yRef });
-      addBox(L + 0.3 + debLX, pnH, pnB, debCX, yP, zRef, woodMat);   // pan Z+ (droite)
-      addBox(L + 0.3 + debLX, pnH, pnB, debCX, yP, -zRef, woodMat);  // pan Z- (droite)
+      addPanneDelardee(L + 0.3 + debLX, pnH, pnB, debCX, yP, zRef, tanA, 1, delardement, woodMat);   // pan Z+
+      addPanneDelardee(L + 0.3 + debLX, pnH, pnB, debCX, yP, -zRef, tanA, -1, delardement, woodMat); // pan Z-
     }
 
 setPiece("Echantignole");
@@ -1637,7 +1704,7 @@ setPiece("Echantignole");
 setPiece("Chevron");
     // ===== CHEVRONS : CALEPINAGE PAR TRAVEE, poses SUR les pannes =====
     const ENTRAXE_CHEVRON_MAX = 0.6;
-    const dPerpChevron = arH2/2 + (pnH + 0.03) * cosA + chH/2;
+    const dPerpChevron = arH2/2 + (pnH + 0.03 - delardement) * cosA + pnB * sinA + chH/2;
     const chevronXs = [];
     for (let t = 0; t < fermeXs.length - 1; t++) {
       const x0 = fermeXs[t], x1 = fermeXs[t + 1];
@@ -1695,7 +1762,7 @@ setPiece("Chevron");
     // Chaque pan est prolonge de ext = dPerp*tan(ang) le long du rampant pour que
     // les 2 pans decales se rejoignent au plan central (z=0) : plus de fente au faitage.
     const couv = getCouverture(opts && opts.couverture);
-    const dPerpCouv = arH2/2 + (pnH + 0.03) * cosA + chH + 0.01;
+    const dPerpCouv = dPerpChevron + chH / 2 + 0.01;
     const ext = dPerpCouv * Math.tan(ang);
     const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
     const plCouv = pl + ext + extBas;
@@ -4300,6 +4367,37 @@ function genererIFC(metre, params) {
       console.log("[DEVIA] IFC : " + (p.nom || "Mur") + " en une piece, " + planP.contour.length + " points et " + trousP.length + " baie(s) percee(s)");
       return;
     }
+    // --- Piece bois usinee : on exporte son PROFIL REEL, pas un rectangle plein ---
+    // profil = { pts: [[u, v], ...], len, axe:"x" } ; u suit l axe Y de la scene (hauteur),
+    // v son axe Z, l extrusion suit X. Cadwork recoit ainsi le delardement des pannes.
+    if (p.profil && Array.isArray(p.profil.pts) && p.profil.pts.length >= 3 && p.profil.len > 0.01) {
+      const idsD = p.profil.pts.map((q) => {
+        const idq = nextId();
+        E(idq, "IFCCARTESIANPOINT((" + num(q[0]) + "," + num(q[1]) + "));");
+        return idq;
+      });
+      const polyD = nextId(); E(polyD, "IFCPOLYLINE((#" + idsD.join(",#") + ",#" + idsD[0] + "));");
+      const profD = nextId(); E(profD, "IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,#" + polyD + ");");
+      // Repere : Z local = X de la scene (axe long), X local = Y de la scene (hauteur).
+      // Le Y local tombe alors sur le Z de la scene, comme les points du profil.
+      const posD = nextId(); E(posD, "IFCCARTESIANPOINT((" + num(p.pos[0]) + "," + num(-p.pos[2]) + "," + num(p.pos[1]) + "));");
+      const dzD = nextId(); E(dzD, "IFCDIRECTION((1.,0.,0.));");
+      const dxD = nextId(); E(dxD, "IFCDIRECTION((0.,0.,1.));");
+      const axD = nextId(); E(axD, "IFCAXIS2PLACEMENT3D(#" + posD + ",#" + dzD + ",#" + dxD + ");");
+      const plcD = nextId(); E(plcD, "IFCLOCALPLACEMENT(#" + storeyPlc + ",#" + axD + ");");
+      const exPtD = nextId(); E(exPtD, "IFCCARTESIANPOINT((0.,0.," + num(-p.profil.len / 2) + "));");
+      const exAxD = nextId(); E(exAxD, "IFCAXIS2PLACEMENT3D(#" + exPtD + ",$,$);");
+      const exDirD = nextId(); E(exDirD, "IFCDIRECTION((0.,0.,1.));");
+      const solD = nextId(); E(solD, "IFCEXTRUDEDAREASOLID(#" + profD + ",#" + exAxD + ",#" + exDirD + "," + num(p.profil.len) + ");");
+      const repD = nextId(); E(repD, "IFCSHAPEREPRESENTATION(#" + bodyCtx + ",'Body','SweptSolid',(#" + solD + "));");
+      const pdD = nextId(); E(pdD, "IFCPRODUCTDEFINITIONSHAPE($,$,(#" + repD + "));");
+      const clsD = classeDe(p);
+      const memD = nextId();
+      E(memD, clsD[0] + "('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Piece") + "',$,$,#" + plcD + ",#" + pdD + ",'" + (iP + 1) + "'," + clsD[1] + ");");
+      memberIds.push(memD);
+      if (p.matiere === "beton") idsBeton.push(memD); else idsBois.push(memD);
+      return;
+    }
     // --- Dimensions Three.js d'origine ---
     const sx = Math.abs(p.dimsBrutes[0]);
     const sy = Math.abs(p.dimsBrutes[1]);
@@ -5389,6 +5487,7 @@ const [formStructures, setFormStructures] = useState([]); // liste des ouvrages 
 const [formCustomError, setFormCustomError] = useState(""); // erreur de coherence multi-ouvrages
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [formDebord, setFormDebord] = useState(""); // depasse de toiture en cm (vide = 0)
+const [formDelardement, setFormDelardement] = useState("15"); // delardement des pannes en mm
 const [nomProjet, setNomProjet] = useState("");
 const [is3DFullscreen, setIs3DFullscreen] = useState(false);
 const viewer3DContainerRef = useRef(null);
@@ -7497,6 +7596,7 @@ return out;
         type_projet: TYPE_TO_PROJET[s.type] || ((devisParOuvrage[i] && devisParOuvrage[i].projet && devisParOuvrage[i].projet.type_projet) || "charpente_trad"),
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
+      if (formDelardement === "") { fusion._delardement = undefined; } else { fusion._delardement = parseFloat(formDelardement); }
       if (zoneInfo) { fusion._sk = zoneInfo.sk; fusion._dS = zoneInfo.dS; }
       setResult(fusion);
       setView3DParams({
@@ -7507,6 +7607,7 @@ return out;
         type_projet: p1.type_projet || "autre",
         couverture: p1.couverture || structures[0].couverture || "tuile_terre",
         ouvrages: ouvrages3D,
+        delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
         sk: zoneInfo ? zoneInfo.sk : undefined,
         dS: zoneInfo ? zoneInfo.dS : undefined,
       });
@@ -7605,6 +7706,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
   if (finalParams.remede) parsed._remede = finalParams.remede;
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   if (finalParams.debord) parsed._debord = finalParams.debord;
+  if (typeof finalParams.delardement === "number") parsed._delardement = finalParams.delardement;
   if (finalParams.essence) parsed._essence = finalParams.essence;
   if (finalParams.finition) parsed._finition = finalParams.finition;
   if (zoneInfo) { parsed._sk = zoneInfo.sk; parsed._dS = zoneInfo.dS; }
@@ -7626,6 +7728,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         remede: finalParams.remede || undefined,
         solaire: finalParams.solaire || undefined,
         debord: finalParams.debord || undefined,
+        delardement: finalParams.delardement,
         essence: finalParams.essence || undefined,
         finition: finalParams.finition || undefined,
         sk: zoneInfo ? zoneInfo.sk : undefined,
@@ -7740,6 +7843,7 @@ const loadProjectDetails = (project) => {
         remede: project.devis_data._remede || undefined,
         solaire: project.devis_data._solaire || undefined,
         debord: project.devis_data._debord || undefined,
+        delardement: project.devis_data._delardement,
         essence: project.devis_data._essence || undefined,
         finition: project.devis_data._finition || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
@@ -7974,6 +8078,7 @@ const loadProjectDetails = (project) => {
       hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
       pente: formPente ? parseFloat(formPente) : undefined,
       debord: formDebord ? parseFloat(formDebord) / 100 : undefined,
+      delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
     };
     // Construit aussi une description textuelle propre (pour l'IA de generation)
     const parts = [];
@@ -8435,6 +8540,14 @@ return (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>cm (egouts et rives)</span>
+                </div>
+              </div>
+              {/* Delardement des pannes */}
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Delardement</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input value={formDelardement} onChange={e => setFormDelardement(e.target.value)} type="number" placeholder="15" style={{ ...inputStyle, maxWidth: 100 }} />
+                  <span style={{ color: "#545870", fontSize: 12 }}>mm (plat coupe sur le dessus des pannes)</span>
                 </div>
               </div>
               {/* Couverture */}
