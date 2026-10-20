@@ -8031,6 +8031,13 @@ return (
     body { font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; letter-spacing: -0.005em; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    /* Windows dessine la liste deroulante avec les couleurs du select lui-meme.
+       Un fond translucide y devient blanc : sans couleurs opaques posees ici,
+       le texte clair se retrouve blanc sur blanc et les choix sont invisibles. */
+    select option, select optgroup {
+      background-color: ${themeMode === "light" ? "#ffffff" : "#181a26"};
+      color: ${themeMode === "light" ? "#1a1d2a" : "#e8eaf2"};
+    }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
