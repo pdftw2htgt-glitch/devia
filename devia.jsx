@@ -66,14 +66,15 @@ const PLANCHER_METIER = {
 // Aspect des murs maconnes dans la 3D. RIEN N EST CHIFFRE : la maconnerie reste de
 // l existant, la finition ne change que le rendu. Le beton apparent est le defaut.
 // "taille"  = cote en metres d une tuile de motif (le dessin se repete tous les X metres).
-// "texture" = image dans public/textures/ ; si elle est renseignee elle REMPLACE le motif
-//             dessine. C est ici qu on branchera les vraies photos de finition.
+// "texture" = nom de fichier COMPLET dans public/textures/ (jpg ou png). Si elle est
+//             renseignee elle REMPLACE le motif dessine ; le motif sert alors de repli
+//             si l image manque. Une photo doit etre REPETABLE bord a bord.
 const FINITIONS_MUR = {
-  "":      { label: "Beton apparent",   couleur: 0xb4b4b8, rugosite: 0.95, texture: "beton_mur", motif: null,     taille: 2.5 },
-  crepi:   { label: "Crepi",            couleur: 0xe9e3d7, rugosite: 1.00, texture: null,        motif: "grain",  taille: 0.5 },
+  "":      { label: "Beton apparent",   couleur: 0xb4b4b8, rugosite: 0.95, texture: "beton_mur.png", motif: null,    taille: 2.5 },
+  crepi:   { label: "Crepi",            couleur: 0xe9e3d7, rugosite: 1.00, texture: "crepi.jpg",     motif: "grain", taille: 0.6 },
   enduit:  { label: "Enduit lisse",     couleur: 0xe3ded3, rugosite: 0.75, texture: null,        motif: null,     taille: 1.5 },
-  brique:  { label: "Brique",           couleur: 0x9e4f3a, rugosite: 0.90, texture: null,        motif: "brique", taille: 1.0 },
-  pierre:  { label: "Pierre apparente", couleur: 0xb0a590, rugosite: 1.00, texture: null,        motif: "pierre", taille: 1.2 },
+  brique:  { label: "Brique",           couleur: 0x8f8b87, rugosite: 0.90, texture: "brique.jpg",    motif: "brique", taille: 1.25 },
+  pierre:  { label: "Pierre apparente", couleur: 0xb0a590, rugosite: 1.00, texture: "pierre.jpg",    motif: "pierre", taille: 2.0 },
 };
 
 // Dessine le motif d une finition sur un canvas carre, repetable bord a bord.
@@ -990,19 +991,31 @@ function buildScene3D(scene, params, opts) {
       betonMat.color.set(0xffffff);
       betonMat.needsUpdate = true;
     };
-    if (finMur.motif) {
+    // Hors navigateur (banc d essai, rendu serveur) il n y a ni canvas ni chargeur
+    // d image : le mur garde sa couleur unie, rien ne plante.
+    if (typeof document === "undefined") return;
+    const dessiner = () => {
+      if (finMur.motif === null) return;
       const cv = motifMurCanvas(finMur.motif, finMur.couleur);
-      if (cv) {
-        const tex = new THREE.CanvasTexture(cv);
-        poser(tex);
-        betonMat.bumpMap = tex;        // un crepi, une brique et une pierre ont du relief
-        betonMat.bumpScale = 0.02;
-      }
+      if (cv === null) return;
+      const tex = new THREE.CanvasTexture(cv);
+      poser(tex);
+      betonMat.bumpMap = tex;          // un crepi, une brique et une pierre ont du relief
+      betonMat.bumpScale = 0.02;
+    };
+    // Le beton apparent garde son comportement d origine : photo en mode realiste seulement.
+    // Une finition CHOISIE s affiche dans les DEUX modes, c est tout l interet du reglage.
+    const choisie = (finMur === FINITIONS_MUR[""]) ? false : true;
+    if (finMur.texture && (choisie || modeB === "realiste")) {
+      new THREE.TextureLoader().load("/textures/" + finMur.texture, (img) => {
+        poser(img);
+        if (choisie === false) return;  // pas de relief ajoute sur le rendu beton d origine
+        betonMat.bumpMap = img;
+        betonMat.bumpScale = 0.015;
+      }, undefined, dessiner);          // image absente : on retombe sur le motif dessine
       return;
     }
-    if (finMur.texture && modeB === "realiste") {
-      new THREE.TextureLoader().load("/textures/" + finMur.texture + ".png", poser);
-    }
+    dessiner();
   })();
   // Beton lisse (dalles, plus clair que les murs)
   const dalleMat = new THREE.MeshStandardMaterial({ color: 0xc8c8cc, roughness: 0.85, metalness: 0.0 });
