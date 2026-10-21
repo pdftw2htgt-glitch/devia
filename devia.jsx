@@ -858,6 +858,10 @@ function buildScene3D(scene, params, opts) {
   // Saisi en MILLIMETRES dans le formulaire, 15 par defaut (usinage courant de charpentier).
   const delardement = Math.max(0, (params.delardement === undefined || params.delardement === null || params.delardement === "")
     ? 15 : (parseFloat(params.delardement) || 0)) / 1000;
+  // DEBORD DE PANNE (m) : la queue de panne qui ressort au pignon pour porter le chevron
+  // de rive. Saisi en CENTIMETRES dans le formulaire, 50 par defaut.
+  const debordPanne = Math.max(0, (params.debord_panne === undefined || params.debord_panne === null || params.debord_panne === "")
+    ? 50 : (parseFloat(params.debord_panne) || 0)) / 100;
   const typeProjet = params.type_projet || "charpente_trad";
 
   // Helper sections EC5 : si opts.sections[nom] existe, l'utilise (mm->m), sinon fallback
@@ -1608,6 +1612,13 @@ function buildScene3D(scene, params, opts) {
     const debCX = (debD - debG) / 2;                      // recentrage X des pieces filantes
     const rivG = smf === "pignon_gauche" ? 0 : 0.3;       // petit debord de rive de base, sauf cote contact
     const rivD = smf === "pignon_droit" ? 0 : 0.3;
+    // QUEUES DE PANNE : pannes, sabliere et faitiere ressortent au pignon pour porter le
+    // chevron de rive. Au moins le debord demande, et jamais moins loin que la couverture,
+    // sinon elle porterait dans le vide. Rien ne ressort du cote ou un volume vient s accoler.
+    const dpG = smf === "pignon_gauche" ? 0 : Math.max(debordPanne, rivG + debG);
+    const dpD = smf === "pignon_droit" ? 0 : Math.max(debordPanne, rivD + debD);
+    const dpLX = dpG + dpD;                               // allongement total des pannes
+    const dpCX = (dpD - dpG) / 2;                         // recentrage quand un seul cote ressort
 
     // ===== MURS : ils montent jusqu a la SOUS-FACE DE LA SABLIERE =====
     // La sabliere est calee dans le plan porteur des chevrons, donc au-dessus de l arase brute :
@@ -1746,14 +1757,14 @@ setPiece("Sabliere");
     const dPerpSousChevron = arHr / 2 + (pnHr + 0.03 - delardement) * cosR + pnBr * Math.sin(ang);
     const yPlanRampant = Ht + dPerpSousChevron / cosR;        // sous-face des chevrons a l aplomb du mur
     const ySabl = yPlanRampant - (sbB / 2) * tanR + delardement - sbH / 2;  // dessus delarde dans le plan des chevrons
-    addPanneDelardee(L + 0.3, sbH, sbB, 0, ySabl, lg/2, tanR, 1, delardement, woodMat);
-    addPanneDelardee(L + 0.3, sbH, sbB, 0, ySabl, -lg/2, tanR, -1, delardement, woodMat);
+    addPanneDelardee(L + dpLX, sbH, sbB, dpCX, ySabl, lg/2, tanR, 1, delardement, woodMat);
+    addPanneDelardee(L + dpLX, sbH, sbB, dpCX, ySabl, -lg/2, tanR, -1, delardement, woodMat);
 
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE : posee sur les poincons, son dessus a l arete du toit =====
     const [pfB, pfH] = sec("Panne faitiere", 0.12, 0.24);
     const yFaitPanne = yFait + dPerpSousChevron / cosR - (pfB / 2) * tanR + delardement - pfH / 2;
-    addPanneDelardee(L + 0.4 + debLX, pfH, pfB, debCX, yFaitPanne, 0, tanR, 0, delardement, woodMat);
+    addPanneDelardee(L + dpLX, pfH, pfB, dpCX, yFaitPanne, 0, tanR, 0, delardement, woodMat);
     console.log("[DEVIA] Pannes : dessus sabliere " + (ySabl + sbH / 2).toFixed(3) + " m, dessus faitiere " + (yFaitPanne + pfH / 2).toFixed(3) + " m, sous-face chevrons au mur " + yPlanRampant.toFixed(3) + " m");
 
     // ===== EMPILEMENT PERPENDICULAIRE STRICT (base : ligne de rampant = axe arbaletriers) =====
@@ -1776,8 +1787,8 @@ setPiece("Panne");
       const eEch = 0.03;                             // epaisseur mini de l'echantignole sous le coin amont
       const yP = yRef + (pnB/2) * tanA + eEch + pnH/2; // la panne repose SUR le dessus de la cale
       pannesInfo.push({ zRef, yRef });
-      addPanneDelardee(L + 0.3 + debLX, pnH, pnB, debCX, yP, zRef, tanA, 1, delardement, woodMat);   // pan Z+
-      addPanneDelardee(L + 0.3 + debLX, pnH, pnB, debCX, yP, -zRef, tanA, -1, delardement, woodMat); // pan Z-
+      addPanneDelardee(L + dpLX, pnH, pnB, dpCX, yP, zRef, tanA, 1, delardement, woodMat);   // pan Z+
+      addPanneDelardee(L + dpLX, pnH, pnB, dpCX, yP, -zRef, tanA, -1, delardement, woodMat); // pan Z-
     }
 
 setPiece("Echantignole");
@@ -5612,6 +5623,7 @@ const [formCustomError, setFormCustomError] = useState(""); // erreur de coheren
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [formDebord, setFormDebord] = useState(""); // depasse de toiture en cm (vide = 0)
 const [formDelardement, setFormDelardement] = useState("15"); // delardement des pannes en mm
+const [formDebordPanne, setFormDebordPanne] = useState("50"); // queue de panne au pignon, en cm
 const [nomProjet, setNomProjet] = useState("");
 const [is3DFullscreen, setIs3DFullscreen] = useState(false);
 const viewer3DContainerRef = useRef(null);
@@ -7721,6 +7733,7 @@ return out;
       }));
       fusion._ouvrages3D = ouvrages3D; // persiste dans devis_data (rechargement 3D multi)
       if (formDelardement === "") { fusion._delardement = undefined; } else { fusion._delardement = parseFloat(formDelardement); }
+      if (formDebordPanne === "") { fusion._debordPanne = undefined; } else { fusion._debordPanne = parseFloat(formDebordPanne); }
       if (formFinitionMur) fusion._finitionMur = formFinitionMur;
       if (zoneInfo) { fusion._sk = zoneInfo.sk; fusion._dS = zoneInfo.dS; }
       setResult(fusion);
@@ -7734,6 +7747,7 @@ return out;
         ouvrages: ouvrages3D,
         finition_mur: formFinitionMur || undefined,
         delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
+        debord_panne: formDebordPanne === "" ? undefined : parseFloat(formDebordPanne),
         sk: zoneInfo ? zoneInfo.sk : undefined,
         dS: zoneInfo ? zoneInfo.dS : undefined,
       });
@@ -7834,6 +7848,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
   if (finalParams.solaire) parsed._solaire = finalParams.solaire;
   if (finalParams.debord) parsed._debord = finalParams.debord;
   if (typeof finalParams.delardement === "number") parsed._delardement = finalParams.delardement;
+  if (typeof finalParams.debord_panne === "number") parsed._debordPanne = finalParams.debord_panne;
   if (finalParams.essence) parsed._essence = finalParams.essence;
   if (finalParams.finition) parsed._finition = finalParams.finition;
   if (zoneInfo) { parsed._sk = zoneInfo.sk; parsed._dS = zoneInfo.dS; }
@@ -7857,6 +7872,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         solaire: finalParams.solaire || undefined,
         debord: finalParams.debord || undefined,
         delardement: finalParams.delardement,
+        debord_panne: finalParams.debord_panne,
         essence: finalParams.essence || undefined,
         finition: finalParams.finition || undefined,
         sk: zoneInfo ? zoneInfo.sk : undefined,
@@ -7973,6 +7989,7 @@ const loadProjectDetails = (project) => {
         solaire: project.devis_data._solaire || undefined,
         debord: project.devis_data._debord || undefined,
         delardement: project.devis_data._delardement,
+        debord_panne: project.devis_data._debordPanne,
         essence: project.devis_data._essence || undefined,
         finition: project.devis_data._finition || undefined,
         ouvrages: project.devis_data._ouvrages3D || undefined,
@@ -8209,6 +8226,7 @@ const loadProjectDetails = (project) => {
       pente: formPente ? parseFloat(formPente) : undefined,
       debord: formDebord ? parseFloat(formDebord) / 100 : undefined,
       delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
+      debord_panne: formDebordPanne === "" ? undefined : parseFloat(formDebordPanne),
     };
     // Construit aussi une description textuelle propre (pour l'IA de generation)
     const parts = [];
@@ -8678,6 +8696,14 @@ return (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input value={formDelardement} onChange={e => setFormDelardement(e.target.value)} type="number" placeholder="15" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>mm (plat coupe sur le dessus des pannes)</span>
+                </div>
+              </div>
+              {/* Debord de panne */}
+              <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Debord de panne</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input value={formDebordPanne} onChange={e => setFormDebordPanne(e.target.value)} type="number" placeholder="50" style={{ ...inputStyle, maxWidth: 100 }} />
+                  <span style={{ color: "#545870", fontSize: 12 }}>cm (queue de panne de chaque cote, au pignon)</span>
                 </div>
               </div>
               {/* Couverture */}
