@@ -861,7 +861,7 @@ function buildScene3D(scene, params, opts) {
   // DEBORD DE PANNE (m) : la queue de panne qui ressort au pignon pour porter le chevron
   // de rive. Saisi en CENTIMETRES dans le formulaire, 50 par defaut.
   const debordPanne = Math.max(0, (params.debord_panne === undefined || params.debord_panne === null || params.debord_panne === "")
-    ? 50 : (parseFloat(params.debord_panne) || 0)) / 100;
+    ? 60 : (parseFloat(params.debord_panne) || 0)) / 100;
   const typeProjet = params.type_projet || "charpente_trad";
 
   // Helper sections EC5 : si opts.sections[nom] existe, l'utilise (mm->m), sinon fallback
@@ -1884,9 +1884,18 @@ setPiece("Chevron");
     };
     // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
     fermeXs.forEach((fx) => chevronXs.push(fx));
-    // Chevrons de rive : au bord du depasse de pignon (portes par les queues de panne)
-    if (debG > 0.05) chevronXs.push(-(L/2 + debG - chB/2));
-    if (debD > 0.05) chevronXs.push(L/2 + debD - chB/2);
+    // Les queues de panne se calepinent comme le reste du toit : on remplit le debord au
+    // MEME entraxe, et le dernier chevron - le chevron de rive - vient au nu du bout de panne.
+    // Un debord de 60 cm vaut donc exactement une travee de chevron, d ou le defaut.
+    const chevronsDebord = (signe, dp) => {
+      if (dp <= 0.05) return;
+      const xBout = L/2 + dp - chB/2;                              // axe du chevron de rive
+      const zone = xBout - L/2;
+      const nb = Math.max(1, Math.ceil(zone / ENTRAXE_CHEVRON_MAX));
+      for (let k = 1; k <= nb; k++) chevronXs.push(signe * (L/2 + (k / nb) * zone));
+    };
+    chevronsDebord(1, dpD);
+    chevronsDebord(-1, dpG);
     chevronXs.forEach((x) => {
       addChevronOnglet(x, 1);   // pan Z+
       addChevronOnglet(x, -1);  // pan Z-
@@ -1900,10 +1909,10 @@ setPiece("Chevron");
     const ext = dPerpCouv * Math.tan(ang);
     const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
     const plCouv = pl + ext + extBas;
-    const panW = L + rivG + rivD + debLX;
+    const panW = L + dpLX;                        // la couverture couvre les queues de panne
     const panH = plCouv;
     const tradRoofMat = makeRoofMaterial(couv, panW, panH);
-    const cXpan = debCX + (rivD - rivG) / 2;
+    const cXpan = dpCX;
     // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut + extBas/2 vers le bas
     const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
     const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
@@ -5623,7 +5632,7 @@ const [formCustomError, setFormCustomError] = useState(""); // erreur de coheren
 const [formPenteUnite, setFormPenteUnite] = useState("deg"); // "deg" ou "pourcent" - formPente reste TOUJOURS en degres
 const [formDebord, setFormDebord] = useState(""); // depasse de toiture en cm (vide = 0)
 const [formDelardement, setFormDelardement] = useState("15"); // delardement des pannes en mm
-const [formDebordPanne, setFormDebordPanne] = useState("50"); // queue de panne au pignon, en cm
+const [formDebordPanne, setFormDebordPanne] = useState("60"); // queue de panne au pignon, en cm
 const [nomProjet, setNomProjet] = useState("");
 const [is3DFullscreen, setIs3DFullscreen] = useState(false);
 const viewer3DContainerRef = useRef(null);
@@ -8702,7 +8711,7 @@ return (
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Debord de panne</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <input value={formDebordPanne} onChange={e => setFormDebordPanne(e.target.value)} type="number" placeholder="50" style={{ ...inputStyle, maxWidth: 100 }} />
+                  <input value={formDebordPanne} onChange={e => setFormDebordPanne(e.target.value)} type="number" placeholder="60" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>cm (queue de panne de chaque cote, au pignon)</span>
                 </div>
               </div>
