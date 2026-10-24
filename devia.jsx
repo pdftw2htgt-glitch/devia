@@ -8883,6 +8883,9 @@ return (
                   style={{ border: "2px dashed #1e2231", borderRadius: 8, padding: 20, textAlign: "center", cursor: "pointer", color: "#545870" }}>
                   <div style={{ marginBottom: 6, display: "flex", justifyContent: "center" }}>{renderIcon("paperclip", 24, cl("#7a7d92", "#5f6374"))}</div>
                   <div style={{ fontSize: 13 }}>Cliquez pour ajouter des fichiers</div>
+                  <div style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.45, color: cl("#7a7d92", "#5f6374") }}>
+                    Plan net, cotes et écritures lisibles : DEVIA lit les chiffres écrits sur le document.
+                  </div>
                   {files.length > 0 && (
                     <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center" }}>
                       {files.map((f, i) => <Badge key={i} color="#60a5fa">{f.name}</Badge>)}
