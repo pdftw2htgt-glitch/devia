@@ -1815,12 +1815,16 @@ setPiece("Ferme");
       if (lienPortee > 0.25) {
         // Ils arrivent SOUS LA FAITIERE, pas sous l axe du faitage : la panne est plus haut
         // que la ligne de rampant, et les liens s arretaient 27 cm trop bas, dans le vide.
-        const yHautLien = ySousFaitiere;                // arrivee : sous-face reelle de la faitiere
-        const yBasLien = yHautLien - lienPortee;        // depart sur le poincon (echarpe a 45deg)
+        // La coupe droite a 45deg ne touchait la faitiere que par son arete haute : il
+        // restait un coin d air sous la panne. On prolonge l echarpe le long de son axe
+        // pour que toute la section morde dedans. Le pied sur le poincon ne bouge pas.
+        const ancrageLien = Math.min(lienSec * Math.SQRT1_2 / 2 + 0.02, pfH0 * 0.4);
+        const yHautLien = ySousFaitiere + ancrageLien;  // arrivee : ancree dans la faitiere
+        const yBasLien = ySousFaitiere - lienPortee;    // depart sur le poincon (echarpe a 45deg)
         const estPremiereFerme = (i === 0);
         const estDerniereFerme = (i === nbFermes);
-        if (!estDerniereFerme) addBeam(x, yBasLien, 0, x + lienPortee, yHautLien, 0, lienSec, woodMat); // vers X+
-        if (!estPremiereFerme) addBeam(x, yBasLien, 0, x - lienPortee, yHautLien, 0, lienSec, woodMat); // vers X-
+        if (!estDerniereFerme) addBeam(x, yBasLien, 0, x + lienPortee + ancrageLien, yHautLien, 0, lienSec, woodMat); // vers X+
+        if (!estPremiereFerme) addBeam(x, yBasLien, 0, x - lienPortee - ancrageLien, yHautLien, 0, lienSec, woodMat); // vers X-
       }
 
       // CONTREFICHES (jambes de force du bas du poincon vers les arbaletriers)
