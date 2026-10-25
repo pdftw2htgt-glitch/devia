@@ -1813,7 +1813,9 @@ setPiece("Ferme");
       const lienSec = 0.07;
       const lienPortee = Math.min(0.7, L / (2 * nbFermes) - 0.1); // ne pas depasser la mi-travee
       if (lienPortee > 0.25) {
-        const yHautLien = yFait - 0.10;                 // arrivee : sous la faitiere
+        // Ils arrivent SOUS LA FAITIERE, pas sous l axe du faitage : la panne est plus haut
+        // que la ligne de rampant, et les liens s arretaient 27 cm trop bas, dans le vide.
+        const yHautLien = ySousFaitiere;                // arrivee : sous-face reelle de la faitiere
         const yBasLien = yHautLien - lienPortee;        // depart sur le poincon (echarpe a 45deg)
         const estPremiereFerme = (i === 0);
         const estDerniereFerme = (i === nbFermes);
