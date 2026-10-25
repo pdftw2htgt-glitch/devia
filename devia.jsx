@@ -1490,6 +1490,33 @@ function buildScene3D(scene, params, opts) {
     if (plein === false) metre[metre.length - 1].profil = { pts: pts, len: lgX, axe: "x" };
   };
 
+  // ===== POINCON A TETE ENCOCHEE =====
+  // Le poincon monte jusqu au DESSUS de la panne faitiere et la recoit dans une encoche :
+  // deux joues de part et d autre, la faitiere assise entre elles. C est l assemblage de base
+  // d une ferme latine. Prisme file selon X, section dessinee dans le plan (z, y) : elle n est
+  // pas convexe a cause de l encoche, d ou l extrusion plutot qu un eventail de triangles.
+  const addPoinconEncoche = (x, b, h, yBas, yHaut, encB, encH) => {
+    const encBr = Math.min(encB, h - 0.02);                  // au moins 1 cm de joue de chaque cote
+    const encHr = Math.min(encH, (yHaut - yBas) - 0.05);     // l encoche n avale jamais tout le poincon
+    const cont = [
+      [-h / 2, yBas], [h / 2, yBas], [h / 2, yHaut],
+      [encBr / 2, yHaut], [encBr / 2, yHaut - encHr], [-encBr / 2, yHaut - encHr], [-encBr / 2, yHaut],
+      [-h / 2, yHaut],
+    ];
+    const shp = new THREE.Shape();
+    shp.moveTo(cont[0][0], cont[0][1]);
+    for (let i = 1; i < cont.length; i++) shp.lineTo(cont[i][0], cont[i][1]);
+    shp.closePath();
+    const geo = new THREE.ExtrudeGeometry(shp, { depth: b, bevelEnabled: false });
+    const m = new THREE.Mesh(geo, woodMat);
+    m.rotation.y = Math.PI / 2;                              // le contour part sur Z, l extrusion sur X
+    m.position.set(x - b / 2, 0, 0);
+    m.castShadow = true;
+    scene.add(m);
+    // Metre : section nominale et longueur hors tout. L encoche est un usinage, comme le delardement.
+    logPiece(b, h, yHaut - yBas, { pos: [x, (yBas + yHaut) / 2, 0], rot: null, quat: null });
+  };
+
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
   const addBeam = (x1, y1, z1, x2, y2, z2, thick, mat) => {
     const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
@@ -1694,25 +1721,27 @@ setPiece("Ferme");
     // Chaque ferme = entrait + 2 arbaletriers + poincon + 2 contrefiches
     const entraxeFOpt = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente, params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
     const nbFermes = Math.max(1, Math.round(L / entraxeFOpt));
-    // Arbaletrier = prisme a COUPES VERTICALES, comme les chevrons : onglet au faitage (les deux
-    // pans s emboitent au lieu de se traverser) et coupe d aplomb a l egout.
+    // Arbaletrier = prisme a COUPES VERTICALES : il ne monte plus jusqu a l axe du faitage,
+    // il vient MOURIR SUR LA JOUE DU POINCON, ou il serait tenonne. Coupe d aplomb a l egout.
+    const [poBa, poHa] = sec("Poincon", 0.18, 0.18);
     const addArbaOnglet = (x, signZ, arBw, arHw) => {
       const cosAa = Math.cos(ang), tanAa = Math.tan(ang);
       const dvA = (arHw / 2) / cosAa;                 // demi-hauteur mesuree a la verticale
       const yAxe = (z) => Ht + hf - z * tanAa;        // axe du rampant
       const zE = lg / 2;
-      const yB0 = yAxe(0) - dvA, yH0 = yAxe(0) + dvA;    // about faitage
+      const z0 = Math.max(0.02, poHa / 2 - 0.03);     // l arbaletrier entre de 3 cm dans le poincon (tenon)
+      const yB0 = yAxe(z0) - dvA, yH0 = yAxe(z0) + dvA;  // about contre le poincon
       const yBE = yAxe(zE) - dvA, yHE = yAxe(zE) + dvA;  // about egout
       const xa = x - arBw / 2, xb = x + arBw / 2;
       const s = signZ;
       const pos = [];
       const quad = (a, b, c, d) => { pos.push(...a, ...b, ...c, ...a, ...c, ...d); };
-      const A1=[xa,yB0,0], B1=[xa,yH0,0], C1=[xa,yHE,s*zE], D1=[xa,yBE,s*zE];
-      const A2=[xb,yB0,0], B2=[xb,yH0,0], C2=[xb,yHE,s*zE], D2=[xb,yBE,s*zE];
+      const A1=[xa,yB0,s*z0], B1=[xa,yH0,s*z0], C1=[xa,yHE,s*zE], D1=[xa,yBE,s*zE];
+      const A2=[xb,yB0,s*z0], B2=[xb,yH0,s*z0], C2=[xb,yHE,s*zE], D2=[xb,yBE,s*zE];
       quad(A1,B1,C1,D1); quad(A2,D2,C2,B2);          // 2 joues
       quad(B1,B2,C2,C1);                              // extrados
       quad(A1,D1,D2,A2);                              // intrados
-      quad(A1,A2,B2,B1);                              // about faitage (coupe d onglet verticale)
+      quad(A1,A2,B2,B1);                              // about contre le poincon (coupe verticale)
       quad(D1,C1,C2,D2);                              // about egout (coupe d aplomb)
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
@@ -1720,7 +1749,7 @@ setPiece("Ferme");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(arBw, arHw, zE / cosAa, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
+      logPiece(arBw, arHw, (zE - z0) / cosAa, { pos: [x, (yB0 + yHE) / 2, s * (z0 + zE) / 2], rot: [s * ang, 0, 0], quat: null });
     };
     // Un mur pignon maconne porte lui-meme les pannes dans ses reservations : il n y a donc
     // PAS de ferme en rive. En dessiner une la noierait dans le beton (arbaletriers visibles
@@ -1730,6 +1759,14 @@ setPiece("Ferme");
     const sansFermeGauche = pignonPorteur && (smfF === "pignon_gauche") === false;
     const sansFermeDroite = pignonPorteur && (smfF === "pignon_droit") === false;
     if (sansFermeGauche || sansFermeDroite) console.log("[DEVIA] Ferme de rive supprimee : le pignon maconne porte les pannes");
+    // Tete du poincon : il passe SOUS la faitiere et la PORTE. Son dessus s arrete a la
+    // sous-face de la panne, et l embrevement creuse dedans la cale lateralement. Les joues
+    // ne montent donc que de la profondeur de l encoche : le poincon soutient, il n enserre pas.
+    // Memes formules que la pose de la faitiere plus bas - dPerp0 vaut dPerpSousChevron.
+    const EMBREVEMENT_FAITIERE = 0.04;              // profondeur de l encoche sous la faitiere (m)
+    const yFaitierePoincon = Ht + hf + dPerp0 / cosA0 - (pfB0 / 2) * tanA0 + delardement - pfH0 / 2;
+    const ySousFaitiere = yFaitierePoincon - pfH0 / 2;
+    const yTetePoincon = ySousFaitiere + EMBREVEMENT_FAITIERE;
     const fermeXs = [];
     const fermesDessinees = [];
     for (let i = 0; i <= nbFermes; i++) {
@@ -1750,10 +1787,10 @@ setPiece("Ferme");
       addArbaOnglet(x, 1, arB, arH);
       addArbaOnglet(x, -1, arB, arH);
 
-      // POINCON (poteau vertical central, du faitage a l'entrait)
+      // POINCON : de l entrait jusqu au dessus de la faitiere, qu il porte dans son encoche.
       setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.18, 0.18);
-      addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
+      addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB0, EMBREVEMENT_FAITIERE);
 
       // LIENS DE FAITAGE (echarpes ~45deg du poincon vers la sous-face de la faitiere)
       // Contreventement longitudinal : 2 liens par ferme intermediaire, 1 seul vers l'interieur en pignon
