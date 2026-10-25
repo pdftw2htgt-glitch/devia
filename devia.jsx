@@ -1181,7 +1181,29 @@ function buildScene3D(scene, params, opts) {
   // axe "x" : mur de pignon (contour tourne d un quart de tour, epaisseur selon X)
   // ATTENTION : pos enregistre l ORIGINE du contour (son point 0,0), pas le centre de la
   // piece - c est ce que le placement IFC attend pour poser le profil au bon endroit.
-  const drawMurPerce = (axe, posFixe, contour, trous, ep, nom) => {
+  // ===== COUPE D ONGLET AUX ANGLES =====
+  // Deux murs qui se croisent a un angle se recouvrent sur une demi-epaisseur et laissent
+  // le quart exterieur VIDE : d ou l angle qui ne se ferme pas. L onglet corrige les deux :
+  // a l extremite concernee, la face EXTERIEURE s allonge d une demi-epaisseur et la face
+  // INTERIEURE se raccourcit d autant. Les deux murs se rejoignent alors exactement, sur un
+  // joint a 45 degres, sans vide ni recouvrement - et le volume ne change pas d un litre,
+  // ce que l un perd, l autre le gagne.
+  // sensEp : +1 si la face exterieure du mur est du cote des coordonnees croissantes.
+  const couperOnglet = (geo, ep, sensEp, uMin, uMax, ongMin, ongMax) => {
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i), w = pos.getZ(i);
+      // w va de 0 a ep (sens de l extrusion) : dehors vaut +0,5 sur la face exterieure
+      // et -0,5 sur l interieure.
+      const dehors = (sensEp > 0) ? (w / ep - 0.5) : (0.5 - w / ep);
+      if (ongMax === true && Math.abs(u - uMax) < 0.000001) pos.setX(i, u + ep * dehors);
+      else if (ongMin === true && Math.abs(u - uMin) < 0.000001) pos.setX(i, u - ep * dehors);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+  };
+
+  const drawMurPerce = (axe, posFixe, contour, trous, ep, nom, onglets) => {
     const shp = new THREE.Shape();
     shp.moveTo(contour[0][0], contour[0][1]);
     for (let i = 1; i < contour.length; i++) shp.lineTo(contour[i][0], contour[i][1]);
@@ -1197,6 +1219,11 @@ function buildScene3D(scene, params, opts) {
       trousOk.push(t);
     });
     const geo = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
+    if (onglets && (onglets.min === true || onglets.max === true)) {
+      let uMin = contour[0][0], uMax = contour[0][0];
+      contour.forEach((q) => { if (q[0] < uMin) uMin = q[0]; if (q[0] > uMax) uMax = q[0]; });
+      couperOnglet(geo, ep, posFixe >= 0 ? 1 : -1, uMin, uMax, onglets.min, onglets.max);
+    }
     const m = new THREE.Mesh(geo, betonMat);
     if (axe === "x") { m.rotation.y = Math.PI / 2; m.position.set(posFixe - ep / 2, 0, 0); }
     else { m.position.set(0, 0, posFixe - ep / 2); }
@@ -1239,7 +1266,7 @@ function buildScene3D(scene, params, opts) {
 
   // ===== MUR DE PIGNON : UNE piece, du sol jusqu au rampant =====
   // htTri a 0 (toit sans rampant de pignon, comme un 4 pans) arrete le mur a l horizontale.
-  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep, reservations, avecPorte) => {
+  const drawPignonBeton = (xPos, lgb, Hb, htTri, ep, reservations, avecPorte, onglets) => {
     // Le macon ne laisse pas un trou ferme autour d une panne : il descend le mur sous elle.
     // Chaque panne donne donc une ENCOCHE ouverte par le haut, ou la panne vient se poser.
     const res = (reservations || [])
@@ -1296,7 +1323,7 @@ function buildScene3D(scene, params, opts) {
       trous.push([[-pw / 2, 0.05], [pw / 2, 0.05], [pw / 2, phP], [-pw / 2, phP]]);
     }
     console.log("[DEVIA] Pignon : " + nbEnc + " encoche(s) de panne, sommet a " + ySommet.toFixed(2) + " m");
-    drawMurPerce("x", xPos, cont, trous, ep, "Mur pignon beton");
+    drawMurPerce("x", xPos, cont, trous, ep, "Mur pignon beton", onglets);
   };
 
   const drawMursBeton = (Lb, lgb, Hb, reservations) => {
@@ -1327,12 +1354,24 @@ function buildScene3D(scene, params, opts) {
       baiesAv.push(pf);
     }
     const rectMur = [[-Lb / 2, 0], [Lb / 2, 0], [Lb / 2, Hb], [-Lb / 2, Hb]];
+    // Un bout de mur ne se coupe en onglet que s il a vraiment un voisin a rencontrer :
+    // au droit d un volume accole, il n y a pas de mur en face et le biseau resterait en l air.
+    const pignonsLa = ((params && params.pignon) || "plein") !== "aucun";
+    const aPignonG = pignonsLa && (sansFace === "pignon_gauche") === false;
+    const aPignonD = pignonsLa && (sansFace === "pignon_droit") === false;
+    const aGouttAv = (sansFace === "gouttereau_avant") === false;
+    const aGouttAr = (sansFace === "gouttereau_arriere") === false;
+    // Gouttereau : son contour va de -Lb/2 (pignon gauche) a +Lb/2 (pignon droit).
+    const ongGout = { min: aPignonG, max: aPignonD };
+    // Pignon : son contour va de -lgb/2 a +lgb/2, et le quart de tour envoie le MIN sur le
+    // gouttereau avant (z positif) et le MAX sur l arriere.
+    const ongPign = { min: aGouttAv, max: aGouttAr };
     const baiesEnTrous = (baies) => baies
       .filter((f) => f.cx - f.w / 2 > -Lb / 2 + 0.3 && f.cx + f.w / 2 < Lb / 2 - 0.3
         && f.y1 - f.y0 > 0.1 && f.y1 < Hb - 0.05 && f.y0 > 0.04)
       .map((f) => [[f.cx - f.w / 2, f.y0], [f.cx + f.w / 2, f.y0], [f.cx + f.w / 2, f.y1], [f.cx - f.w / 2, f.y1]]);
-    if ((sansFace === "gouttereau_avant") === false) drawMurPerce("z", lgb / 2, rectMur, baiesEnTrous(baiesAv), ep, "Mur beton");
-    if ((sansFace === "gouttereau_arriere") === false) drawMurPerce("z", -lgb / 2, rectMur, baiesEnTrous(baiesAr), ep, "Mur beton");
+    if (aGouttAv) drawMurPerce("z", lgb / 2, rectMur, baiesEnTrous(baiesAv), ep, "Mur beton", ongGout);
+    if (aGouttAr) drawMurPerce("z", -lgb / 2, rectMur, baiesEnTrous(baiesAr), ep, "Mur beton", ongGout);
 
     // --- PIGNONS : UNE piece chacun, du sol au rampant, porte percee au pignon avant ---
     const modePignon = (params && params.pignon) || "plein";
@@ -1348,11 +1387,11 @@ function buildScene3D(scene, params, opts) {
       if (aDesPannes === false) console.log("[DEVIA] Pas de rampant de pignon sur ce toit : murs arretes a l horizontale");
       else if (triActif) console.log("[DEVIA] Pignons maconnes jusqu aux rampants (triangle " + htTriangle.toFixed(2) + " m)");
       else console.log("[DEVIA] Pignons arretes a la sabliere");
-      if ((sansFace === "pignon_droit") === false) {
-        drawPignonBeton(Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], true);
+      if (aPignonD) {
+        drawPignonBeton(Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], true, ongPign);
       }
-      if ((sansFace === "pignon_gauche") === false) {
-        drawPignonBeton(-Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], false);
+      if (aPignonG) {
+        drawPignonBeton(-Lb / 2, lgb, Hb, triActif ? htTriangle : 0, ep, triActif ? reservations : [], false, ongPign);
       }
     }
 
