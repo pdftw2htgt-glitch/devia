@@ -22,3 +22,10 @@ npm-debug.log*
 devia.jsx.backup_*
 scripts/
 *.backup_*
+
+# Scripts de modification deja appliques et sauvegardes horodatees :
+# ils restent sur le disque, hors du depot et hors du deploiement.
+_sauvegardes/
+*.bak
+*.bak-*
+*.bak_*

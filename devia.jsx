@@ -70,7 +70,7 @@ const PLANCHER_METIER = {
 //             renseignee elle REMPLACE le motif dessine ; le motif sert alors de repli
 //             si l image manque. Une photo doit etre REPETABLE bord a bord.
 const FINITIONS_MUR = {
-  "":      { label: "Beton apparent",   couleur: 0xb4b4b8, rugosite: 0.95, texture: "beton_mur.png", motif: null,    taille: 2.5 },
+  "":      { label: "Beton apparent",   couleur: 0xb4b4b8, rugosite: 0.95, texture: "beton_mur.jpg", motif: null,    taille: 2.5 },
   crepi:   { label: "Crepi",            couleur: 0xe9e3d7, rugosite: 1.00, texture: "crepi.jpg",     motif: "grain", taille: 0.6 },
   enduit:  { label: "Enduit lisse",     couleur: 0xdbd7d4, rugosite: 0.75, texture: "enduit.jpg",    motif: null,    taille: 1.0 },
   brique:  { label: "Brique",           couleur: 0x8f8b87, rugosite: 0.90, texture: "brique.jpg",    motif: "brique", taille: 1.25 },
@@ -955,10 +955,10 @@ function buildScene3D(scene, params, opts) {
         () => { if (onFail) onFail(); }
       );
     };
-    // png -> jpg -> fallback epicea (si la texture de l'essence n'existe pas encore)
-    const chargeEssence = () => tryLoad(code, "png", () => tryLoad(code, "jpg", () => {
+    // jpg -> png -> repli epicea (les textures sont en JPEG, le PNG reste accepte)
+    const chargeEssence = () => tryLoad(code, "jpg", () => tryLoad(code, "png", () => {
       if (code !== "bois_epicea") {
-        loader.load("/textures/bois_epicea.png", (img) => {
+        loader.load("/textures/bois_epicea.jpg", (img) => {
           img.colorSpace = THREE.SRGBColorSpace;
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
@@ -970,7 +970,7 @@ function buildScene3D(scene, params, opts) {
       }
     }));
     if (codeFin.length > 0) {
-      tryLoad(codeFin, "png", () => tryLoad(codeFin, "jpg", chargeEssence));
+      tryLoad(codeFin, "jpg", () => tryLoad(codeFin, "png", chargeEssence));
     } else {
       chargeEssence();
     }
@@ -1054,7 +1054,7 @@ function buildScene3D(scene, params, opts) {
       else if (essB.includes("pin")) codeB = "bardage_pin";
       const loaderB = new THREE.TextureLoader();
       const chargeB = (base, onFail) => {
-        loaderB.load("/textures/" + base + ".png", (img) => {
+        loaderB.load("/textures/" + base + ".jpg", (img) => {
           img.colorSpace = THREE.SRGBColorSpace;
           img.wrapS = THREE.RepeatWrapping;
           img.wrapT = THREE.RepeatWrapping;
@@ -1655,8 +1655,8 @@ function buildScene3D(scene, params, opts) {
           () => { if (onFail) onFail(); }
         );
       };
-      // essaie .png puis .jpg
-      tryLoad("png", () => tryLoad("jpg", null));
+      // essaie .jpg puis .png
+      tryLoad("jpg", () => tryLoad("png", null));
     }
     return mat;
   };
@@ -2353,6 +2353,8 @@ setPiece("Liteau");
   // HANGAR (poteaux + 2 pans, sans murs, grande portee)
   // ============================================================
   const drawHangar = () => {
+    // Debord de panne au pignon, commun a toutes les pieces filantes du hangar.
+    const dpH0 = Math.max(debordPanne, 0.4);
     // ===== DALLE BETON (apparente) =====
     drawDalleBeton(L, lg, 0.3);
 
@@ -2374,8 +2376,8 @@ setPiece("Poteau");
 setPiece("Sabliere");
     // ===== SABLIERES (longues poutres sur les poteaux) =====
     const [sbB, sbH] = sec("Sabliere", 0.20, 0.20);
-    addBox(L + 0.4, sbH, sbB, 0, Ht, lg/2, woodMat);
-    addBox(L + 0.4, sbH, sbB, 0, Ht, -lg/2, woodMat);
+    addBox(L + 2 * dpH0, sbH, sbB, 0, Ht, lg/2, woodMat);
+    addBox(L + 2 * dpH0, sbH, sbB, 0, Ht, -lg/2, woodMat);
 
 setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
@@ -2426,7 +2428,7 @@ setPiece("Ferme");
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
     const [pfw, pfh] = sec("Panne faitiere", 0.16, 0.16);
-    addBox(L + 0.5, pfw, pfh, 0, yFait, 0, woodMat);
+    addBox(L + 2 * dpH0, pfw, pfh, 0, yFait, 0, woodMat);
 
     // ===== PANNES D APLOMB (droites, calees par echantignoles - pattern trad) =====
     setPiece("Panne");
@@ -2442,8 +2444,8 @@ setPiece("Panne faitiere");
       const zRefH = (lg/2) * (1 - t) + (arHH/2) * sinAH;
       const yPH = yRefH + (pw/2) * tanAH + eEchH + ph/2;
       pannesInfoH.push({ zRefH, yRefH });
-      addBox(L + 0.4, ph, pw, 0, yPH, zRefH, woodMat);
-      addBox(L + 0.4, ph, pw, 0, yPH, -zRefH, woodMat);
+      addPanneDelardee(L + 2 * dpH0, ph, pw, 0, yPH, zRefH, tanAH, 1, delardement, woodMat);
+      addPanneDelardee(L + 2 * dpH0, ph, pw, 0, yPH, -zRefH, tanAH, -1, delardement, woodMat);
     }
 
 setPiece("Echantignole");
@@ -2503,7 +2505,9 @@ setPiece("Echantignole");
       }
     }
     // Chevrons poses SUR les pannes d aplomb (offset perpendiculaire - pattern trad)
-    const dPerpChevH = arHH/2 + (ph + eEchH) * cosAH + chH/2;
+    // Le chevron porte sur l arete AVAL du dessus de la panne, moins le delardement :
+    // la largeur de la panne entre donc dans la hauteur du plan porteur.
+    const dPerpChevH = arHH/2 + (ph + eEchH - delardement) * cosAH + pw * sinAH + chH/2;
     // Chevron = prisme a COUPES VERTICALES (pattern trad) : onglet au faitage (z=0),
     // coupe d aplomb a l egout. Rampant du pan : y(z) = Ht + hf - z x tan(ang)
     const addChevronOngletH = (x, signZ) => {
@@ -2546,7 +2550,7 @@ setPiece("Echantignole");
     const ralT = dPerp * tanAH;
     const plToit = pl + ralT;
     const hangarRoofMat = makeRoofMaterial(couv, L, plToit);
-    const rg = new THREE.PlaneGeometry(L + 0.8, plToit);
+    const rg = new THREE.PlaneGeometry(L + 2 * dpH0, plToit);
     const dY = dPerp * Math.cos(ang) + (ralT/2) * sinAH;
     const dZ = dPerp * Math.sin(ang) - (ralT/2) * cosAH;
     const r1 = new THREE.Mesh(rg, hangarRoofMat);
@@ -3198,7 +3202,7 @@ setPiece("Sabliere");
 setPiece("Faitage");
     // ===== FAITAGE (central) : il porte les abouts hauts des chevrons =====
     const [ftB, ftH] = sec("Faitage", 0.15, 0.15);
-    addBox(Lfait, ftH, ftB, 0, yFait - SOUS_CHEV_Q - ftH / 2, 0, woodMat);
+    addPanneDelardee(Lfait, ftH, ftB, 0, yFait - SOUS_CHEV_Q - (ftB / 2) * tanQ + delardement - ftH / 2, 0, tanQ, 0, delardement, woodMat);
 
 setPiece("Aretier");
     // ===== ARETIERS (faitage -> 4 coins) =====
@@ -3221,9 +3225,9 @@ setPiece("Panne");
       const zPanne = (lg / 2) * (1 - t);
       const lenPanne = Lfait + (L - Lfait) * (1 - t);
       const [pnB, pnH] = sec("Panne", 0.12, 0.24);
-      const yPanneQ = yPanne - SOUS_CHEV_Q + (pnB / 2) * tanQ - pnH / 2;
-      addBox(lenPanne, pnH, pnB, 0, yPanneQ, zPanne, woodMat);
-      addBox(lenPanne, pnH, pnB, 0, yPanneQ, -zPanne, woodMat);
+      const yPanneQ = yPanne - SOUS_CHEV_Q - (pnB / 2) * tanQ + delardement - pnH / 2;
+      addPanneDelardee(lenPanne, pnH, pnB, 0, yPanneQ, zPanne, tanQ, 1, delardement, woodMat);
+      addPanneDelardee(lenPanne, pnH, pnB, 0, yPanneQ, -zPanne, tanQ, -1, delardement, woodMat);
     }
 
 setPiece("Chevron");
