@@ -1892,44 +1892,34 @@ setPiece("Echantignole");
     // ===== ECHANTIGNOLES v2 : dessus HORIZONTAL (la sous-face de la panne repose dessus),
     // base sur le rampant, talon vertical a l'aval qui bloque la panne =====
     const addEchantignole = (fx, zRef, yRef, signZ) => {
-      const eB2 = arB2;                             // largeur = celle de l'arbaletrier
-      const eEch2 = 0.03;                           // epaisseur mini sous le coin amont
+      const eB2 = arB2;                             // largeur = celle de l arbaletrier
+      const eEch2 = 0.03;                           // epaisseur conservee au nu amont
       const tT = 0.05;                              // epaisseur du talon
       const hT = 0.06;                              // hauteur du talon
-      const x1 = fx - eB2/2, x2 = fx + eB2/2;
-      const yTop = yRef + (pnB/2) * tanA + eEch2;   // dessus horizontal = sous-face de la panne (remontee)
-      const z1 = zRef - pnB/2 - eEch2 / tanA;       // pointe : la base rampante rejoint le dessus en amont
-      const z2 = zRef + pnB/2;                      // face aval de la panne
+      const yTop = yRef + (pnB/2) * tanA + eEch2;   // dessus horizontal = sous-face de la panne
+      const z1 = zRef - pnB/2;                      // nu AMONT de la panne : la cale s y arrete net
+      const z2 = zRef + pnB/2;                      // nu aval de la panne
       const z3 = z2 + tT;                           // arriere du talon
-      const yD = yTop - (z3 - z1) * tanA;           // base rampant a l'arriere du talon
+      const yB = yTop - eEch2;                      // pied amont, sur l extrados
+      const yD = yB - (z3 - z1) * tanA;             // pied aval, sur l extrados
       const s = signZ;
-      const A = [0, yTop, s * z1], G = [0, yTop, s * z2], F = [0, yTop + hT, s * z2], E = [0, yTop + hT, s * z3], D = [0, yD, s * z3];
-      const mk = (p, x) => [x, p[1], p[2]];
-      const pos = [];
-      const tri = (p, q, r) => { pos.push(p[0],p[1],p[2], q[0],q[1],q[2], r[0],r[1],r[2]); };
-      const quad = (a, b, c, d) => { tri(a, b, c); tri(a, c, d); };
-      const A1=mk(A,x1), G1=mk(G,x1), F1=mk(F,x1), E1=mk(E,x1), D1=mk(D,x1);
-      const A2=mk(A,x2), G2=mk(G,x2), F2=mk(F,x2), E2=mk(E,x2), D2=mk(D,x2);
-      tri(A1,G1,F1); tri(A1,F1,E1); tri(A1,E1,D1);
-      tri(A2,F2,G2); tri(A2,E2,F2); tri(A2,D2,E2);
-      quad(A1,A2,G2,G1);   // dessus horizontal (support de la panne)
-      quad(G1,G2,F2,F1);   // face avant du talon (contre la panne)
-      quad(F1,F2,E2,E1);   // dessus du talon
-      quad(E1,E2,D2,D1);   // arriere du talon
-      quad(D1,D2,A2,A1);   // base sur le rampant
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
-      g.computeVertexNormals();
+      // Section dans le plan (z, y) : trapeze + talon. Elle n est PAS convexe, d ou
+      // l extrusion (comme la tete du poincon) : l eventail de triangles debordait.
+      const cont = [[yTop, z1], [yTop, z2], [yTop + hT, z2], [yTop + hT, z3], [yD, z3], [yB, z1]];
+      const shp = new THREE.Shape();
+      shp.moveTo(s * cont[0][1], cont[0][0]);
+      for (let q = 1; q < cont.length; q++) shp.lineTo(s * cont[q][1], cont[q][0]);
+      shp.closePath();
+      const g = new THREE.ExtrudeGeometry(shp, { depth: eB2, bevelEnabled: false });
       const m = new THREE.Mesh(g, woodMat);
+      m.rotation.y = -Math.PI / 2;                  // le contour part sur Z, l extrusion sur X
+      m.position.set(fx + eB2 / 2, 0, 0);
       m.castShadow = true;
       scene.add(m);
       // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
       // face du dessus : elle remontait d une demi-hauteur et penetrait dans la panne.
-      // On lui donne son centre reel et son vrai coin a 5 points (comme le delardement).
       const yCe = (yD + yTop + hT) / 2, zCe = s * (z1 + z3) / 2;
-      let ptsE = [[yTop - yCe, s * z1 - zCe], [yTop - yCe, s * z2 - zCe],
-                  [yTop + hT - yCe, s * z2 - zCe], [yTop + hT - yCe, s * z3 - zCe],
-                  [yD - yCe, s * z3 - zCe]];
+      let ptsE = cont.map((q) => [q[0] - yCe, s * q[1] - zCe]);
       let aireE = 0;
       for (let q = 0; q < ptsE.length; q++) {
         const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
@@ -2486,44 +2476,34 @@ setPiece("Panne faitiere");
 setPiece("Echantignole");
     // ===== ECHANTIGNOLES (dessus horizontal, base sur rampant, talon aval - pattern trad) =====
     const addEchantignoleH = (fx, zRef, yRef, signZ) => {
-      const eB2 = arBH;
-      const eEch2 = 0.03;
-      const tT = 0.05;
-      const hT = 0.06;
-      const x1 = fx - eB2/2, x2 = fx + eB2/2;
-      const yTop = yRef + (pw/2) * tanAH + eEch2;
-      const z1 = zRef - pw/2 - eEch2 / tanAH;
-      const z2 = zRef + pw/2;
-      const z3 = z2 + tT;
-      const yD = yTop - (z3 - z1) * tanAH;
+      const eB2 = arBH;                             // largeur = celle de l arbaletrier
+      const eEch2 = 0.03;                           // epaisseur conservee au nu amont
+      const tT = 0.05;                              // epaisseur du talon
+      const hT = 0.06;                              // hauteur du talon
+      const yTop = yRef + (pw/2) * tanAH + eEch2;   // dessus horizontal = sous-face de la panne
+      const z1 = zRef - pw/2;                      // nu AMONT de la panne : la cale s y arrete net
+      const z2 = zRef + pw/2;                      // nu aval de la panne
+      const z3 = z2 + tT;                           // arriere du talon
+      const yB = yTop - eEch2;                      // pied amont, sur l extrados
+      const yD = yB - (z3 - z1) * tanAH;             // pied aval, sur l extrados
       const s = signZ;
-      const A = [0, yTop, s * z1], G = [0, yTop, s * z2], F = [0, yTop + hT, s * z2], E = [0, yTop + hT, s * z3], D = [0, yD, s * z3];
-      const mk = (p, xx) => [xx, p[1], p[2]];
-      const pos = [];
-      const tri = (p, q, r) => { pos.push(p[0],p[1],p[2], q[0],q[1],q[2], r[0],r[1],r[2]); };
-      const quad = (a, b, c, d) => { tri(a, b, c); tri(a, c, d); };
-      const A1=mk(A,x1), G1=mk(G,x1), F1=mk(F,x1), E1=mk(E,x1), D1=mk(D,x1);
-      const A2=mk(A,x2), G2=mk(G,x2), F2=mk(F,x2), E2=mk(E,x2), D2=mk(D,x2);
-      tri(A1,G1,F1); tri(A1,F1,E1); tri(A1,E1,D1);
-      tri(A2,F2,G2); tri(A2,E2,F2); tri(A2,D2,E2);
-      quad(A1,A2,G2,G1);
-      quad(G1,G2,F2,F1);
-      quad(F1,F2,E2,E1);
-      quad(E1,E2,D2,D1);
-      quad(D1,D2,A2,A1);
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
-      g.computeVertexNormals();
+      // Section dans le plan (z, y) : trapeze + talon. Elle n est PAS convexe, d ou
+      // l extrusion (comme la tete du poincon) : l eventail de triangles debordait.
+      const cont = [[yTop, z1], [yTop, z2], [yTop + hT, z2], [yTop + hT, z3], [yD, z3], [yB, z1]];
+      const shp = new THREE.Shape();
+      shp.moveTo(s * cont[0][1], cont[0][0]);
+      for (let q = 1; q < cont.length; q++) shp.lineTo(s * cont[q][1], cont[q][0]);
+      shp.closePath();
+      const g = new THREE.ExtrudeGeometry(shp, { depth: eB2, bevelEnabled: false });
       const m = new THREE.Mesh(g, woodMat);
+      m.rotation.y = -Math.PI / 2;                  // le contour part sur Z, l extrusion sur X
+      m.position.set(fx + eB2 / 2, 0, 0);
       m.castShadow = true;
       scene.add(m);
       // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
       // face du dessus : elle remontait d une demi-hauteur et penetrait dans la panne.
-      // On lui donne son centre reel et son vrai coin a 5 points (comme le delardement).
       const yCe = (yD + yTop + hT) / 2, zCe = s * (z1 + z3) / 2;
-      let ptsE = [[yTop - yCe, s * z1 - zCe], [yTop - yCe, s * z2 - zCe],
-                  [yTop + hT - yCe, s * z2 - zCe], [yTop + hT - yCe, s * z3 - zCe],
-                  [yD - yCe, s * z3 - zCe]];
+      let ptsE = cont.map((q) => [q[0] - yCe, s * q[1] - zCe]);
       let aireE = 0;
       for (let q = 0; q < ptsE.length; q++) {
         const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
