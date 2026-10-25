@@ -1923,7 +1923,21 @@ setPiece("Echantignole");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
+      // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
+      // face du dessus : elle remontait d une demi-hauteur et penetrait dans la panne.
+      // On lui donne son centre reel et son vrai coin a 5 points (comme le delardement).
+      const yCe = (yD + yTop + hT) / 2, zCe = s * (z1 + z3) / 2;
+      let ptsE = [[yTop - yCe, s * z1 - zCe], [yTop - yCe, s * z2 - zCe],
+                  [yTop + hT - yCe, s * z2 - zCe], [yTop + hT - yCe, s * z3 - zCe],
+                  [yD - yCe, s * z3 - zCe]];
+      let aireE = 0;
+      for (let q = 0; q < ptsE.length; q++) {
+        const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
+        aireE += u[0] * w[1] - w[0] * u[1];
+      }
+      if (aireE < 0) ptsE = ptsE.slice().reverse();   // profil IFC : aire positive obligatoire
+      logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+      metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
     };
     pannesInfo.forEach(({ zRef, yRef }) => {
       fermesDessinees.forEach((fx) => {
@@ -2503,7 +2517,21 @@ setPiece("Echantignole");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(eB2, pw * tanAH + hT, pw + tT, { pos: [fx, yTop, s * zRef], rot: null, quat: null });
+      // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
+      // face du dessus : elle remontait d une demi-hauteur et penetrait dans la panne.
+      // On lui donne son centre reel et son vrai coin a 5 points (comme le delardement).
+      const yCe = (yD + yTop + hT) / 2, zCe = s * (z1 + z3) / 2;
+      let ptsE = [[yTop - yCe, s * z1 - zCe], [yTop - yCe, s * z2 - zCe],
+                  [yTop + hT - yCe, s * z2 - zCe], [yTop + hT - yCe, s * z3 - zCe],
+                  [yD - yCe, s * z3 - zCe]];
+      let aireE = 0;
+      for (let q = 0; q < ptsE.length; q++) {
+        const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
+        aireE += u[0] * w[1] - w[0] * u[1];
+      }
+      if (aireE < 0) ptsE = ptsE.slice().reverse();   // profil IFC : aire positive obligatoire
+      logPiece(eB2, pw * tanAH + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+      metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
     };
     pannesInfoH.forEach((pi) => {
       fermeXsH.forEach((fx) => {
