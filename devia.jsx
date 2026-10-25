@@ -1910,10 +1910,14 @@ setPiece("Echantignole");
       shp.moveTo(s * cont[0][1], cont[0][0]);
       for (let q = 1; q < cont.length; q++) shp.lineTo(s * cont[q][1], cont[q][0]);
       shp.closePath();
-      const g = new THREE.ExtrudeGeometry(shp, { depth: eB2, bevelEnabled: false });
+      // 2 mm de plus de chaque cote : a largeur EGALE, les flancs de la cale tombent
+      // exactement dans ceux de l arbaletrier, les deux faces se disputent la meme
+      // profondeur et la cale apparait decoupee. Le metre et l IFC gardent eB2.
+      const eDess = eB2 + 0.004;
+      const g = new THREE.ExtrudeGeometry(shp, { depth: eDess, bevelEnabled: false });
       const m = new THREE.Mesh(g, woodMat);
       m.rotation.y = -Math.PI / 2;                  // le contour part sur Z, l extrusion sur X
-      m.position.set(fx + eB2 / 2, 0, 0);
+      m.position.set(fx + eDess / 2, 0, 0);
       m.castShadow = true;
       scene.add(m);
       // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
@@ -2494,10 +2498,14 @@ setPiece("Echantignole");
       shp.moveTo(s * cont[0][1], cont[0][0]);
       for (let q = 1; q < cont.length; q++) shp.lineTo(s * cont[q][1], cont[q][0]);
       shp.closePath();
-      const g = new THREE.ExtrudeGeometry(shp, { depth: eB2, bevelEnabled: false });
+      // 2 mm de plus de chaque cote : a largeur EGALE, les flancs de la cale tombent
+      // exactement dans ceux de l arbaletrier, les deux faces se disputent la meme
+      // profondeur et la cale apparait decoupee. Le metre et l IFC gardent eB2.
+      const eDess = eB2 + 0.004;
+      const g = new THREE.ExtrudeGeometry(shp, { depth: eDess, bevelEnabled: false });
       const m = new THREE.Mesh(g, woodMat);
       m.rotation.y = -Math.PI / 2;                  // le contour part sur Z, l extrusion sur X
-      m.position.set(fx + eB2 / 2, 0, 0);
+      m.position.set(fx + eDess / 2, 0, 0);
       m.castShadow = true;
       scene.add(m);
       // Le metre garde la cale nominale, mais l IFC recevait une BOITE centree sur la
