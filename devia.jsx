@@ -77,6 +77,21 @@ const FINITIONS_MUR = {
   pierre:  { label: "Pierre apparente", couleur: 0xb0a590, rugosite: 1.00, texture: "pierre.jpg",    motif: "pierre", taille: 2.0 },
 };
 
+// ====== COUVERTURE DANS L EXPORT IFC ======
+// Nom du materiau dans la liste cadwork, et epaisseur apparente de la dalle de toiture (m).
+// Meme regle que pour le bois et le beton : cadwork rapproche PAR LE NOM, en francais accentue.
+// Si un nom ne tombe pas juste, cadwork cree simplement un materiau de plus - rien ne casse,
+// il suffit de corriger la ligne ici.
+const COUVERTURE_CW = {
+  tuile_terre: { nom: "Tuile terre cuite", ep: 0.040 },
+  tuile_beton: { nom: "Tuile b\u00e9ton", ep: 0.040 },
+  ardoise: { nom: "Ardoise", ep: 0.010 },
+  bac_acier: { nom: "Bac acier", ep: 0.008 },
+  zinc: { nom: "Zinc", ep: 0.007 },
+  shingle: { nom: "Bardeau bitum\u00e9", ep: 0.005 },
+  fibrociment: { nom: "Fibrociment", ep: 0.008 },
+};
+
 // Dessine le motif d une finition sur un canvas carre, repetable bord a bord.
 // Garde en cache : la scene est reconstruite plusieurs fois par devis (pre-calcul EC5,
 // rendu, PDF) et un crepi, c est vingt mille grains a poser.
@@ -3450,6 +3465,34 @@ setPiece("Empannon de croupe");
   // est marque ici, le viewer n a plus qu a lire ce drapeau pour tracer les aretes.
   scene.traverse((oM) => { if (oM.isMesh === true && oM.material === woodMat) oM.userData.boisDevia = true; });
 
+  // ===== LA COUVERTURE PART AUSSI A L EXPORT =====
+  // Elle n etait consignee nulle part : ni au metre, ni dans l IFC, donc absente de cadwork.
+  // On la releve ici, a la fin, quel que soit le type de toit : tout mesh portant le drapeau
+  // estCouverture devient une dalle de toiture, orientee par son propre quaternion.
+  // Le metre l ignore (comme le beton) : la couverture reste chiffree au m2 par le devis.
+  (function releveCouverture() {
+    const codeC = String((opts && opts.couverture) || (params && params.couverture) || "tuile_terre");
+    const infoC = COUVERTURE_CW[codeC] || COUVERTURE_CW.tuile_terre;
+    const pans = [];
+    scene.traverse((oC) => {
+      if (oC.isMesh === true && oC.material && oC.material.userData
+          && oC.material.userData.estCouverture === true) pans.push(oC);
+    });
+    pans.forEach((oC) => {
+      oC.updateMatrixWorld(true);
+      if (oC.geometry.boundingBox === null) oC.geometry.computeBoundingBox();
+      const bb = oC.geometry.boundingBox;
+      const w = bb.max.x - bb.min.x, h = bb.max.y - bb.min.y;
+      if (w < 0.05 || h < 0.05) return;                     // garde-fou : jamais une piece degeneree
+      const c = new THREE.Vector3((bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2);
+      c.applyMatrix4(oC.matrixWorld);
+      const q = new THREE.Quaternion();
+      oC.getWorldQuaternion(q);
+      logPiece(w, h, infoC.ep, { pos: [c.x, c.y, c.z], rot: null, quat: [q.x, q.y, q.z, q.w] }, "Couverture", "couverture");
+    });
+    if (pans.length > 0) console.log("[DEVIA] Couverture exportee : " + pans.length + " pan(s), " + infoC.nom);
+  })();
+
   return { yCentre, metre, densiteBois, essence };
 }
 import { useAuth } from "./src/hooks/useAuth.js";
@@ -4506,6 +4549,7 @@ function genererIFC(metre, params) {
   // --- Classe IFC d apres le role de la piece (un logiciel de charpente s en sert) ---
   const classeDe = (p) => {
     const n = String((p && p.nom) || "").toLowerCase();
+    if (p && p.matiere === "couverture") return ["IFCSLAB", ".ROOF."];
     if (p && p.matiere === "beton") {
       if (n.indexOf("dalle") >= 0 || n.indexOf("plancher") >= 0) return ["IFCSLAB", ".FLOOR."];
       return ["IFCWALL", ".SOLIDWALL."];
@@ -4522,6 +4566,7 @@ function genererIFC(metre, params) {
   const memberIds = [];
   const idsBois = [];
   const idsBeton = [];
+  const idsCouv = [];
   piecesBois.forEach((p, iP) => {
     // --- Element maconne plan : UNE piece, contour reel et baies percees ---
     // murP = { contour, trous, ep, axe } pour les murs et les pignons.
@@ -4618,7 +4663,9 @@ function genererIFC(metre, params) {
       const memD = nextId();
       E(memD, clsD[0] + "('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Piece") + "',$,$,#" + plcD + ",#" + pdD + ",'" + (iP + 1) + "'," + clsD[1] + ");");
       memberIds.push(memD);
-      if (p.matiere === "beton") idsBeton.push(memD); else idsBois.push(memD);
+      if (p.matiere === "beton") idsBeton.push(memD);
+      else if (p.matiere === "couverture") idsCouv.push(memD);
+      else idsBois.push(memD);
       return;
     }
     // --- Dimensions Three.js d'origine ---
@@ -4690,7 +4737,9 @@ function genererIFC(metre, params) {
     const member = nextId();
     E(member, cls[0] + "('" + guid() + "',#" + owner + ",'" + txt(p.nom || "Piece") + "',$,$,#" + plcPiece + ",#" + prodDef + ",'" + (iP + 1) + "'," + cls[1] + ");");
     memberIds.push(member);
-    if (p.matiere === "beton") idsBeton.push(member); else idsBois.push(member);
+    if (p.matiere === "beton") idsBeton.push(member);
+    else if (p.matiere === "couverture") idsCouv.push(member);
+    else idsBois.push(member);
   });
 
   // Rattacher tous les elements au niveau
@@ -4722,6 +4771,14 @@ function genererIFC(metre, params) {
     const matBet = nextId(); E(matBet, "IFCMATERIAL('" + txtAcc(BETON_CW) + "',$,'');");
     const relC = nextId();
     E(relC, "IFCRELASSOCIATESMATERIAL('" + guid() + "',#" + owner + ",$,$,(#" + idsBeton.join(",#") + "),#" + matBet + ");");
+  }
+  if (idsCouv.length > 0) {
+    const codeCv = String((params && params.couverture) || "tuile_terre");
+    const infoCv = COUVERTURE_CW[codeCv] || COUVERTURE_CW.tuile_terre;
+    const matCv = nextId(); E(matCv, "IFCMATERIAL('" + txtAcc(infoCv.nom) + "',$,'');");
+    const relCv = nextId();
+    E(relCv, "IFCRELASSOCIATESMATERIAL('" + guid() + "',#" + owner + ",$,$,(#" + idsCouv.join(",#") + "),#" + matCv + ");");
+    console.log("[DEVIA] IFC : couverture = " + infoCv.nom + " (" + idsCouv.length + " pan(s))");
   }
   // --- Cadwork3dProperties : les noms de proprietes sont ceux releves dans son propre export,
   // soit Group et Sub group - avec l espace, Subgroup ne serait pas relu.
@@ -4762,6 +4819,7 @@ function agregerMetre(metre, densiteBois) {
   const map = {};
   metre.forEach((p) => {
     if (p.matiere === "beton") return; // la maconnerie n est pas du bois : hors metre et hors EC5
+    if (p.matiere === "couverture") return; // la couverture est chiffree au m2, pas au volume de bois
     // cle = nom + section (pour distinguer p.ex. chevrons de sections differentes)
     const secKey = p.section[0] + "x" + p.section[1];
     const key = p.nom + "|" + secKey;
