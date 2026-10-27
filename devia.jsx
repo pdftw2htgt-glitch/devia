@@ -5055,7 +5055,9 @@ function Viewer3D({ params, onMetre }) {
     mountRef.current.appendChild(hudBoussole);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 200);
+    // near descendu de 0,10 a 0,04 pour que minDistance a 8 cm ne soit pas coupe par le
+    // plan avant ; far monte a 500 pour accompagner le nouveau recul maximal.
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.04, 500);
     // Cle geometrique : si elle n'a pas change (ex: bascule technique/realiste), on restaure la camera
     const geoKey = JSON.stringify([params.longueur, params.largeur, params.hauteur, params.pente, params.type_projet, params.ouvrages || null]);
     const savedCam = (camStateRef.current && camStateRef.current.key === geoKey) ? camStateRef.current : null;
@@ -5386,12 +5388,13 @@ function Viewer3D({ params, onMetre }) {
     controls.rotateSpeed = 0.6;
     controls.zoomSpeed = 0.8;
     controls.panSpeed = 0.5;
-    controls.minDistance = 0.8;             // limite zoom in (inspection rapprochee des assemblages)
-    controls.maxDistance = document.fullscreenElement ? 120 : 80; // limite zoom out (elargie en plein ecran)
-    controls.minPolarAngle = 0.1;           // empeche de passer en dessous
-    // Avec un niveau enterre, la camera doit pouvoir descendre sous le terrain
-    controls.maxPolarAngle = aDuEnterre ? Math.PI - 0.06 : Math.PI / 2.1;
-    if (aDuEnterre) console.log("[DEVIA] Camera libre sous le terrain (niveau enterre present)");
+    // CAMERA SANS LIMITE. Avant : maxPolarAngle = PI/2.1, soit 85,7 deg, la camera butait
+    // sur l horizon et on ne pouvait jamais regarder la charpente par en dessous.
+    // OrbitControls borne lui-meme phi a [EPS, PI-EPS] (makeSafe), 0 et PI sont donc surs.
+    controls.minDistance = 0.08;            // 8 cm : on vient au nu d un assemblage
+    controls.maxDistance = document.fullscreenElement ? 300 : 200;
+    controls.minPolarAngle = 0;             // plein zenith
+    controls.maxPolarAngle = Math.PI;       // plein nadir : on passe sous le batiment
     controls.autoRotate = false;            // CAO : pas de rotation automatique
     controls.zoomToCursor = true;           // CAO : la molette zoome vers le point pointe (style Cadwork)
     controls.screenSpacePanning = true;     // pan dans le plan ecran (plus naturel en CAO)
@@ -5606,6 +5609,9 @@ function Viewer3D({ params, onMetre }) {
         majVR(tAnim || 0);
       } else {
         controls.update();
+        // Le terrain est un plan opaque : des que la camera passe dessous il bouche tout.
+        // On l efface alors, sinon liberer l angle ne donnerait qu un ecran noir.
+        ground.visible = camera.position.y > 0.02;
         const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
         aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
       }
