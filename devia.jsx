@@ -1837,7 +1837,11 @@ setPiece("Ferme");
       setPiece("Lien de faitage");
       // Section : celle de la contrefiche. Elle suit donc l EC5 et les reglages de sections,
       // au lieu des 70x70 en dur qui faisaient batonnet sous un poincon de 180.
-      const lienSec = sec("Contrefiche", 0.16, 0.16)[0];
+      // JAMAIS plus large que la faitiere qui le recoit, moins 20 mm pour qu il rentre
+      // franchement dedans au lieu d affleurer (deux faces a fleur se disputent la
+      // profondeur, cf. echantignoles). Regle geometrique : le cas ne peut plus revenir,
+      // quels que soient les reglages de sections.
+      const lienSec = Math.min(sec("Contrefiche", 0.16, 0.16)[0], pfB0 - 0.02);
       const lienDiag = lienSec * Math.SQRT2;        // une coupe horizontale traverse la piece sur s*V2
       // PORTEE : de combien le pied descend sous la faitiere, le long du poincon. 1,00 m,
       // bride par la mi-travee et par l entrait, qu une echarpe ne traverse pas.
