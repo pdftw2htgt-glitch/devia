@@ -1832,24 +1832,61 @@ setPiece("Ferme");
       const [poB, poH] = sec("Poincon", 0.18, 0.18);
       addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB0, EMBREVEMENT_FAITIERE);
 
-      // LIENS DE FAITAGE (echarpes ~45deg du poincon vers la sous-face de la faitiere)
-      // Contreventement longitudinal : 2 liens par ferme intermediaire, 1 seul vers l'interieur en pignon
+      // LIENS DE FAITAGE (echarpes a 45 deg du poincon vers la sous-face de la faitiere)
+      // Contreventement longitudinal : 2 par ferme courante, 1 seul vers l interieur en rive.
       setPiece("Lien de faitage");
-      const lienSec = 0.07;
-      const lienPortee = Math.min(0.7, L / (2 * nbFermes) - 0.1); // ne pas depasser la mi-travee
-      if (lienPortee > 0.25) {
-        // Ils arrivent SOUS LA FAITIERE, pas sous l axe du faitage : la panne est plus haut
-        // que la ligne de rampant, et les liens s arretaient 27 cm trop bas, dans le vide.
-        // La coupe droite a 45deg ne touchait la faitiere que par son arete haute : il
-        // restait un coin d air sous la panne. On prolonge l echarpe le long de son axe
-        // pour que toute la section morde dedans. Le pied sur le poincon ne bouge pas.
-        const ancrageLien = Math.min(lienSec * Math.SQRT1_2 / 2 + 0.02, pfH0 * 0.4);
-        const yHautLien = ySousFaitiere + ancrageLien;  // arrivee : ancree dans la faitiere
-        const yBasLien = ySousFaitiere - lienPortee;    // depart sur le poincon (echarpe a 45deg)
+      // Section : celle de la contrefiche. Elle suit donc l EC5 et les reglages de sections,
+      // au lieu des 70x70 en dur qui faisaient batonnet sous un poincon de 180.
+      const lienSec = sec("Contrefiche", 0.16, 0.16)[0];
+      const lienDiag = lienSec * Math.SQRT2;        // une coupe horizontale traverse la piece sur s*V2
+      // PORTEE : de combien le pied descend sous la faitiere, le long du poincon. 1,00 m,
+      // bride par la mi-travee et par l entrait, qu une echarpe ne traverse pas.
+      const lienPortee = Math.min(1.0, L / (2 * nbFermes) - 0.1, ySousFaitiere - Ht - 0.25);
+      if (lienPortee > lienDiag + 0.10) {
+        // 4 mm de recouvrement a chaque bout : a contact EXACT les faces seraient coplanaires
+        // avec le poincon et la faitiere, et se disputeraient la profondeur (cf. echantignoles).
+        const JEU_LIEN = 0.004;
+        const xPoinc = poB / 2 - JEU_LIEN;          // face laterale du poincon
+        const yTeteL = ySousFaitiere + JEU_LIEN;    // sous-face de la faitiere
+        const yBasL = yTeteL - lienPortee;          // point le plus bas du pied
+        // ABOUTS TAILLES : tete coupee a l HORIZONTALE, elle porte a plat sous la faitiere ;
+        // pied coupe D APLOMB, il porte contre le poincon. Avant, les deux bouts etaient
+        // coupes d equerre a l axe et ne touchaient que par une arete.
+        // Section dans le plan (x, y), prisme file selon Z sur l epaisseur du lien.
+        const addLien = (signe) => {
+          const cont = [
+            [x + signe * (xPoinc + lienPortee - lienDiag), yTeteL],
+            [x + signe * (xPoinc + lienPortee), yTeteL],
+            [x + signe * xPoinc, yBasL],
+            [x + signe * xPoinc, yBasL + lienDiag],
+          ];
+          let aireL = 0;
+          for (let q = 0; q < cont.length; q++) {
+            const a = cont[q], b = cont[(q + 1) % cont.length];
+            aireL += a[0] * b[1] - b[0] * a[1];
+          }
+          const ordreL = aireL < 0 ? cont.slice().reverse() : cont;
+          const shpL = new THREE.Shape();
+          shpL.moveTo(ordreL[0][0], ordreL[0][1]);
+          for (let q = 1; q < ordreL.length; q++) shpL.lineTo(ordreL[q][0], ordreL[q][1]);
+          shpL.closePath();
+          const gL = new THREE.ExtrudeGeometry(shpL, { depth: lienSec, bevelEnabled: false });
+          const mL = new THREE.Mesh(gL, woodMat);
+          mL.position.z = -lienSec / 2;             // centre sur le plan du faitage
+          mL.castShadow = true;
+          scene.add(mL);
+          const longL = (lienPortee - lienDiag / 2) * Math.SQRT2;
+          const dirL = new THREE.Vector3(signe, 1, 0).normalize();
+          const qL = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirL);
+          logPiece(lienSec, lienSec, longL, {
+            pos: [x + signe * (xPoinc + lienPortee / 2), yTeteL - lienPortee / 2, 0],
+            rot: null, quat: [qL.x, qL.y, qL.z, qL.w],
+          });
+        };
         const estPremiereFerme = (i === 0);
         const estDerniereFerme = (i === nbFermes);
-        if (!estDerniereFerme) addBeam(x, yBasLien, 0, x + lienPortee + ancrageLien, yHautLien, 0, lienSec, woodMat); // vers X+
-        if (!estPremiereFerme) addBeam(x, yBasLien, 0, x - lienPortee - ancrageLien, yHautLien, 0, lienSec, woodMat); // vers X-
+        if (estDerniereFerme === false) addLien(1);    // vers X+
+        if (estPremiereFerme === false) addLien(-1);   // vers X-
       }
 
       // CONTREFICHES (jambes de force du bas du poincon vers les arbaletriers)
