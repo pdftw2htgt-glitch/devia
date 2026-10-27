@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -1478,6 +1479,18 @@ function buildScene3D(scene, params, opts) {
     return pts;
   };
 
+  // Un profil IFC doit etre parcouru dans le sens TRIGONOMETRIQUE : a l envers son aire
+  // est negative et le logiciel metier y lit un trou a la place de la piece. Un contour
+  // miroite (signe de Z) change de sens, d ou le controle systematique.
+  const profilTrigo = (pts) => {
+    let aire = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      aire += a[0] * b[1] - b[0] * a[1];
+    }
+    return aire < 0 ? pts.slice().reverse() : pts;
+  };
+
   // Prisme de section quelconque file selon X. Remplace addBox pour les pannes delardees.
   const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
     const pts = sectionDelardee(h, b, tanP, signAval, del);
@@ -1529,7 +1542,12 @@ function buildScene3D(scene, params, opts) {
     m.castShadow = true;
     scene.add(m);
     // Metre : section nominale et longueur hors tout. L encoche est un usinage, comme le delardement.
-    logPiece(b, h, yHaut - yBas, { pos: [x, (yBas + yHaut) / 2, 0], rot: null, quat: null });
+    // L encoche qui porte la faitiere est la raison d etre de la piece : sans profil,
+    // Cadwork recoit un poteau PLEIN et l assemblage disparait. Le contour est trace en
+    // (z, y) et le quart de tour envoie son X sur le -Z de la scene, d ou le signe.
+    const yCp = (yBas + yHaut) / 2;
+    logPiece(b, h, yHaut - yBas, { pos: [x, yCp, 0], rot: null, quat: null });
+    metre[metre.length - 1].profil = { pts: profilTrigo(cont.map((q) => [q[1] - yCp, -q[0]])), len: b, axe: "x" };
   };
 
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
@@ -1764,7 +1782,14 @@ setPiece("Ferme");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(arBw, arHw, (zE - z0) / cosAa, { pos: [x, (yB0 + yHE) / 2, s * (z0 + zE) / 2], rot: [s * ang, 0, 0], quat: null });
+      // L about contre le poincon et celui de l egout sont tailles A L APLOMB : sans
+      // profil, Cadwork recoupe les deux bouts perpendiculairement a l axe.
+      const yCa = (yB0 + yHE) / 2, zCa = s * (z0 + zE) / 2;
+      logPiece(arBw, arHw, (zE - z0) / cosAa, { pos: [x, yCa, zCa], rot: [s * ang, 0, 0], quat: null });
+      metre[metre.length - 1].profil = { pts: profilTrigo([
+        [yB0 - yCa, s * z0 - zCa], [yH0 - yCa, s * z0 - zCa],
+        [yHE - yCa, s * zE - zCa], [yBE - yCa, s * zE - zCa],
+      ]), len: arBw, axe: "x" };
     };
     // Un mur pignon maconne porte lui-meme les pannes dans ses reservations : il n y a donc
     // PAS de ferme en rive. En dessiner une la noierait dans le beton (arbaletriers visibles
@@ -1985,7 +2010,13 @@ setPiece("Chevron");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(chB, chH, zE / cosA, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
+      // Abouts a l aplomb, comme l arbaletrier : onglet au faitage, coupe d aplomb a l egout.
+      const yCc = (yB0 + yHE) / 2, zCc = s * zE / 2;
+      logPiece(chB, chH, zE / cosA, { pos: [x, yCc, zCc], rot: [s * ang, 0, 0], quat: null });
+      metre[metre.length - 1].profil = { pts: profilTrigo([
+        [yB0 - yCc, 0 - zCc], [yH0 - yCc, 0 - zCc],
+        [yHE - yCc, s * zE - zCc], [yBE - yCc, s * zE - zCc],
+      ]), len: chB, axe: "x" };
     };
     // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
     fermeXs.forEach((fx) => chevronXs.push(fx));
@@ -2571,7 +2602,13 @@ setPiece("Echantignole");
       const m = new THREE.Mesh(g, woodMat);
       m.castShadow = true;
       scene.add(m);
-      logPiece(chB, chH, zE / cosAH, { pos: [x, (yB0 + yHE) / 2, s * zE / 2], rot: [s * ang, 0, 0], quat: null });
+      // Abouts a l aplomb, comme l arbaletrier : onglet au faitage, coupe d aplomb a l egout.
+      const yCh = (yB0 + yHE) / 2, zCh = s * zE / 2;
+      logPiece(chB, chH, zE / cosAH, { pos: [x, yCh, zCh], rot: [s * ang, 0, 0], quat: null });
+      metre[metre.length - 1].profil = { pts: profilTrigo([
+        [yB0 - yCh, 0 - zCh], [yH0 - yCh, 0 - zCh],
+        [yHE - yCh, s * zE - zCh], [yBE - yCh, s * zE - zCh],
+      ]), len: chB, axe: "x" };
     };
     // Chevrons au droit des fermes aussi (poses sur les pannes, au-dessus des arbaletriers)
     fermeXsH.forEach((fx) => chevronXsH.push(fx));
@@ -4996,6 +5033,8 @@ function Viewer3D({ params, onMetre }) {
     const h = mountRef.current.clientHeight;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(w, h);
+    renderer.xr.enabled = true;                          // WebXR : le casque prend la camera
+    renderer.xr.setReferenceSpaceType("local-floor");    // y = 0 est le sol reel du porteur
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -5383,13 +5422,193 @@ function Viewer3D({ params, onMetre }) {
     };
     renderer.domElement.addEventListener("dblclick", handleDblClick);
 
-    // Boucle de rendu
-    let animId;
-    const animate = () => {
-      animId = requestAnimationFrame(animate);
-      controls.update();
-      const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
-      aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
+    // ============================================================
+    // CASQUE VR (WebXR) - teste sur Meta Quest 2
+    // Le casque pilote la camera : impossible de la deplacer a la main. On la met donc dans
+    // un CHARIOT qui, lui, se deplace. La tete bouge dans le chariot, le chariot avance.
+    // Le modele est deja en METRES, l unite de WebXR : rien a convertir, echelle 1:1.
+    // ============================================================
+    const UP_VR = new THREE.Vector3(0, 1, 0);
+    const chariot = new THREE.Group();
+    scene.add(chariot);
+    const LbatVR = params.longueur || 8;
+    let camHorsVR = null;
+
+    // Anneau de visee pose au sol pendant la teleportation
+    const anneauTp = new THREE.Mesh(
+      new THREE.RingGeometry(0.22, 0.30, 32),
+      new THREE.MeshBasicMaterial({ color: 0xf0c040, transparent: true, opacity: 0.9,
+                                    side: THREE.DoubleSide, depthTest: false })
+    );
+    anneauTp.rotation.x = -Math.PI / 2;
+    anneauTp.renderOrder = 999;
+    anneauTp.visible = false;
+    scene.add(anneauTp);
+
+    // Les manettes sont filles du chariot, sinon elles restent plantees a l origine du monde
+    const manettesVR = [];
+    for (let iM = 0; iM < 2; iM++) {
+      const mtVR = renderer.xr.getController(iM);
+      const traitVR = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
+        new THREE.LineBasicMaterial({ color: 0xf0c040, transparent: true, opacity: 0.55 })
+      );
+      traitVR.scale.z = 5;
+      traitVR.visible = false;
+      mtVR.add(traitVR);
+      chariot.add(mtVR);
+      manettesVR.push({ objet: mtVR, trait: traitVR });
+    }
+
+    const posDepartVR = () => {
+      chariot.position.set(-(LbatVR / 2) - 5, 0, 0);   // dehors, 5 m devant le pignon gauche
+      chariot.rotation.set(0, -Math.PI / 2, 0);        // regard vers +X, donc vers le batiment
+    };
+
+    const dirVR = new THREE.Vector3(), droiteVR = new THREE.Vector3(), teteVR = new THREE.Vector3();
+    const planSolVR = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const ptTpVR = new THREE.Vector3();
+    const matMVR = new THREE.Matrix4();
+    const rayVR = new THREE.Ray();
+    const gachettePrecVR = [false, false];
+    let tPrecVR = 0;
+    let cranFaitVR = false;
+    const VITESSE_VR = 1.6;        // m/s, l allure d un homme qui marche dans un chantier
+    const PORTEE_TP_VR = 30;       // m, au-dela la visee ne vaut rien
+
+    const majVR = (tMs) => {
+      const sessVR = renderer.xr.getSession();
+      if (sessVR === null || sessVR === undefined) return;
+      const dtVR = tPrecVR > 0 ? Math.min(0.1, (tMs - tPrecVR) / 1000) : 0;
+      tPrecVR = tMs;
+
+      camera.getWorldDirection(dirVR);
+      dirVR.y = 0;
+      if (dirVR.lengthSq() < 0.000001) dirVR.set(0, 0, -1);
+      dirVR.normalize();
+      droiteVR.crossVectors(dirVR, UP_VR).normalize();
+
+      let viseActiveVR = false;
+      let iS = 0;
+      for (const srcVR of sessVR.inputSources) {
+        const gpVR = srcVR.gamepad;
+        if (gpVR === undefined || gpVR === null || iS > 1) { iS++; continue; }
+        const axVR = gpVR.axes || [];
+        const axXVR = axVR.length > 2 ? axVR[2] : (axVR[0] || 0);
+        const axYVR = axVR.length > 3 ? axVR[3] : (axVR[1] || 0);
+
+        if (srcVR.handedness === "right") {
+          // ROTATION PAR CRANS de 30 deg. Les crans, pas la rotation continue : c est la
+          // rotation continue qui donne la nausee, pas la marche.
+          // On pivote autour de la TETE et non du chariot, sinon on se sent projete de cote.
+          if (Math.abs(axXVR) > 0.7) {
+            if (cranFaitVR === false) {
+              const angVR = axXVR > 0 ? -Math.PI / 6 : Math.PI / 6;
+              camera.getWorldPosition(teteVR);
+              chariot.position.sub(teteVR);
+              chariot.position.applyAxisAngle(UP_VR, angVR);
+              chariot.position.add(teteVR);
+              chariot.rotation.y += angVR;
+              cranFaitVR = true;
+            }
+          } else {
+            cranFaitVR = false;
+          }
+        } else {
+          // MARCHE dans la direction du REGARD, a hauteur constante. Zone morte a 0,15 :
+          // un joystick au repos n envoie jamais exactement zero.
+          const avVR = Math.abs(axYVR) > 0.15 ? -axYVR : 0;
+          const laVR = Math.abs(axXVR) > 0.15 ? axXVR : 0;
+          if (Math.abs(avVR) + Math.abs(laVR) > 0) {
+            chariot.position.addScaledVector(dirVR, avVR * VITESSE_VR * dtVR);
+            chariot.position.addScaledVector(droiteVR, laVR * VITESSE_VR * dtVR);
+          }
+        }
+
+        // TELEPORTATION : gachette de n importe quelle manette. On vise, on relache, on y est.
+        const mVR = manettesVR[iS];
+        const presseVR = (gpVR.buttons && gpVR.buttons[0]) ? gpVR.buttons[0].pressed : false;
+        if (mVR) {
+          if (presseVR === true) {
+            matMVR.identity().extractRotation(mVR.objet.matrixWorld);
+            rayVR.origin.setFromMatrixPosition(mVR.objet.matrixWorld);
+            rayVR.direction.set(0, 0, -1).applyMatrix4(matMVR).normalize();
+            const toucheVR = rayVR.intersectPlane(planSolVR, ptTpVR);
+            const distVR = toucheVR ? rayVR.origin.distanceTo(ptTpVR) : 0;
+            if (toucheVR && distVR < PORTEE_TP_VR) {
+              anneauTp.position.set(ptTpVR.x, 0.02, ptTpVR.z);
+              anneauTp.visible = true;
+              viseActiveVR = true;
+              mVR.trait.visible = true;
+              mVR.trait.scale.z = distVR;
+            } else {
+              mVR.trait.visible = false;
+            }
+          } else {
+            // Relachement : on deplace le chariot pour que la TETE arrive sur l anneau
+            if (gachettePrecVR[iS] === true && anneauTp.visible === true) {
+              camera.getWorldPosition(teteVR);
+              chariot.position.x += anneauTp.position.x - teteVR.x;
+              chariot.position.z += anneauTp.position.z - teteVR.z;
+            }
+            mVR.trait.visible = false;
+          }
+          gachettePrecVR[iS] = presseVR;
+        }
+        iS++;
+      }
+      if (viseActiveVR === false) anneauTp.visible = false;
+    };
+
+    renderer.xr.addEventListener("sessionstart", () => {
+      camHorsVR = { pos: camera.position.clone(), quat: camera.quaternion.clone() };
+      controls.enabled = false;
+      hudBoussole.style.display = "none";
+      camera.position.set(0, 0, 0);
+      camera.quaternion.identity();
+      chariot.add(camera);
+      posDepartVR();
+      tPrecVR = 0;
+      cranFaitVR = false;
+      console.log("[DEVIA] VR : entree dans la scene, depart a " + chariot.position.x.toFixed(1) + " m du centre");
+    });
+    renderer.xr.addEventListener("sessionend", () => {
+      chariot.remove(camera);
+      if (camHorsVR) {
+        camera.position.copy(camHorsVR.pos);
+        camera.quaternion.copy(camHorsVR.quat);
+      }
+      controls.enabled = true;
+      hudBoussole.style.display = "";
+      anneauTp.visible = false;
+      manettesVR.forEach((mF) => { mF.trait.visible = false; });
+    });
+
+    // Bouton d entree. On ne l affiche QUE si un casque repond : laisse a lui-meme, three
+    // pose un bouton "VR NOT SUPPORTED" que TOUS les clients verraient au bas de la 3D.
+    let btnVR = null;
+    let vrAnnule = false;
+    if (navigator.xr && navigator.xr.isSessionSupported) {
+      navigator.xr.isSessionSupported("immersive-vr").then((dispoVR) => {
+        if (dispoVR === true && vrAnnule === false && mountRef.current) {
+          btnVR = VRButton.createButton(renderer);
+          btnVR.style.bottom = "14px";
+          btnVR.style.zIndex = "6";
+          mountRef.current.appendChild(btnVR);
+        }
+      }).catch(() => {});
+    }
+
+    // Boucle de rendu. setAnimationLoop remplace requestAnimationFrame : c est la seule
+    // boucle que le casque sait piloter, il impose sa cadence (72 images/s sur Quest 2).
+    const animate = (tAnim) => {
+      if (renderer.xr.isPresenting === true) {
+        majVR(tAnim || 0);
+      } else {
+        controls.update();
+        const azimB = Math.atan2(camera.position.x - controls.target.x, camera.position.z - controls.target.z);
+        aiguilleBoussole.style.transform = "rotate(" + (azimB * 180 / Math.PI) + "deg)";
+      }
       if (pluiePts) {
         if (pluieToitMats === null) {
           pluieToitMats = [];
@@ -5416,7 +5635,7 @@ function Viewer3D({ params, onMetre }) {
       }
       renderer.render(scene, camera);
     };
-    animate();
+    renderer.setAnimationLoop(animate);
 
     // Gestion du resize
     const handleResize = () => {
@@ -5434,7 +5653,9 @@ function Viewer3D({ params, onMetre }) {
       window.removeEventListener("resize", handleResize);
       renderer.domElement.removeEventListener("dblclick", handleDblClick);
       controls.dispose();
-      cancelAnimationFrame(animId);
+      renderer.setAnimationLoop(null);
+      vrAnnule = true;
+      if (btnVR) btnVR.remove();
       renderer.dispose();
       hudBoussole.remove();
       if (mountRef.current && renderer.domElement.parentNode === mountRef.current)
