@@ -1306,6 +1306,7 @@ function buildScene3D(scene, params, opts) {
     const haut = [[-lgb / 2, hMur(-lgb / 2)]];
     let dernierX = -lgb / 2;
     let sommetPose = false;
+    let bordDroitPris = false;    // une encoche mange-t-elle deja le coin droit ?
     let nbEnc = 0;
     res.forEach((e) => {
       // Jusqu au BORD : une encoche de sabliere sort par le coin du pignon, la brider
@@ -1316,15 +1317,20 @@ function buildScene3D(scene, params, opts) {
       if (a > 0 && dernierX < 0 && sommetPose === false) { haut.push([0, hMur(0)]); sommetPose = true; }
       if (a < 0 && b > 0) sommetPose = true;            // l encoche emporte le faitage
       const fond = Math.max(Hb * 0.5, Math.min(e.yb, Math.min(hMur(a), hMur(b)) - 0.01));
-      haut.push([a, hMur(a)]);
+      // AU RAS DU BORD, on ne remonte pas au nu du mur : l aller-retour sur la meme
+      // verticale ferait un eperon d aire nulle, que l onglet transformerait en lame
+      // de beton debout devant la panne.
+      if (a > -lgb / 2 + 0.0005) haut.push([a, hMur(a)]);
+      else haut[0] = [a, fond];
       haut.push([a, fond]);
       haut.push([b, fond]);
-      haut.push([b, hMur(b)]);
+      if (b < lgb / 2 - 0.0005) haut.push([b, hMur(b)]);
+      else bordDroitPris = true;
       dernierX = b;
       nbEnc += 1;
     });
     if (sommetPose === false) haut.push([0, hMur(0)]);
-    haut.push([lgb / 2, hMur(lgb / 2)]);
+    if (bordDroitPris === false) haut.push([lgb / 2, hMur(lgb / 2)]);
     // Contour complet : la base au sol, puis le haut parcouru de droite a gauche
     const cont = [[-lgb / 2, 0], [lgb / 2, 0]];
     for (let i = haut.length - 1; i >= 0; i--) {
