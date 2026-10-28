@@ -1308,8 +1308,10 @@ function buildScene3D(scene, params, opts) {
     let sommetPose = false;
     let nbEnc = 0;
     res.forEach((e) => {
-      const a = Math.max(e.x0, -lgb / 2 + 0.02);
-      const b = Math.min(e.x1, lgb / 2 - 0.02);
+      // Jusqu au BORD : une encoche de sabliere sort par le coin du pignon, la brider
+      // 20 mm avant laisserait une aile de beton debout a cote de la panne.
+      const a = Math.max(e.x0, -lgb / 2);
+      const b = Math.min(e.x1, lgb / 2);
       if (b <= a || a < dernierX) return;               // encoches jointives : on garde la premiere
       if (a > 0 && dernierX < 0 && sommetPose === false) { haut.push([0, hMur(0)]); sommetPose = true; }
       if (a < 0 && b > 0) sommetPose = true;            // l encoche emporte le faitage
@@ -1742,7 +1744,6 @@ function buildScene3D(scene, params, opts) {
     const hMurSousSabliere = Ht + dPerp0 / cosA0 - (sbB0 / 2) * tanA0 + delardement - sbH0;
     console.log("[DEVIA] Murs montes a " + hMurSousSabliere.toFixed(3) + " m (sous-face de la sabliere)");
     // Ou passent les pannes dans le pignon : memes formules que leur pose plus bas.
-    // (la sabliere sort du triangle par les cotes, elle n a pas de reservation)
     const sinA0 = Math.sin(ang);
     const [pfB0, pfH0] = sec("Panne faitiere", 0.12, 0.24);
     const reservPignon = [];
@@ -1756,6 +1757,11 @@ function buildScene3D(scene, params, opts) {
       reservPignon.push({ z: -zRef0, y: yP0, b: pnB0, h: pnH0 });
     }
     reservPignon.push({ z: 0, y: Ht + hf + dPerp0 / cosA0 - (pfB0 / 2) * tanA0 + delardement - pfH0 / 2, b: pfB0, h: pfH0 });
+    // LA SABLIERE AUSSI : elle traversait le coin du triangle sans que le beton lui
+    // laisse la place. Son axe est sur celui du mur, donc son encoche sort par le bord
+    // du pignon : c est une entaille de coin, pas une poche fermee.
+    reservPignon.push({ z: lg / 2, y: hMurSousSabliere + sbH0 / 2, b: sbB0, h: sbH0 });
+    reservPignon.push({ z: -lg / 2, y: hMurSousSabliere + sbH0 / 2, b: sbB0, h: sbH0 });
     // ===== OU TOMBENT LES FERMES : il faut le savoir AVANT de monter les murs, pour y
     // reserver l encoche qui recoit le bout d entrait. =====
     const entraxeFOpt = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente, params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
@@ -1771,13 +1777,16 @@ function buildScene3D(scene, params, opts) {
     // vient porter sur son bout. Avant il flottait 90 mm plus bas, noye dans le beton.
     const [enB0, enH0] = sec("Entrait", 0.16, 0.16);
     const yEntrait = hMurSousSabliere - enH0 / 2;
-    // LE MUR S ARRETE SOUS LE PIED DE FERME. La sabliere est une PANNE BASSE : elle est
-    // portee par les fermes, comme les autres pannes le sont par les arbaletriers. Monter
-    // le mur jusqu a elle noyait l entrait dans le beton. 4 mm de recouvrement pour que
-    // l arase et la sous-face de l entrait ne soient pas exactement coplanaires.
-    const hMurArase = yEntrait - enH0 / 2 + 0.004;
-    console.log("[DEVIA] Arase a " + hMurArase.toFixed(3) + " m : la ferme pose dessus, la sabliere sur l entrait");
-    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurArase); } else { drawMursBeton(L, lg, hMurArase, reservPignon); }
+    // Le beton remonte sous la sabliere, mais il DESCEND au droit de chaque ferme pour
+    // laisser passer le bout d entrait : encoche ouverte par le haut, comme celles des
+    // pannes dans le pignon. La sabliere vient alors porter sur le bout d entrait.
+    const encochesEntrait = [];
+    for (let iE = 0; iE <= nbFermes; iE++) {
+      if (iE === 0 && sansFermeGauche) continue;
+      if (iE === nbFermes && sansFermeDroite) continue;
+      encochesEntrait.push({ cx: -L / 2 + (iE / nbFermes) * L, w: enB0 + 0.035, h: enH0 });
+    }
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon, encochesEntrait); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
