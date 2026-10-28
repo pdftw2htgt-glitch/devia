@@ -1342,7 +1342,7 @@ function buildScene3D(scene, params, opts) {
     drawMurPerce("x", xPos, cont, trous, ep, "Mur pignon beton", onglets);
   };
 
-  const drawMursBeton = (Lb, lgb, Hb, reservations) => {
+  const drawMursBeton = (Lb, lgb, Hb, reservations, encochesHaut) => {
     const ep = 0.2;
     const sansFace = (opts && opts.sansMurFace) || "";
     setPiece("Divers");
@@ -1369,7 +1369,17 @@ function buildScene3D(scene, params, opts) {
       gardees.forEach((f) => baiesAv.push(f));
       baiesAv.push(pf);
     }
-    const rectMur = [[-Lb / 2, 0], [Lb / 2, 0], [Lb / 2, Hb], [-Lb / 2, Hb]];
+    // Le dessus du gouttereau descend au droit de chaque ferme pour recevoir le bout
+    // d entrait. L arete du haut se parcourt de +Lb/2 vers -Lb/2 : les encoches s y
+    // inserent dans CET ordre, sinon le contour se croise.
+    const hautMur = [[Lb / 2, Hb]];
+    (encochesHaut || []).slice().sort((a, b) => b.cx - a.cx).forEach((e) => {
+      const xa = e.cx + e.w / 2, xb = e.cx - e.w / 2;
+      if (xb < -Lb / 2 + 0.05 || xa > Lb / 2 - 0.05) return;   // au ras du pignon, rien a creuser
+      hautMur.push([xa, Hb], [xa, Hb - e.h], [xb, Hb - e.h], [xb, Hb]);
+    });
+    hautMur.push([-Lb / 2, Hb]);
+    const rectMur = [[-Lb / 2, 0], [Lb / 2, 0]].concat(hautMur);
     // Un bout de mur ne se coupe en onglet que s il a vraiment un voisin a rencontrer :
     // au droit d un volume accole, il n y a pas de mur en face et le biseau resterait en l air.
     const pignonsLa = ((params && params.pignon) || "plein") !== "aucun";
@@ -1746,14 +1756,33 @@ function buildScene3D(scene, params, opts) {
       reservPignon.push({ z: -zRef0, y: yP0, b: pnB0, h: pnH0 });
     }
     reservPignon.push({ z: 0, y: Ht + hf + dPerp0 / cosA0 - (pfB0 / 2) * tanA0 + delardement - pfH0 / 2, b: pfB0, h: pfH0 });
-    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon); }
+    // ===== OU TOMBENT LES FERMES : il faut le savoir AVANT de monter les murs, pour y
+    // reserver l encoche qui recoit le bout d entrait. =====
+    const entraxeFOpt = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente, params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
+    const nbFermes = Math.max(1, Math.round(L / entraxeFOpt));
+    // Un mur pignon maconne porte lui-meme les pannes dans ses reservations : il n y a donc
+    // PAS de ferme en rive. En dessiner une la noierait dans le beton et la ferait payer pour rien.
+    const smfF = (opts && opts.sansMurFace) || "";
+    const pignonPorteur = (params.murs === "ossature_bois") === false && ((params.pignon || "plein") === "aucun") === false;
+    const sansFermeGauche = pignonPorteur && (smfF === "pignon_gauche") === false;
+    const sansFermeDroite = pignonPorteur && (smfF === "pignon_droit") === false;
+    if (sansFermeGauche || sansFermeDroite) console.log("[DEVIA] Ferme de rive supprimee : le pignon maconne porte les pannes");
+    // L ENTRAIT se loge JUSTE SOUS LA SABLIERE : son dessus affleure l arase, et la sabliere
+    // vient porter sur son bout. Avant il flottait 90 mm plus bas, noye dans le beton.
+    const [enB0, enH0] = sec("Entrait", 0.16, 0.16);
+    const yEntrait = hMurSousSabliere - enH0 / 2;
+    const encochesEntrait = [];
+    for (let iE = 0; iE <= nbFermes; iE++) {
+      if (iE === 0 && sansFermeGauche) continue;
+      if (iE === nbFermes && sansFermeDroite) continue;
+      encochesEntrait.push({ cx: -L / 2 + (iE / nbFermes) * L, w: enB0 + 0.035, h: enH0 });
+    }
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon, encochesEntrait); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
     // ===== FERMES (tous les ~3.5m) =====
     // Chaque ferme = entrait + 2 arbaletriers + poincon + 2 contrefiches
-    const entraxeFOpt = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente, params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
-    const nbFermes = Math.max(1, Math.round(L / entraxeFOpt));
     // Arbaletrier = prisme a COUPES VERTICALES : il ne monte plus jusqu a l axe du faitage,
     // il vient MOURIR SUR LA JOUE DU POINCON, ou il serait tenonne. Coupe d aplomb a l egout.
     const [poBa, poHa] = sec("Poincon", 0.18, 0.18);
@@ -1791,14 +1820,6 @@ setPiece("Ferme");
         [yHE - yCa, s * zE - zCa], [yBE - yCa, s * zE - zCa],
       ]), len: arBw, axe: "x" };
     };
-    // Un mur pignon maconne porte lui-meme les pannes dans ses reservations : il n y a donc
-    // PAS de ferme en rive. En dessiner une la noierait dans le beton (arbaletriers visibles
-    // dans la maconnerie) et la ferait payer pour rien.
-    const smfF = (opts && opts.sansMurFace) || "";
-    const pignonPorteur = (params.murs === "ossature_bois") === false && ((params.pignon || "plein") === "aucun") === false;
-    const sansFermeGauche = pignonPorteur && (smfF === "pignon_gauche") === false;
-    const sansFermeDroite = pignonPorteur && (smfF === "pignon_droit") === false;
-    if (sansFermeGauche || sansFermeDroite) console.log("[DEVIA] Ferme de rive supprimee : le pignon maconne porte les pannes");
     // Tete du poincon : il passe SOUS la faitiere et la PORTE. Son dessus s arrete a la
     // sous-face de la panne, et l embrevement creuse dedans la cale lateralement. Les joues
     // ne montent donc que de la profondeur de l encoche : le poincon soutient, il n enserre pas.
@@ -1816,10 +1837,12 @@ setPiece("Ferme");
       if (i === nbFermes && sansFermeDroite) continue;
       fermesDessinees.push(x);
 
-      // ENTRAIT (poutre horizontale basse, sur toute la largeur)
+      // ENTRAIT : son DESSUS affleure l arase, il se loge sous la sabliere qui vient
+      // porter sur son bout. Avant il etait cale sur Ht, donc 90 mm plus bas, avec une
+      // dalle de beton prise en sandwich entre lui et la panne basse.
       setPiece("Entrait");
       const [enB, enH] = sec("Entrait", 0.16, 0.16);
-      addBox(enB, enH, lg, x, Ht, 0, woodMat);
+      addBox(enB, enH, lg, x, yEntrait, 0, woodMat);
 
       // ARBALETRIERS (les 2 pans inclines, section forte) : aboutes en onglet au faitage
       setPiece("Arbaletrier");
@@ -1830,7 +1853,9 @@ setPiece("Ferme");
       // POINCON : de l entrait jusqu au dessus de la faitiere, qu il porte dans son encoche.
       setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.18, 0.18);
-      addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB0, EMBREVEMENT_FAITIERE);
+      // Son pied descend jusqu au DESSOUS de l entrait (tenon traversant). Cale sur Ht il
+      // depasserait maintenant de 10 mm sous lui, l entrait ayant pris 90 mm de hauteur.
+      addPoinconEncoche(x, poB, poH, yEntrait - enH0 / 2, yTetePoincon, pfB0, EMBREVEMENT_FAITIERE);
 
       // LIENS DE FAITAGE (echarpes a 45 deg du poincon vers la sous-face de la faitiere)
       // Contreventement longitudinal : 2 par ferme courante, 1 seul vers l interieur en rive.
