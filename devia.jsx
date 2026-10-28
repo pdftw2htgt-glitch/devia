@@ -1771,13 +1771,13 @@ function buildScene3D(scene, params, opts) {
     // vient porter sur son bout. Avant il flottait 90 mm plus bas, noye dans le beton.
     const [enB0, enH0] = sec("Entrait", 0.16, 0.16);
     const yEntrait = hMurSousSabliere - enH0 / 2;
-    const encochesEntrait = [];
-    for (let iE = 0; iE <= nbFermes; iE++) {
-      if (iE === 0 && sansFermeGauche) continue;
-      if (iE === nbFermes && sansFermeDroite) continue;
-      encochesEntrait.push({ cx: -L / 2 + (iE / nbFermes) * L, w: enB0 + 0.035, h: enH0 });
-    }
-    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurSousSabliere); } else { drawMursBeton(L, lg, hMurSousSabliere, reservPignon, encochesEntrait); }
+    // LE MUR S ARRETE SOUS LE PIED DE FERME. La sabliere est une PANNE BASSE : elle est
+    // portee par les fermes, comme les autres pannes le sont par les arbaletriers. Monter
+    // le mur jusqu a elle noyait l entrait dans le beton. 4 mm de recouvrement pour que
+    // l arase et la sous-face de l entrait ne soient pas exactement coplanaires.
+    const hMurArase = yEntrait - enH0 / 2 + 0.004;
+    console.log("[DEVIA] Arase a " + hMurArase.toFixed(3) + " m : la ferme pose dessus, la sabliere sur l entrait");
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMurArase); } else { drawMursBeton(L, lg, hMurArase, reservPignon); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Ferme");
