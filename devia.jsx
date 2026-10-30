@@ -6173,6 +6173,26 @@ const [commune, setCommune] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarFileInputRef = useRef(null);
   const [usageLogs, setUsageLogs] = useState([]);
+
+  // Relecture de l historique de consommation. Depuis le 30/10 les lignes viennent de la
+  // passerelle : elle en ecrit une par appel IA, avec les jetons que renvoie Anthropic.
+  // Le compteur du tableau de bord devient donc le vrai, et il compte aussi les analyses
+  // qui echouent en route - elles coutent de l argent sans rien produire.
+  const rechargerUsageLogs = async () => {
+    try {
+      const { data: infos } = await supabase.auth.getUser();
+      const idCompte = (infos && infos.user && infos.user.id) || "";
+      if (idCompte === "") return;
+      const { data } = await supabase
+        .from("usage_logs")
+        .select("*")
+        .eq("user_id", idCompte)
+        .order("created_at", { ascending: false });
+      if (data) setUsageLogs(data);
+    } catch (eRelecture) {
+      console.error("Erreur rechargerUsageLogs:", eRelecture);
+    }
+  };
   const [themeMode, setThemeMode] = useState(() => {
     try {
       return localStorage.getItem("devia_theme") || "dark";
@@ -8270,15 +8290,9 @@ return out;
             };
             const { data: inserted, error: insertError } = await supabase.from("projects").insert(newProject).select().single();
             if (!insertError && inserted) {
-              (async () => {
-                try {
-                  const { data: logData } = await supabase.from("usage_logs").insert({
-                    user_id: user.id, tokens_in: tokensInTotal, tokens_out: tokensOutTotal,
-                    model: "claude-sonnet-5", project_id: inserted.id,
-                  }).select().single();
-                  if (logData) setUsageLogs(prev => [logData, ...prev]);
-                } catch (e) { console.error("Erreur usage_logs multi:", e); }
-              })();
+              // La consommation est desormais ecrite par la passerelle, une ligne par appel IA
+              // avec le usage reel d Anthropic. Le navigateur ne fait plus que relire.
+              rechargerUsageLogs();
               setProjects(prev => [{
                 id: inserted.id, nom: inserted.nom, commune: inserted.commune || "",
                 date: inserted.created_at ? inserted.created_at.split("T")[0] : "",
@@ -8413,30 +8427,9 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
             console.error("Erreur sauvegarde projet:", insertError);
             setProjects(prev => [{ id: Date.now(), nom: nomProjet.trim() || p.description || "Nouveau projet", commune: p.commune || commune, date: new Date().toISOString().split("T")[0], ttc: totalTTC, dims: (p.longueur || "?") + "x" + (p.largeur || "?") + "m" }, ...prev]);
           } else if (inserted) {
-            // Insert usage_logs : historique de consommation (survit à la suppression du projet)
-            (async () => {
-              try {
-                const { data: logData, error: logError } = await supabase
-                  .from("usage_logs")
-                  .insert({
-                    user_id: user.id,
-                    tokens_in: tokensIn,
-                    tokens_out: tokensOut,
-                    model: "claude-sonnet-5",
-                    project_id: inserted.id,
-                  })
-                  .select()
-                  .single();
-                if (logError) {
-                  console.error("Erreur insert usage_logs:", logError);
-                } else if (logData) {
-                  // Maj du state local immediatement (pas besoin de refresh)
-                  setUsageLogs(prev => [logData, ...prev]);
-                }
-              } catch (e) {
-                console.error("Erreur usage_logs async:", e);
-              }
-            })();
+            // La consommation est desormais ecrite par la passerelle, une ligne par appel IA
+            // avec le usage reel d Anthropic. Le navigateur ne fait plus que relire.
+            rechargerUsageLogs();
             setProjects(prev => [{
               id: inserted.id,
               nom: inserted.nom,
