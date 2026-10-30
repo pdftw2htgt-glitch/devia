@@ -3639,6 +3639,15 @@ import { useAuth } from "./src/hooks/useAuth.js";
 import Login from "./src/components/Login.jsx";
 import { signOut } from "./src/lib/auth.js";
 import { supabase } from "./src/lib/supabase.js";
+
+// En-tetes des appels a /api/chat. La passerelle refuse desormais les requetes
+// anonymes : sans cela, n importe qui ayant trouve l adresse pouvait depenser la
+// cle Anthropic de DEVIA, sans compte ni licence.
+async function enTetesIA() {
+  const { data } = await supabase.auth.getSession();
+  const jeton = (data && data.session && data.session.access_token) || "";
+  return { "Content-Type": "application/json", Authorization: "Bearer " + jeton };
+}
 import { useLicense } from "./src/hooks/useLicense.js";
 import ActivateLicense from "./src/components/ActivateLicense.jsx";
 import SubscriptionBanner from "./src/components/SubscriptionBanner.jsx";
@@ -6912,7 +6921,7 @@ const fileInputRef = useRef(null);
           try {
             rep = await fetch("/api/chat", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: await enTetesIA(),
               body: corpsTxt,
             });
             brut2 = await rep.text();
@@ -8060,7 +8069,7 @@ return out;
       try {
         response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await enTetesIA(),
           body: corpsDevis(rapideD),
         });
       } catch (eNetD) {
