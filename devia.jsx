@@ -3644,8 +3644,21 @@ import { supabase } from "./src/lib/supabase.js";
 // anonymes : sans cela, n importe qui ayant trouve l adresse pouvait depenser la
 // cle Anthropic de DEVIA, sans compte ni licence.
 async function enTetesIA() {
-  const { data } = await supabase.auth.getSession();
-  const jeton = (data && data.session && data.session.access_token) || "";
+  let jeton = "";
+  try {
+    const { data } = await supabase.auth.getSession();
+    jeton = (data && data.session && data.session.access_token) || "";
+    if (jeton === "") {
+      const rafr = await supabase.auth.refreshSession();
+      jeton = (rafr && rafr.data && rafr.data.session && rafr.data.session.access_token) || "";
+    }
+  } catch (eJeton) {
+    console.warn("[DEVIA] Lecture du jeton impossible", eJeton);
+  }
+  if (jeton === "") {
+    throw new Error("Session introuvable dans ce navigateur : deconnecte-toi, reconnecte-toi, puis relance analyse.");
+  }
+  console.log("[DEVIA] Jeton transmis a la passerelle (" + jeton.length + " caracteres)");
   return { "Content-Type": "application/json", Authorization: "Bearer " + jeton };
 }
 import { useLicense } from "./src/hooks/useLicense.js";
