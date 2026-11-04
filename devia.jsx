@@ -499,7 +499,12 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     LfaitSec / Math.max(1, Math.round(LfaitSec / 3.0)),
     (L_BAT_SEC - LfaitSec) / 2
   );
-  const ENTRAXE_FERMES = (TYPE_SEC === "hangar")
+  // Carport 2 et 4 pans : ses portiques sont au meme rythme que ceux du hangar.
+  // Le carport 1 PAN garde son ancien dimensionnement, sinon les devis deja chiffres
+  // changeraient de sections - Mathis a demande qu on ajoute sans rien retirer.
+  const pansCarportSec = String((params && params.carport_pans) || "1");
+  const carportCharpente = ((TYPE_SEC === "carport") && ((pansCarportSec === "1") === false));
+  const ENTRAXE_FERMES = ((TYPE_SEC === "hangar") || carportCharpente)
     ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
     : ((TYPE_SEC === "4_pans")
       ? entraxe4Pans
@@ -1530,6 +1535,39 @@ function buildScene3D(scene, params, opts) {
   };
 
   // Prisme de section quelconque file selon X. Remplace addBox pour les pannes delardees.
+  // Echantignole generique : dessus horizontal, base sur le rampant, talon aval.
+  // Le hangar et le 4 pans gardent leur version locale ; celle-ci sert au carport.
+  const addEchantignoleGen = (fx, zRef, yRef, signZ, eB2, pw, tanP, eEch) => {
+    const tT = 0.05, hT = 0.06;
+    const yTop = yRef + (pw / 2) * tanP + eEch;
+    const z1 = zRef - pw / 2, z2 = zRef + pw / 2, z3 = z2 + tT;
+    const yB = yTop - eEch;
+    const yD = yB - (z3 - z1) * tanP;
+    const s2 = signZ;
+    const cont = [[yTop, z1], [yTop, z2], [yTop + hT, z2], [yTop + hT, z3], [yD, z3], [yB, z1]];
+    const shp = new THREE.Shape();
+    shp.moveTo(s2 * cont[0][1], cont[0][0]);
+    for (let q = 1; q < cont.length; q++) shp.lineTo(s2 * cont[q][1], cont[q][0]);
+    shp.closePath();
+    const eDess = eB2 + 0.004;   // 2 mm par cote : sinon les flancs se disputent la profondeur
+    const gE = new THREE.ExtrudeGeometry(shp, { depth: eDess, bevelEnabled: false });
+    const mE = new THREE.Mesh(gE, woodMat);
+    mE.rotation.y = -Math.PI / 2;
+    mE.position.set(fx + eDess / 2, 0, 0);
+    mE.castShadow = true;
+    scene.add(mE);
+    const yCe = (yD + yTop + hT) / 2, zCe = s2 * (z1 + z3) / 2;
+    let ptsE = cont.map((q) => [q[0] - yCe, s2 * q[1] - zCe]);
+    let aireE = 0;
+    for (let q = 0; q < ptsE.length; q++) {
+      const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
+      aireE += u[0] * w[1] - w[0] * u[1];
+    }
+    if (aireE < 0) ptsE = ptsE.slice().reverse();
+    logPiece(eB2, pw * tanP + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+    metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
+  };
+
   const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
     const pts = sectionDelardee(h, b, tanP, signAval, del);
     const x1 = px - lgX / 2, x2 = px + lgX / 2;
@@ -2256,7 +2294,273 @@ setPiece("Chevron");
   // ============================================================
   // CARPORT (1 pente, pas de murs)
   // ============================================================
+  // ============================================================
+  // CARPORT 2 PANS (poteaux des deux cotes, faitage au milieu)
+  // Reprend l empilement du hangar, qui est deja un abri sur poteaux sans murs.
+  // ============================================================
+  const drawCarport2Pans = () => {
+    const dp = 0.3;
+    const hf = (lg / 2) * Math.tan((pente * Math.PI) / 180);
+    const angC = Math.atan(hf / (lg / 2));
+    const cosC = Math.cos(angC), sinC = Math.sin(angC), tanC = Math.tan(angC);
+    const plC = (lg / 2) / cosC;
+    const yApex = Ht + hf;
+
+    const [potB] = sec("Poteau", 0.18, 0.18);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    const [enB, enH] = sec("Entrait", 0.16, 0.16);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
+    const [poB, poH] = sec("Poincon", 0.18, 0.18);
+    const [pw, ph] = sec("Panne", 0.12, 0.24);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
+    const [pfB, pfH] = sec("Panne faitiere", 0.16, 0.16);
+    const eEch = 0.03, EMBREV = 0.04;
+
+    // Plan porteur des chevrons : meme formule qu en trad, hangar et 4 pans.
+    const dPerp = arH / 2 + (ph + eEch - delardement) * cosC + pw * sinC + chH / 2;
+    const LEVEE = dPerp / cosC;
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosC;
+    const ySousFaitiere = yApex + (dPerp - chH / 2) / cosC - pfH;
+    const yTetePoincon = ySousFaitiere + EMBREV;
+
+    drawDalleBeton(L, lg, 0.3);
+
+setPiece("Poteau");
+    // Un portique = deux poteaux + une ferme. Jamais de ferme sans poteau dessous.
+    const nbInt = Math.max(1, Math.ceil(L / 4));
+    const xs = [];
+    for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
+    xs.forEach((x) => {
+      addBox(potB, Ht, potB, x, Ht / 2, lg / 2);
+      addBox(potB, Ht, potB, x, Ht / 2, -lg / 2);
+    });
+
+setPiece("Sabliere");
+    addBox(L + 2 * dp, sbH, sbB, 0, Ht, lg / 2, woodMat);
+    addBox(L + 2 * dp, sbH, sbB, 0, Ht, -lg / 2, woodMat);
+
+    const nbPannes = Math.max(1, Math.ceil(plC / 2.2) - 1);
+    const tBasse = 1 / (nbPannes + 1);
+
+    xs.forEach((x) => {
+      setPiece("Entrait");
+      addBox(enB, enH, lg, x, Ht, 0, woodMat);
+      setPiece("Arbaletrier");
+      addBox(arB, arH, plC, x, Ht + hf / 2, lg / 4, woodMat, [angC, 0, 0]);
+      addBox(arB, arH, plC, x, Ht + hf / 2, -lg / 4, woodMat, [-angC, 0, 0]);
+      setPiece("Poincon");
+      addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB, EMBREV);
+      setPiece("Contrefiche");
+      const cfS = sec("Contrefiche", 0.16, 0.16)[0];
+      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, (lg / 2) * (1 - tBasse), cfS, woodMat);
+      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, -(lg / 2) * (1 - tBasse), cfS, woodMat);
+    });
+
+setPiece("Panne faitiere");
+    addBox(L + 2 * dp, pfH, pfB, 0, ySousFaitiere + pfH / 2, 0, woodMat);
+
+setPiece("Panne");
+    const niv = [];
+    for (let i = 1; i <= nbPannes; i++) {
+      const t = i / (nbPannes + 1);
+      const yRef = Ht + hf * t + (arH / 2) / cosC;
+      const zRef = (lg / 2) * (1 - t);
+      const yP = yRef + (pw / 2) * tanC + eEch + ph / 2;
+      niv.push({ yRef: yRef, zRef: zRef });
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, zRef, tanC, 1, delardement, woodMat);
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, -zRef, tanC, -1, delardement, woodMat);
+    }
+
+setPiece("Echantignole");
+    niv.forEach((n) => { xs.forEach((x) => { addEchantignoleGen(x, n.zRef, n.yRef, 1, arB, pw, tanC, eEch); addEchantignoleGen(x, n.zRef, n.yRef, -1, arB, pw, tanC, eEch); }); });
+
+setPiece("Chevron");
+    const esp = getCouverture(opts && opts.couverture).espChevron;
+    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / esp));
+    for (let i = 0; i <= nbCh; i++) {
+      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
+      addBeam(x, Ht + LEVEE, lg / 2, x, yApex + LEVEE, 0, chH, woodMat);
+      addBeam(x, Ht + LEVEE, -lg / 2, x, yApex + LEVEE, 0, chH, woodMat);
+    }
+
+    const couvC = getCouverture(opts && opts.couverture);
+    const matC = makeRoofMaterial(couvC, L, plC);
+    const yE = Ht + LEVEE_DESSUS, yF = yApex + LEVEE_DESSUS;
+    // Sommets explicites : une PlaneGeometry tournee a la main sortait a plat.
+    const xA = -L / 2 - dp, xB = L / 2 + dp;
+    [1, -1].forEach((sz) => {
+      const zE = sz * (lg / 2 + dp * 0);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
+        xA, yE, zE,  xB, yE, zE,  xB, yF, 0,
+        xA, yE, zE,  xB, yF, 0,   xA, yF, 0,
+      ]), 3));
+      g.computeVertexNormals();
+      scene.add(new THREE.Mesh(g, matC));
+    });
+  };
+
+  // ============================================================
+  // CARPORT 4 PANS (pavillon sur poteaux, croupe aux deux bouts)
+  // ============================================================
+  const drawCarport4Pans = () => {
+    const dp = 0.3;
+    const hf = (lg / 2) * Math.tan((pente * Math.PI) / 180);
+    const angC = Math.atan(hf / (lg / 2));
+    const cosC = Math.cos(angC), sinC = Math.sin(angC), tanC = Math.tan(angC);
+    const plC = (lg / 2) / cosC;
+    const yApex = Ht + hf;
+    const recul = Math.min(lg / 2, (L - 0.6) / 2);
+    const Lf = Math.max(0.4, L - 2 * recul);
+    const xG = -Lf / 2, xD = Lf / 2;
+
+    const [potB] = sec("Poteau", 0.18, 0.18);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    const [enB, enH] = sec("Entrait", 0.16, 0.16);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
+    const [poB, poH] = sec("Poincon", 0.18, 0.18);
+    const [pw, ph] = sec("Panne", 0.12, 0.24);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
+    const [pfB, pfH] = sec("Panne faitiere", 0.16, 0.16);
+    const arrS = sec("Aretier", 0.12, 0.24)[1];
+    const eEch = 0.03, EMBREV = 0.04;
+
+    const dPerp = arH / 2 + (ph + eEch - delardement) * cosC + pw * sinC + chH / 2;
+    const LEVEE = dPerp / cosC;
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosC;
+    const ySousFaitiere = yApex + (dPerp - chH / 2) / cosC - pfH;
+    const yTetePoincon = ySousFaitiere + EMBREV;
+
+    drawDalleBeton(L, lg, 0.3);
+
+setPiece("Poteau");
+    const nbInt = Math.max(1, Math.ceil(L / 4));
+    const xs = [];
+    for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
+    xs.forEach((x) => {
+      addBox(potB, Ht, potB, x, Ht / 2, lg / 2);
+      addBox(potB, Ht, potB, x, Ht / 2, -lg / 2);
+    });
+
+setPiece("Sabliere");
+    // Ceinture sur les 4 cotes : un pavillon pousse dans les deux directions.
+    addBox(L, sbH, sbB, 0, Ht, lg / 2, woodMat);
+    addBox(L, sbH, sbB, 0, Ht, -lg / 2, woodMat);
+    addBox(sbB, sbH, lg, -L / 2, Ht, 0, woodMat);
+    addBox(sbB, sbH, lg, L / 2, Ht, 0, woodMat);
+
+    const nbPannes = Math.max(1, Math.ceil(plC / 2.2) - 1);
+    const tBasse = 1 / (nbPannes + 1);
+    const fermeXs = [xG, xD];
+
+    // Les DEUX fermes qui se croisent : grands pans selon Z, croupes selon X.
+    fermeXs.forEach((x) => {
+      setPiece("Entrait");
+      addBox(enB, enH, lg, x, Ht, 0, woodMat);
+      setPiece("Arbaletrier");
+      addBox(arB, arH, plC, x, Ht + hf / 2, lg / 4, woodMat, [angC, 0, 0]);
+      addBox(arB, arH, plC, x, Ht + hf / 2, -lg / 4, woodMat, [-angC, 0, 0]);
+      setPiece("Poincon");
+      addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB, EMBREV);
+      setPiece("Contrefiche");
+      const cfS = sec("Contrefiche", 0.16, 0.16)[0];
+      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, (lg / 2) * (1 - tBasse), cfS, woodMat);
+      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, -(lg / 2) * (1 - tBasse), cfS, woodMat);
+    });
+    setPiece("Entrait");
+    addBox(L, enH, enB, 0, Ht, 0, woodMat);
+    setPiece("Arbaletrier");
+    addBeam(-L / 2, Ht, 0, xG, yApex, 0, arB, woodMat);
+    addBeam(L / 2, Ht, 0, xD, yApex, 0, arB, woodMat);
+    setPiece("Contrefiche");
+    const cfS4 = sec("Contrefiche", 0.16, 0.16)[0];
+    [[-1, xG], [1, xD]].forEach(([sx, xf]) => {
+      const xb = sx * (L / 2) + (xf - sx * (L / 2)) * tBasse;
+      addBeam(xf, Ht + hf * 0.15, 0, xb, Ht + tBasse * hf, 0, cfS4, woodMat);
+    });
+
+setPiece("Panne faitiere");
+    addBox(Lf, pfH, pfB, 0, ySousFaitiere + pfH / 2, 0, woodMat);
+
+setPiece("Panne");
+    const niv4 = [];
+    for (let i = 1; i <= nbPannes; i++) {
+      const t = i / (nbPannes + 1);
+      const yRef = Ht + hf * t + (arH / 2) / cosC;
+      const zRef = (lg / 2) * (1 - t);
+      const yP = yRef + (pw / 2) * tanC + eEch + ph / 2;
+      niv4.push({ yRef: yRef, zRef: zRef });
+      const lenP = L - (L - Lf) * t;
+      addPanneDelardee(lenP, ph, pw, 0, yP, zRef, tanC, 1, delardement, woodMat);
+      addPanneDelardee(lenP, ph, pw, 0, yP, -zRef, tanC, -1, delardement, woodMat);
+      const xC = L / 2 - recul * t, lenC = lg * (1 - t);
+      if (lenC > 0.3) { addBox(pw, ph, lenC, xC, yP, 0, woodMat); addBox(pw, ph, lenC, -xC, yP, 0, woodMat); }
+    }
+
+setPiece("Echantignole");
+    niv4.forEach((n) => { fermeXs.forEach((x) => { addEchantignoleGen(x, n.zRef, n.yRef, 1, arB, pw, tanC, eEch); addEchantignoleGen(x, n.zRef, n.yRef, -1, arB, pw, tanC, eEch); }); });
+
+setPiece("Aretier");
+    const yAB = Ht + LEVEE_DESSUS - arrS / 2, yAH = yApex + LEVEE_DESSUS - arrS / 2;
+    [[-1, xG], [1, xD]].forEach(([sx, xf]) => {
+      [1, -1].forEach((sz) => { addBeam(sx * L / 2, yAB, sz * lg / 2, xf, yAH, 0, arrS, woodMat); });
+    });
+
+    const esp4 = getCouverture(opts && opts.couverture).espChevron;
+setPiece("Chevron");
+    const yCB = Ht + LEVEE, yCH = yApex + LEVEE;
+    const nbCh4 = Math.max(2, Math.floor(Lf / esp4));
+    for (let i = 0; i <= nbCh4; i++) {
+      const x = xG + (i / nbCh4) * Lf;
+      addBeam(x, yCB, lg / 2, x, yCH, 0, chH, woodMat);
+      addBeam(x, yCB, -lg / 2, x, yCH, 0, chH, woodMat);
+    }
+setPiece("Empannon");
+    const nbE = Math.max(2, Math.floor(recul / esp4));
+    [1, -1].forEach((sz) => {
+      [[xG, -L / 2], [xD, L / 2]].forEach(([xf, xc]) => {
+        for (let i = 1; i <= nbE; i++) {
+          const f = i / (nbE + 1);
+          const xb = xc + (xf - xc) * f;
+          addBeam(xb, yCB, sz * (lg / 2), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9, woodMat);
+        }
+      });
+    });
+setPiece("Empannon de croupe");
+    [-1, 1].forEach((sx) => {
+      const xc = sx * (L / 2), xf = sx * (Lf / 2);
+      const nbEc = Math.max(2, Math.floor(lg / esp4));
+      for (let i = 1; i <= nbEc; i++) {
+        const f = i / (nbEc + 1);
+        const zb = -lg / 2 + f * lg;
+        const sz = zb >= 0 ? 1 : -1;
+        const fa = 1 - Math.abs(zb) / (lg / 2);
+        addBeam(xc, yCB, zb, xc + (xf - xc) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85, woodMat);
+      }
+    });
+
+    const couv4 = getCouverture(opts && opts.couverture);
+    const mat4 = makeRoofMaterial(couv4, L, plC);
+    const yE4 = Ht + LEVEE_DESSUS, yF4 = yApex + LEVEE_DESSUS;
+    const pan4 = (v) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(v), 3));
+      g.computeVertexNormals();
+      scene.add(new THREE.Mesh(g, mat4));
+    };
+    pan4([-L/2, yE4, lg/2,  L/2, yE4, lg/2,  xD, yF4, 0,  -L/2, yE4, lg/2,  xD, yF4, 0,  xG, yF4, 0]);
+    pan4([-L/2, yE4, -lg/2,  xG, yF4, 0,  xD, yF4, 0,  -L/2, yE4, -lg/2,  xD, yF4, 0,  L/2, yE4, -lg/2]);
+    pan4([-L/2, yE4, -lg/2,  -L/2, yE4, lg/2,  xG, yF4, 0]);
+    pan4([L/2, yE4, -lg/2,  xD, yF4, 0,  L/2, yE4, lg/2]);
+  };
+
   const drawCarport = () => {
+    // 1 pan = le carport historique, inchange. 2 et 4 pans sont des variantes du
+    // formulaire : on ajoute sans retirer, pour que les devis deja enregistres
+    // gardent exactement la forme sous laquelle ils ont ete chiffres.
+    const nbPansCarport = String((params && params.carport_pans) || "1");
+    if (nbPansCarport === "2") { drawCarport2Pans(); return; }
+    if (nbPansCarport === "4") { drawCarport4Pans(); return; }
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
     const Hbas = Ht;
     const Hhaut = Ht + denivele;
@@ -3374,6 +3678,10 @@ setPiece("Echantignole");
     const couv = getCouverture(opts && opts.couverture);
     const espChevron = couv.espChevron;
     const roof4Mat = makeRoofMaterial(couv, L, plQ);
+    // Connu ici parce que les contrefiches doivent venir buter SOUS une panne, comme sur
+    // une coupe de charpentier - et pas a 55 % de l arbaletrier, au hasard.
+    const nbPannes = Math.max(1, Math.ceil(plQ / 2.2) - 1);
+    const tPanneBasse = 1 / (nbPannes + 1);
 
     // ===== SECTIONS =====
     const [enB, enH] = sec("Entrait", 0.16, 0.16);
@@ -3428,12 +3736,30 @@ setPiece("Sabliere");
       addPoinconEncoche(xF, poB, poH, yEntrait - enH / 2, yTetePoincon, pfB, EMBREV);
       setPiece("Contrefiche");
       const cfSec = sec("Contrefiche", 0.16, 0.16)[0];
-      const cfT = 0.55;
+      // Elles montent jusqu a l aplomb de la panne basse : c est elle qu elles soulagent.
+      const cfT = tPanneBasse;
       const cfBaseY = Ht + hf * 0.15;
       const cfEndY = Ht + cfT * hf;
       const cfEndZ = (lg / 2) * (1 - cfT);
       addBeam(xF, cfBaseY, 0, xF, cfEndY, cfEndZ, cfSec, woodMat);
       addBeam(xF, cfBaseY, 0, xF, cfEndY, -cfEndZ, cfSec, woodMat);
+    });
+
+    // ===== FERME DE CROUPE : elle CROISE les fermes de grand pan, au poincon =====
+    // Un toit en croupe a DEUX fermes perpendiculaires qui se croisent : celle des grands
+    // pans file selon Z, celle des croupes selon X, et elles partagent les poincons.
+    // Sans la seconde, les deux pans de croupe n ont aucun arbaletrier et les empannons
+    // s appuient dans le vide sur les aretiers.
+    setPiece("Entrait");
+    addBox(L, enH, enB, 0, yEntrait, 0, woodMat);
+    setPiece("Arbaletrier");
+    addBeam(-L / 2, Ht, 0, xFaitGauche, yApex, 0, arB, woodMat);
+    addBeam(L / 2, Ht, 0, xFaitDroit, yApex, 0, arB, woodMat);
+    setPiece("Contrefiche");
+    const cfSecC = sec("Contrefiche", 0.16, 0.16)[0];
+    [[-1, xFaitGauche], [1, xFaitDroit]].forEach(([sxC, xfC]) => {
+      const xBout = sxC * (L / 2) + (xfC - sxC * (L / 2)) * tPanneBasse;
+      addBeam(xfC, Ht + hf * 0.15, 0, xBout, Ht + tPanneBasse * hf, 0, cfSecC, woodMat);
     });
 
 setPiece("Panne faitiere");
@@ -3443,7 +3769,6 @@ setPiece("Panne faitiere");
 setPiece("Panne");
     // ===== CEINTURE DE PANNES SUR LES 4 PANS =====
     // Un chevron ne franchit pas plus de ~2,2 m : on repartit les niveaux sur le rampant.
-    const nbPannes = Math.max(1, Math.ceil(plQ / 2.2) - 1);
     const niveauxPanne = [];
     for (let iP = 1; iP <= nbPannes; iP++) {
       const t = iP / (nbPannes + 1);
@@ -3549,7 +3874,9 @@ setPiece("Empannon de croupe");
     [-1, 1].forEach((signX) => {
       const xCoin = signX * (L / 2);
       const xf = signX * (Lfait / 2);
-      const nbEmp = Math.max(2, Math.floor((lg / 2) / espChevron));
+      // La croupe fait TOUTE la largeur : compter sur lg/2 donnait un entraxe de 0,889 m
+      // la ou les grands pans sont a 0,44. Defaut herite de l ancienne version.
+      const nbEmp = Math.max(2, Math.floor(lg / espChevron));
       for (let i = 1; i <= nbEmp; i++) {
         const f = i / (nbEmp + 1);
         const zb = -lg / 2 + f * lg;
@@ -6205,6 +6532,7 @@ const [formCombles, setFormCombles] = useState("");
 const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / "ossature_bois"
 const [formFinitionMur, setFormFinitionMur] = useState(""); // aspect de la maconnerie (voir FINITIONS_MUR)
 const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
+const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan (defaut historique) | 2 | 4
 const [formAppuis, setFormAppuis] = useState("poteaux");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
@@ -8802,6 +9130,7 @@ const loadProjectDetails = (project) => {
       murs: formMurs || undefined,
       finition_mur: formFinitionMur || undefined,
       pignon: formPignon || undefined,
+      carport_pans: formCarportPans || undefined,
       appuis: formAppuis || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
@@ -9123,6 +9452,7 @@ return (
                         type: formSousType,
                         murs: formMurs || undefined,
                         pignon: formPignon || undefined,
+                        carport_pans: formCarportPans || undefined,
                         appuis: formAppuis || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
@@ -9343,6 +9673,23 @@ return (
                     <button key={opt.val} type="button" onClick={() => setFormCombles(opt.val)}
                       style={{ background: formCombles === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCombles === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "left", display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, flexShrink: 0 }}>{renderIcon(opt.icon, 15, formCombles === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#5a5e72" : cl("#9ca0b8", "#565a6c")))}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Carport : forme du toit. 1 pan reste le defaut : les devis deja
+                  enregistres doivent garder la forme sous laquelle ils ont ete chiffres. */}
+              <div style={{ marginBottom: 18, display: typeEffectif === "carport" ? undefined : "none" }}>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Forme du toit</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { val: "1", label: "1 pan" },
+                    { val: "2", label: "2 pans" },
+                    { val: "4", label: "4 pans" }
+                  ].map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormCarportPans(opt.val)}
+                      style={{ background: formCarportPans === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCarportPans === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 10px", cursor: "pointer", color: formCarportPans === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
                       {opt.label}
                     </button>
                   ))}
