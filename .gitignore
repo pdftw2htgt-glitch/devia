@@ -29,3 +29,6 @@ _sauvegardes/
 *.bak
 *.bak-*
 *.bak_*
+
+# Donnees INSEE brutes (2,6 Mo) : servent a fabriquer la table, jamais commitees
+insee/

@@ -4897,6 +4897,26 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
   doc.save(fileName);
 }
 
+// ============================================================
+// ZONES DE NEIGE PAR COMMUNE (Eurocode 1 - annexe nationale)
+// Source : cours TCB de M. Gojon, "10.La neige.pdf" - annexe page 6 pour les
+// departements, page 2 pour les cantons de Savoie et Haute-Savoie et pour le bareme.
+// Rattachement commune -> canton : Code officiel geographique INSEE 2014, soit les
+// cantons d AVANT le redecoupage de 2015, ceux auxquels l annexe Eurocode se refere.
+// Fabrique par insee/construire_zones.py (hors depot).
+//
+// /!\ 22 departements ont plusieurs zones sans que le cours detaille leurs cantons.
+// Pour ceux-la on retient la zone la PLUS FORTE et on le DIT a l ecran : surdimensionner
+// coute de l argent, sousdimensionner fait tomber un toit.
+const NEIGE_SK = {"A1":0.45,"A2":0.45,"B1":0.55,"B2":0.55,"C1":0.65,"C2":0.65,"D":0.9,"E":1.4};
+const NEIGE_DEP = {"01":"C2","02":"C1","03":"A2","04":"C1","05":"C1","06":"C1","07":"C2","08":"C1","09":"C2","10":"A1","11":"D","12":"A2","13":"A2","14":"A1","15":"A2","16":"A2","17":"A2","18":"A1","19":"A2","2A":"A2","2B":"A2","21":"A1","22":"A1","23":"A2","24":"A2","25":"E","26":"C2","27":"A1","28":"A1","29":"A1","30":"B2","31":"C2","32":"A2","33":"A2","34":"C2","35":"A1","36":"A1","37":"A1","38":"C2","39":"C1","40":"A2","41":"A1","42":"A2","43":"A2","44":"A1","45":"A1","46":"A2","47":"A2","48":"A2","49":"A1","50":"A1","51":"A1","52":"A1","53":"A1","54":"C1","55":"C1","56":"A1","57":"C1","58":"A1","59":"C1","60":"A1","61":"A1","62":"A1","63":"A2","64":"A2","65":"A2","66":"D","67":"C1","68":"C1","69":"A2","70":"C1","71":"B1","72":"A1","73":"C2","74":"E","75":"A1","76":"A1","77":"A1","78":"A1","79":"A1","80":"A1","81":"C2","82":"A2","83":"C2","84":"C2","85":"A1","86":"A1","87":"A2","88":"C1","89":"A1","90":"C2","91":"A1","92":"A1","93":"A1","94":"A1","95":"A1"};
+// Departements a plusieurs zones, non detailles par cantons : code -> zones possibles
+const NEIGE_MIXTES = {"01":"A2/C2","02":"A1/C1","06":"A2/C1","08":"A1/C1","09":"A2/C2","11":"C2/D","25":"B1/C1/E","31":"A2/C2","34":"B2/C2","39":"B1/C1","54":"A1/B1/C1","55":"A1/C1","57":"A1/B1/C1","59":"A1/C1","66":"C2/D","67":"B1/C1","70":"B1/C1","71":"A2/B1","81":"A2/C2","83":"A2/C2","84":"B2/C2","88":"A1/B1/C1"};
+// Communes de Savoie et Haute-Savoie qui s ecartent du defaut de leur departement
+const NEIGE_EXCEPTIONS = {"73002":"E","73003":"E","73004":"E","73005":"E","73006":"E","73007":"E","73011":"E","73012":"E","73013":"E","73014":"E","73015":"E","73019":"E","73020":"E","73021":"E","73023":"E","73024":"E","73026":"E","73032":"E","73034":"E","73036":"E","73038":"E","73040":"E","73041":"E","73045":"E","73046":"E","73047":"E","73048":"E","73049":"E","73052":"E","73053":"E","73054":"E","73055":"E","73056":"E","73057":"E","73061":"E","73063":"E","73067":"E","73068":"E","73069":"E","73071":"E","73072":"E","73074":"E","73075":"E","73077":"E","73079":"E","73080":"E","73081":"E","73083":"E","73086":"E","73088":"E","73089":"E","73090":"E","73093":"E","73094":"E","73095":"E","73096":"E","73099":"E","73101":"E","73106":"E","73109":"E","73110":"E","73111":"E","73112":"E","73113":"E","73114":"E","73115":"E","73116":"E","73117":"E","73119":"E","73120":"E","73121":"E","73123":"E","73124":"E","73126":"E","73129":"E","73130":"E","73131":"E","73132":"E","73133":"E","73135":"E","73138":"E","73139":"E","73142":"E","73143":"E","73144":"E","73146":"E","73150":"E","73153":"E","73154":"E","73157":"E","73161":"E","73162":"E","73163":"E","73166":"E","73167":"E","73168":"E","73169":"E","73170":"E","73173":"E","73175":"E","73176":"E","73177":"E","73178":"E","73181":"E","73186":"E","73187":"E","73188":"E","73189":"E","73190":"E","73192":"E","73194":"E","73196":"E","73197":"E","73198":"E","73201":"E","73202":"E","73203":"E","73205":"E","73206":"E","73207":"E","73211":"E","73212":"E","73215":"E","73216":"E","73217":"E","73220":"E","73221":"E","73223":"E","73224":"E","73227":"E","73230":"E","73231":"E","73232":"E","73234":"E","73235":"E","73237":"E","73241":"E","73242":"E","73244":"E","73247":"E","73248":"E","73250":"E","73252":"E","73253":"E","73255":"E","73256":"E","73257":"E","73258":"E","73259":"E","73261":"E","73262":"E","73266":"E","73267":"E","73268":"E","73270":"E","73272":"E","73277":"E","73278":"E","73280":"E","73283":"E","73284":"E","73285":"E","73287":"E","73289":"E","73290":"E","73292":"E","73294":"E","73296":"E","73297":"E","73298":"E","73302":"E","73303":"E","73304":"E","73305":"E","73306":"E","73307":"E","73308":"E","73311":"E","73312":"E","73315":"E","73316":"E","73317":"E","73318":"E","73320":"E","73321":"E","73322":"E","73323":"E","74002":"C2","74004":"C2","74006":"C2","74008":"C2","74009":"C2","74012":"C2","74015":"C2","74016":"C2","74021":"C2","74025":"C2","74029":"C2","74031":"C2","74035":"C2","74037":"C2","74038":"C2","74040":"C2","74043":"C2","74044":"C2","74046":"C2","74048":"C2","74050":"C2","74051":"C2","74052":"C2","74054":"C2","74055":"C2","74061":"C2","74065":"C2","74066":"C2","74068":"C2","74069":"C2","74070":"C2","74071":"C2","74074":"C2","74075":"C2","74077":"C2","74078":"C2","74082":"C2","74086":"C2","74088":"C2","74094":"C2","74095":"C2","74096":"C2","74097":"C2","74100":"C2","74101":"C2","74105":"C2","74107":"C2","74109":"C2","74117":"C2","74118":"C2","74121":"C2","74124":"C2","74126":"C2","74128":"C2","74130":"C2","74131":"C2","74133":"C2","74138":"C2","74139":"C2","74140":"C2","74141":"C2","74142":"C2","74144":"C2","74145":"C2","74150":"C2","74151":"C2","74153":"C2","74156":"C2","74158":"C2","74161":"C2","74165":"C2","74168":"C2","74170":"C2","74171":"C2","74177":"C2","74178":"C2","74180":"C2","74184":"C2","74185":"C2","74192":"C2","74193":"C2","74194":"C2","74195":"C2","74197":"C2","74199":"C2","74201":"C2","74211":"C2","74216":"C2","74220":"C2","74225":"C2","74226":"C2","74228":"C2","74229":"C2","74231":"C2","74233":"C2","74235":"C2","74243":"C2","74254":"C2","74255":"C2","74259":"C2","74260":"C2","74261":"C2","74262":"C2","74269":"C2","74274":"C2","74283":"C2","74285":"C2","74288":"C2","74289":"C2","74291":"C2","74292":"C2","74293":"C2","74296":"C2","74297":"C2","74298":"C2","74301":"C2","74305":"C2","74306":"C2","74309":"C2","74310":"C2","74313":"C2","74314":"C2","74315":"C2"};
+
+// /!\ ZONES_DB ne sert plus QUE pour le vent et le sismique. La neige vient de la
+// table ci-dessus, par code INSEE. Ses etiquettes de neige sont obsoletes.
 const ZONES_DB = {
 "paris": { neige: "A1", vent: "2", sismique: "1" },
 "lyon": { neige: "A2", vent: "2", sismique: "1" },
@@ -4986,7 +5006,7 @@ const themes = {
 };
 // ====================================================
 
-function getZone(commune, altitude, zoneNeigeForcee) {
+function getZone(commune, altitude, zoneNeigeForcee, codeInsee) {
 // RECHERCHE EXACTE. Avant : key.includes(k) || k.includes(key), dans les DEUX sens.
 // "Nicey-sur-Aire" (Meuse) heritait donc des zones de NICE. Et surtout, toute commune
 // absente de la table de 26 villes retombait EN SILENCE sur une zone de plaine :
@@ -5006,15 +5026,33 @@ if (zone === null) {
 }
 const communeInconnue = (zone === null);
 if (communeInconnue) zone = { neige: "A2", vent: "2", sismique: "1" };
-// Zone imposee a la main : elle gagne toujours sur la table.
+
+// ---- NEIGE : par CODE INSEE, plus par le nom de la commune ----
+// Le code vient des suggestions d adresse (citycode). A defaut on retombe sur les deux
+// premiers chiffres du code postal saisi, ce qui donne au moins le departement.
+let dep = String(codeInsee || "").trim().slice(0, 2);
+if (dep === "") {
+  const cp = brut.match(/\b(\d{5})\b/);
+  if (cp) dep = cp[1].slice(0, 2);
+}
+if (dep === "20") dep = "2A";                 // Corse : le code postal ne distingue pas 2A/2B
+const inseeComplet = String(codeInsee || "").trim();
+let zoneNeige = NEIGE_EXCEPTIONS[inseeComplet] || NEIGE_DEP[dep] || null;
+const depMixte = NEIGE_MIXTES[dep] || "";     // ex "A2/C2" : zone la plus forte retenue
+const neigeInconnue = (zoneNeige === null);
+if (neigeInconnue) zoneNeige = "A2";
+
+// Zone imposee a la main : elle gagne toujours.
 const forcee = String(zoneNeigeForcee || "");
-if ((forcee === "") === false) zone = { neige: forcee, vent: zone.vent, sismique: zone.sismique };
-const nl = zone.neige.match(/([A-D])(\d?)/);
-const nL = nl ? nl[1] : "A";
-const nC = nl ? parseInt(nl[2] || "1") : 1;
+if ((forcee === "") === false) zoneNeige = forcee;
+zone = { neige: zoneNeige, vent: zone.vent, sismique: zone.sismique };
+const skBrutTable = NEIGE_SK[zone.neige];
 const altNum = parseInt(altitude) || 200;
-const neigeBase = { A: { 1: 0.45, 2: 0.45, 3: 0.55 }, B: { 1: 0.65, 2: 0.90 }, C: { 1: 1.40, 2: 1.70 }, D: { 0: 2.30 } };
-const skBrut = (neigeBase[nL] || {})[nC] || 0.65; // sk region a 200m (valeur cours)
+// Bareme de l annexe nationale, confirme par le cours de M. Gojon (page 2).
+// L ancien tableau etait DECALE D UN CRAN : il donnait B1=0,65 et C1=1,40 la ou la norme
+// dit 0,55 et 0,65, inventait une zone A3 et ignorait la zone E. Tous les devis sortis
+// avant le 04/11/2026 sont concernes.
+const skBrut = (skBrutTable === undefined) ? 0.45 : skBrutTable; // sk a 200 m, bareme officiel
 // Correction d'altitude conforme au cours TCB (formulaire RDM p8) : dS = max(dS1, dS2)
 let dS1 = 0, dS2 = 0;
 if (altNum > 200 && altNum <= 500) { dS1 = altNum/1000 - 0.2; dS2 = 1.5*altNum/1000 - 0.3; }
@@ -5029,8 +5067,10 @@ return {
   ...zone,
   // inconnue = la commune n est pas dans la table ET personne n a impose de zone.
   // Le formulaire doit le DIRE, pas laisser croire que 0,45 kN/m2 est un resultat.
-  inconnue: (communeInconnue && (forcee === "")),
+  inconnue: (neigeInconnue && (forcee === "")),
   forcee: ((forcee === "") === false),
+  depMixte: ((forcee === "") === false) ? "" : depMixte,
+  ventSismiqueInconnus: communeInconnue,
   sk: Math.round(skBrut * 100) / 100,            // sk brut 200m (pour calcul EC5 + mu)
   skAltitude: Math.round(skAltitude * 100) / 100, // sk + dS (pour affichages)
   altitude: altNum,
@@ -8437,7 +8477,7 @@ return out;
 
 // ===== BRIQUES REUTILISABLES DE GENERATION (solo + multi-ouvrages) =====
   const buildDeviaPrompt = (fp) => {
-    const zoneInfo = getZone(commune, altitude, formZoneNeige);
+    const zoneInfo = getZone(commune, altitude, formZoneNeige, (addressData && addressData.citycode) || "");
     // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
     let catalogSource = "marche";
@@ -8638,7 +8678,7 @@ return out;
         catalogSourceGlobal = catalogSource;
         let contenuOuvrage = fp.description || "Genere un devis pour cet ouvrage.";
         try {
-          const ziO = getZone(commune, altitude, formZoneNeige);
+          const ziO = getZone(commune, altitude, formZoneNeige, (addressData && addressData.citycode) || "");
           const texteMetreO = metreTexteDepuisParams({ ...fp, sk: ziO ? ziO.sk : undefined, dS: ziO ? ziO.dS : undefined, altitude: altitude });
           if (texteMetreO) contenuOuvrage += "\n\n" + texteMetreO;
         } catch (eMO) { console.warn("[DEVIA] Metre moteur indisponible (ouvrage)", eMO); }
@@ -8646,7 +8686,7 @@ return out;
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
         // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
-        const ziH = getZone(commune, altitude, formZoneNeige);
+        const ziH = getZone(commune, altitude, formZoneNeige, (addressData && addressData.citycode) || "");
         harmoniserSectionsDevis(parsed, ziH ? ziH.sk : 0.45, ziH ? ziH.dS : 0, fp);
         devisParOuvrage.push(parsed);
       }
@@ -8781,7 +8821,7 @@ stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); },
 // Garde une référence pour nettoyer si necessaire
 window._deviaStepTimers = stepTimers;
 setLoadingProgress(5);
-const zoneInfo = getZone(commune, altitude, formZoneNeige);
+const zoneInfo = getZone(commune, altitude, formZoneNeige, (addressData && addressData.citycode) || "");
 const { systemPrompt, catalogSource } = buildDeviaPrompt(finalParams);
 try {
 let userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
@@ -9210,7 +9250,7 @@ const loadProjectDetails = (project) => {
   };
 
 const typeEffectif = formType === "custom" ? formSousType : formType;
-const zoneInfo = commune ? getZone(commune, altitude, formZoneNeige) : null;
+const zoneInfo = commune ? getZone(commune, altitude, formZoneNeige, (addressData && addressData.citycode) || "") : null;
 // === DEVIA Design System v2 - Liquid Glass ===
 // Cards translucides avec backdrop-filter, bordures ultra-fines, plus d'espace
 // Les styles cardStyle/inputStyle/btnPrimary/btnSecondary
@@ -9543,7 +9583,7 @@ return (
                       const entraxeEff = formRemede === "dense" ? 0.4 : 0.5;
                       let dimP = null;
                       try {
-                        const zP = getZone(commune || "", altitude || 200, formZoneNeige);
+                        const zP = getZone(commune || "", altitude || 200, formZoneNeige, (addressData && addressData.citycode) || "");
                         const chP = ec5DescenteCharge(formCouverture || "tuile_terre", zP ? zP.sk : 0.45, 0, zP ? zP.dS : 0, false);
                         dimP = dimensionnerPiece("Solive", { portee: porteeEff, entraxe: entraxeEff, G: chP.G, Q: chP.Q, S: chP.S, classeService: 2, dureeVariable: "moyen", typeBatiment: "courant", altitude: parseFloat(altitude) || 200, console: false });
                       } catch (eP) { dimP = null; }
@@ -9820,9 +9860,16 @@ return (
               </div>
               {zoneInfo && zoneInfo.inconnue === true ? (
                 <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.45)", color: themeMode === "light" ? "#9b1c1c" : "#fca5a5", fontSize: 12, lineHeight: 1.5 }}>
-                  Cette commune n est pas dans la base de DEVIA. Les zones affichees sont une
-                  <strong> hypothese de plaine</strong>, pas un resultat : en montagne la charge de neige peut
-                  etre deux a trois fois superieure. Choisis la zone de neige ci-dessous avant de chiffrer.
+                  Commune non localisee : choisis-la dans la liste de suggestions pour que DEVIA
+                  trouve sa zone de neige, ou impose la zone ci-dessous.
+                </div>
+              ) : null}
+              {zoneInfo && zoneInfo.depMixte ? (
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.45)", color: themeMode === "light" ? "#92400e" : "#fcd34d", fontSize: 12, lineHeight: 1.5 }}>
+                  Ce departement compte plusieurs zones de neige (<strong>{zoneInfo.depMixte}</strong>) et le
+                  decoupage par cantons n est pas detaille dans la source. DEVIA retient la
+                  <strong> plus forte</strong> par securite. Si tu sais que le chantier est en zone basse,
+                  impose-la ci-dessous : tu economiseras du bois.
                 </div>
               ) : null}
               <div style={{ marginBottom: 14 }}>
