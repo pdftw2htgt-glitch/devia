@@ -483,7 +483,14 @@ function entraxeFermesOptimal(L, couverture, sk, pente, dS, solaire, altitude) {
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
   const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire));
-  const ENTRAXE_FERMES = entraxeFermesOptimal(((params && params.longueur) || 8), (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0);
+  // entraxeFermesOptimal part de L/1 et retourne le PREMIER entraxe qui passe, donc le plus
+  // grand : pour un batiment de 10 m elle repond 10 m. En hangar, les fermes sont dessinees
+  // sur le rythme des poteaux, et les pannes doivent etre taillees pour CETTE portee-la,
+  // pas pour la longueur du batiment (1,6 m3 de bois en trop, mesure au banc le 04/11).
+  const L_BAT_SEC = ((params && params.longueur) || 8);
+  const ENTRAXE_FERMES = (((params && params.type_projet) === "hangar") === true)
+    ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
+    : entraxeFermesOptimal(L_BAT_SEC, (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0);
   const PORTEE_MAX = 8;
   const result = {};
 
@@ -2505,6 +2512,22 @@ setPiece("Liteau");
     const yFait = Ht + hf;
     const [potHB] = sec("Poteau", 0.22, 0.22); const sectionPotau = potHB; // section calculee (flambement) ou fallback
 
+    // PLAN PORTEUR DES CHEVRONS AU FAITAGE.
+    // Les pannes d aplomb remontent la ligne d appui des chevrons bien au-dessus de l apex
+    // de la ferme : une faitiere posee a l apex, comme avant, ne touchait rien du tout
+    // (62 cm de vide mesures). On reprend ici EXACTEMENT le decalage perpendiculaire que
+    // les chevrons appliquent plus bas, pour que le dessus de la faitiere soit leur appui.
+    const cosA0 = Math.cos(ang), sinA0 = Math.sin(ang);
+    const arH0 = sec("Arbaletrier", 0.16, 0.16)[1];
+    const [pw0, ph0] = sec("Panne", 0.12, 0.12);
+    const chH0 = sec("Chevron", 0.10, 0.14)[1];
+    const dPerpChev0 = arH0 / 2 + (ph0 + 0.03 - delardement) * cosA0 + pw0 * sinA0 + chH0 / 2;
+    const ySousChevFaitage = yFait + (dPerpChev0 - chH0 / 2) / cosA0;
+    // Section de la faitiere lue ici : le poincon doit la porter, et il est dessine avant elle.
+    const [pfw, pfh] = sec("Panne faitiere", 0.16, 0.16);
+    const ySousFaitiereH = ySousChevFaitage - pfh;
+    const EMBREV_FAIT_H = 0.04;                     // meme embrevement qu en charpente trad
+
 setPiece("Poteau");
     // ===== POTEAUX (specificite hangar : 4 coins + intermediaires) =====
     const nbPoteauxLong = Math.max(2, Math.ceil(L / 4));
@@ -2522,7 +2545,9 @@ setPiece("Sabliere");
 
 setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
-    const nbFermes = Math.max(2, Math.ceil(L / 3));
+    // Dans un hangar, le portique EST poteau + ferme : une ferme posee entre deux poteaux
+    // ferait travailler la sabliere en flexion sur une portee qu elle n a pas prevue.
+    const nbFermes = nbPoteauxLong;
     const fermeXsH = [];
     for (let i = 0; i <= nbFermes; i++) {
       const x = -L/2 + (i / nbFermes) * L;
@@ -2540,7 +2565,9 @@ setPiece("Ferme");
       // Poincon (vertical central)
       setPiece("Poincon");
       const [poB, poH] = sec("Poincon", 0.18, 0.18);
-      addBox(poB, hf, poH, x, Ht + hf/2, 0, woodMat);
+      // Il monte jusqu a la faitiere et la recoit dans une encoche, au lieu de s arreter
+      // a l apex en la laissant flotter au-dessus de lui.
+      addPoinconEncoche(x, poB, poH, Ht, ySousFaitiereH + EMBREV_FAIT_H, pfw, EMBREV_FAIT_H);
 
       // Liens de faitage (echarpes ~45deg du poincon vers la sous-face de la faitiere)
       // Contreventement longitudinal : 2 liens par ferme intermediaire, 1 vers l interieur en pignon
@@ -2548,7 +2575,7 @@ setPiece("Ferme");
       const lienSecH = 0.07;
       const lienPorteeH = Math.min(0.7, L / (2 * nbFermes) - 0.1);
       if (lienPorteeH > 0.25) {
-        const yHautLienH = yFait - 0.10;
+        const yHautLienH = ySousFaitiereH;
         const yBasLienH = yHautLienH - lienPorteeH;
         const premiereFermeH = (i === 0);
         const derniereFermeH = (i === nbFermes);
@@ -2568,8 +2595,10 @@ setPiece("Ferme");
 
 setPiece("Panne faitiere");
     // ===== PANNE FAITIERE =====
-    const [pfw, pfh] = sec("Panne faitiere", 0.16, 0.16);
-    addBox(L + 2 * dpH0, pfw, pfh, 0, yFait, 0, woodMat);
+    // addBox prend (dimX, dimY, dimZ) : la LARGEUR passait en hauteur, la faitiere etait
+    // couchee. Le metre et l IFC enregistraient la meme erreur (section 300x200 au lieu
+    // de 200x300). Hauteur = pfh, epaisseur = pfw, comme toutes les autres pieces.
+    addBox(L + 2 * dpH0, pfh, pfw, 0, ySousFaitiereH + pfh / 2, 0, woodMat);
 
     // ===== PANNES D APLOMB (droites, calees par echantignoles - pattern trad) =====
     setPiece("Panne");
