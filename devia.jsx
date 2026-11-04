@@ -488,9 +488,22 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // sur le rythme des poteaux, et les pannes doivent etre taillees pour CETTE portee-la,
   // pas pour la longueur du batiment (1,6 m3 de bois en trop, mesure au banc le 04/11).
   const L_BAT_SEC = ((params && params.longueur) || 8);
-  const ENTRAXE_FERMES = (((params && params.type_projet) === "hangar") === true)
+  const LG_BAT_SEC = ((params && params.largeur) || 6);
+  const TYPE_SEC = (params && params.type_projet) || "";
+  // 4 PANS : la portee qui gouverne n est pas la longueur du batiment. Les pannes vont
+  // d un aretier a l autre en passant sur les fermes ; la plus grande travee est donc le
+  // max entre l entraxe des fermes et la distance du dernier bout de faitage au coin.
+  const reculSec = Math.min(LG_BAT_SEC / 2, (L_BAT_SEC - 0.6) / 2);
+  const LfaitSec = Math.max(0.4, L_BAT_SEC - 2 * reculSec);
+  const entraxe4Pans = Math.max(
+    LfaitSec / Math.max(1, Math.round(LfaitSec / 3.0)),
+    (L_BAT_SEC - LfaitSec) / 2
+  );
+  const ENTRAXE_FERMES = (TYPE_SEC === "hangar")
     ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
-    : entraxeFermesOptimal(L_BAT_SEC, (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0);
+    : ((TYPE_SEC === "4_pans")
+      ? entraxe4Pans
+      : entraxeFermesOptimal(L_BAT_SEC, (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0));
   const PORTEE_MAX = 8;
   const result = {};
 
@@ -3335,181 +3348,235 @@ setPiece("Echantignole");
   // ============================================================
   const draw4Pans = () => {
     // ============================================================
-    // TOIT 4 PANS / CROUPE PARAMETRIQUE - charpente complete
-    // S'adapte aux dimensions et a la couverture demandees.
-    // (sections indicatives - calcul structurel = phase 2.B)
+    // TOIT 4 PANS / CROUPE - REECRIT LE 04/11 SUR L EMPILEMENT DE LA TRAD.
+    //
+    // AVANT : le 4 pans centrait toutes ses pieces sur la LIGNE DE RAMPANT et descendait
+    // les pannes en dessous (SOUS_CHEV_Q). C etait un modele de SURFACE DE TOIT, pas une
+    // charpente : 4 aretiers de 6,31 m dans le vide, pas un entrait, pas un poincon, pas
+    // une contrefiche, pas une echantignole. 7,615 m3 pour 71 pieces, et rien qui porte.
+    //
+    // MAINTENANT on EMPILE, comme la trad et le hangar : entrait sur le mur, arbaletriers
+    // dessus, pannes delardees sur echantignoles, chevrons sur les pannes.
+    // CONSEQUENCE VOULUE, acceptee par Mathis : a hauteur de mur egale, le faitage monte
+    // d environ 35 cm. C est l epaisseur de charpente qui etait escamotee.
     // ============================================================
-    const hf = (lg / 2) * Math.tan((pente * Math.PI) / 180); // hauteur faitage
-    const yFait = Ht + hf;
+    const hf = (lg / 2) * Math.tan((pente * Math.PI) / 180);
+    const angQ = Math.atan(hf / (lg / 2));
+    const cosQ = Math.cos(angQ), sinQ = Math.sin(angQ), tanQ = Math.tan(angQ);
+    const yApex = Ht + hf;                      // axe des arbaletriers au faitage
+    const plQ = (lg / 2) / cosQ;                // longueur d un arbaletrier
 
-    // Recul de croupe = profondeur horizontale du pan de croupe.
-    // Par convention on prend la meme pente que les grands pans -> recul = lg/2.
-    // Mais on borne pour garder un faitage visible meme si L est court.
     const reculCroupe = Math.min(lg / 2, (L - 0.6) / 2);
     const Lfait = Math.max(0.4, L - 2 * reculCroupe);
     const xFaitGauche = -Lfait / 2;
     const xFaitDroit = Lfait / 2;
 
-    // ===== REGLES METIER ADAPTATIVES =====
     const couv = getCouverture(opts && opts.couverture);
-    const couvColor = couv.couleur;
     const espChevron = couv.espChevron;
-    const espLiteau = couv.espLiteau;
-    const angLong = Math.atan(hf / (lg / 2));
-    const plLong = (lg / 2) / Math.cos(angLong);   // longueur rampant grand pan
-    const roof4Mat = makeRoofMaterial(couv, L, plLong);
+    const roof4Mat = makeRoofMaterial(couv, L, plQ);
 
-    // Geometrie des grands pans
-    const secChevron = plLong > 4.5 ? 0.10 : (plLong > 3 ? 0.09 : 0.08);
+    // ===== SECTIONS =====
+    const [enB, enH] = sec("Entrait", 0.16, 0.16);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
+    const [poB, poH] = sec("Poincon", 0.18, 0.18);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    const [pw, ph] = sec("Panne", 0.12, 0.24);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
+    const [pfB, pfH] = sec("Panne faitiere", 0.16, 0.16);
+    const arrSec = sec("Aretier", 0.12, 0.24)[1];
+    const eEch = 0.03;                          // epaisseur d echantignole au nu amont
+    const EMBREV = 0.04;                        // embrevement du poincon sous la faitiere
 
-    // Nb de pannes par pan (un chevron ne franchit pas > ~2.2 m)
-    const nbPannes = Math.max(1, Math.ceil(plLong / 2.2) - 1);
+    // ===== PLAN PORTEUR DES CHEVRONS : meme formule qu en trad et en hangar =====
+    // Un decalage PERPENDICULAIRE d a l axe de l arbaletrier vaut d / cos(angle) en vertical.
+    const dPerpChev = arH / 2 + (ph + eEch - delardement) * cosQ + pw * sinQ + chH / 2;
+    const LEVEE = dPerpChev / cosQ;             // montee verticale axe arba -> axe chevron
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosQ;   // -> DESSUS des chevrons (plan de couverture)
+    const ySousFaitiere = yApex + (dPerpChev - chH / 2) / cosQ - pfH;
+    const yTetePoincon = ySousFaitiere + EMBREV;
 
-    // ===== MURS BETON (porte pignon + fenetres) + DALLE =====
-    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, Ht); } else { drawMursBeton(L, lg, Ht); }
+    // ===== MURS : l entrait se loge sous la sabliere, le bois reste AU-DESSUS du beton =====
+    const hMur = Ht;
+    const yEntrait = hMur - enH / 2;
+    // Les fermes se placent sous la partie a DEUX pans : ailleurs c est la croupe.
+    const nbIntFermes = Math.max(1, Math.round(Lfait / 3.0));
+    const fermeXs = [];
+    for (let iF = 0; iF <= nbIntFermes; iF++) {
+      fermeXs.push(xFaitGauche + (iF / nbIntFermes) * Lfait);
+    }
+    const encoches4 = fermeXs.map((cx) => ({ cx: cx, w: enB + 0.035, h: enH }));
+    if (params.murs === "ossature_bois") { drawMursOssature(L, lg, hMur); }
+    else { drawMursBeton(L, lg, hMur, [], encoches4); }
     drawDalleBeton(L, lg, 0);
 
 setPiece("Sabliere");
-    // ===== SABLIERES DE CHAINAGE (haut des 4 murs) =====
-    // Les chevrons sont tendus SUR la ligne de rampant (de l egout au faitage), donc leur
-    // sous-face est a -chH/2 perpendiculairement. Sablieres, pannes et faitage etaient eux
-    // aussi centres sur cette ligne : les chevrons les traversaient de part en part.
-    const cosQ = Math.cos(angLong), tanQ = Math.tan(angLong);
-    const SOUS_CHEV_Q = (secChevron / 2) / cosQ;   // retrait vertical sous la ligne de rampant
-    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    const ySablQ = Ht - SOUS_CHEV_Q + (sbB / 2) * tanQ - sbH / 2;
-    addBox(L + 0.2, sbH, sbB, 0, ySablQ, lg/2, woodMat);
-    addBox(L + 0.2, sbH, sbB, 0, ySablQ, -lg/2, woodMat);
-    addBox(sbB, sbH, lg, -L/2, ySablQ, 0, woodMat);
-    addBox(sbB, sbH, lg, L/2, ySablQ, 0, woodMat);
+    // ===== SABLIERES SUR LES 4 MURS (un toit en croupe n a pas de pignon) =====
+    const ySabl = hMur + sbH / 2;
+    addBox(L + 0.2, sbH, sbB, 0, ySabl, lg / 2, woodMat);
+    addBox(L + 0.2, sbH, sbB, 0, ySabl, -lg / 2, woodMat);
+    addBox(sbB, sbH, lg, -L / 2, ySabl, 0, woodMat);
+    addBox(sbB, sbH, lg, L / 2, ySabl, 0, woodMat);
 
-setPiece("Faitage");
-    // ===== FAITAGE (central) : il porte les abouts hauts des chevrons =====
-    const [ftB, ftH] = sec("Faitage", 0.15, 0.15);
-    addPanneDelardee(Lfait, ftH, ftB, 0, yFait - SOUS_CHEV_Q - (ftB / 2) * tanQ + delardement - ftH / 2, 0, tanQ, 0, delardement, woodMat);
-
-setPiece("Aretier");
-    // ===== ARETIERS (faitage -> 4 coins) =====
-    const coins = [
-      [xFaitGauche, [-L/2, Ht, lg/2]],
-      [xFaitGauche, [-L/2, Ht, -lg/2]],
-      [xFaitDroit,  [L/2, Ht, lg/2]],
-      [xFaitDroit,  [L/2, Ht, -lg/2]],
-    ];
-    coins.forEach(([xf, [cxp, cyp, czp]]) => {
-      addBeam(cxp, cyp, czp, xf, yFait, 0, sec("Aretier", 0.12, 0.12)[1], woodMat);
+    // ===== FERMES COMPLETES SOUS LE FAITAGE =====
+    fermeXs.forEach((xF) => {
+      setPiece("Entrait");
+      addBox(enB, enH, lg, xF, yEntrait, 0, woodMat);
+      setPiece("Arbaletrier");
+      addBox(arB, arH, plQ, xF, Ht + hf / 2, lg / 4, woodMat, [angQ, 0, 0]);
+      addBox(arB, arH, plQ, xF, Ht + hf / 2, -lg / 4, woodMat, [-angQ, 0, 0]);
+      setPiece("Poincon");
+      addPoinconEncoche(xF, poB, poH, yEntrait - enH / 2, yTetePoincon, pfB, EMBREV);
+      setPiece("Contrefiche");
+      const cfSec = sec("Contrefiche", 0.16, 0.16)[0];
+      const cfT = 0.55;
+      const cfBaseY = Ht + hf * 0.15;
+      const cfEndY = Ht + cfT * hf;
+      const cfEndZ = (lg / 2) * (1 - cfT);
+      addBeam(xF, cfBaseY, 0, xF, cfEndY, cfEndZ, cfSec, woodMat);
+      addBeam(xF, cfBaseY, 0, xF, cfEndY, -cfEndZ, cfSec, woodMat);
     });
 
+setPiece("Panne faitiere");
+    // ===== PANNE FAITIERE : portee par les poincons, dessus dans le plan des chevrons =====
+    addBox(Lfait, pfH, pfB, 0, ySousFaitiere + pfH / 2, 0, woodMat);
+
 setPiece("Panne");
-    // ===== PANNES sur les 2 grands pans (nb adaptatif) =====
-    // Longueur de la panne diminue en montant (les pans se rapprochent du faitage)
-    for (let i = 1; i <= nbPannes; i++) {
-      const t = i / (nbPannes + 1);
-      const yPanne = Ht + hf * t;
-      const zPanne = (lg / 2) * (1 - t);
-      const lenPanne = Lfait + (L - Lfait) * (1 - t);
-      const [pnB, pnH] = sec("Panne", 0.12, 0.24);
-      const yPanneQ = yPanne - SOUS_CHEV_Q - (pnB / 2) * tanQ + delardement - pnH / 2;
-      addPanneDelardee(lenPanne, pnH, pnB, 0, yPanneQ, zPanne, tanQ, 1, delardement, woodMat);
-      addPanneDelardee(lenPanne, pnH, pnB, 0, yPanneQ, -zPanne, tanQ, -1, delardement, woodMat);
+    // ===== CEINTURE DE PANNES SUR LES 4 PANS =====
+    // Un chevron ne franchit pas plus de ~2,2 m : on repartit les niveaux sur le rampant.
+    const nbPannes = Math.max(1, Math.ceil(plQ / 2.2) - 1);
+    const niveauxPanne = [];
+    for (let iP = 1; iP <= nbPannes; iP++) {
+      const t = iP / (nbPannes + 1);
+      const yRef = Ht + hf * t + (arH / 2) / cosQ;        // dessus de l arbaletrier
+      const zRef = (lg / 2) * (1 - t);
+      const yP = yRef + (pw / 2) * tanQ + eEch + ph / 2;  // panne d aplomb calee dessus
+      niveauxPanne.push({ t: t, yRef: yRef, zRef: zRef, yP: yP });
+      // Grands pans : la panne va d un aretier a l autre.
+      const lenPanne = L - (L - Lfait) * t;
+      addPanneDelardee(lenPanne, ph, pw, 0, yP, zRef, tanQ, 1, delardement, woodMat);
+      addPanneDelardee(lenPanne, ph, pw, 0, yP, -zRef, tanQ, -1, delardement, woodMat);
+      // Croupes : meme niveau, filant selon Z entre les deux aretiers du bout.
+      // /!\ addPanneDelardee n extrude que selon X : la panne de croupe est une boite
+      // d aplomb, sans delardement. A reprendre quand l aide saura filer selon Z.
+      const xCroupe = L / 2 - reculCroupe * t;
+      const lenCroupe = lg * (1 - t);
+      if (lenCroupe > 0.3) {
+        addBox(pw, ph, lenCroupe, xCroupe, yP, 0, woodMat);
+        addBox(pw, ph, lenCroupe, -xCroupe, yP, 0, woodMat);
+      }
     }
 
+setPiece("Echantignole");
+    // ===== ECHANTIGNOLES : dessus horizontal, talon aval (meme dessin qu en trad) =====
+    const addEchant4 = (fx, zRef, yRef, signZ) => {
+      const eB2 = arB, tT = 0.05, hT = 0.06;
+      const yTop = yRef + (pw / 2) * tanQ + eEch;
+      const z1 = zRef - pw / 2, z2 = zRef + pw / 2, z3 = z2 + tT;
+      const yB = yTop - eEch;
+      const yD = yB - (z3 - z1) * tanQ;
+      const s = signZ;
+      const cont = [[yTop, z1], [yTop, z2], [yTop + hT, z2], [yTop + hT, z3], [yD, z3], [yB, z1]];
+      const shp = new THREE.Shape();
+      shp.moveTo(s * cont[0][1], cont[0][0]);
+      for (let q = 1; q < cont.length; q++) shp.lineTo(s * cont[q][1], cont[q][0]);
+      shp.closePath();
+      // 2 mm de plus de chaque cote : a largeur EGALE les flancs se disputent la profondeur.
+      const eDess = eB2 + 0.004;
+      const g = new THREE.ExtrudeGeometry(shp, { depth: eDess, bevelEnabled: false });
+      const m = new THREE.Mesh(g, woodMat);
+      m.rotation.y = -Math.PI / 2;
+      m.position.set(fx + eDess / 2, 0, 0);
+      m.castShadow = true;
+      scene.add(m);
+      const yCe = (yD + yTop + hT) / 2, zCe = s * (z1 + z3) / 2;
+      let ptsE = cont.map((q) => [q[0] - yCe, s * q[1] - zCe]);
+      let aireE = 0;
+      for (let q = 0; q < ptsE.length; q++) {
+        const u = ptsE[q], w = ptsE[(q + 1) % ptsE.length];
+        aireE += u[0] * w[1] - w[0] * u[1];
+      }
+      if (aireE < 0) ptsE = ptsE.slice().reverse();
+      logPiece(eB2, pw * tanQ + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+      metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
+    };
+    niveauxPanne.forEach((n) => {
+      fermeXs.forEach((fx) => {
+        addEchant4(fx, n.zRef, n.yRef, 1);
+        addEchant4(fx, n.zRef, n.yRef, -1);
+      });
+    });
+
+setPiece("Aretier");
+    // ===== ARETIERS : dans le plan de couverture, du coin au bout de faitage =====
+    // Les deux pans qui se coupent sont remontes de la MEME hauteur verticale : leur
+    // intersection, donc l aretier, se remonte d autant.
+    const yAretBas = Ht + LEVEE_DESSUS - arrSec / 2;
+    const yAretHaut = yApex + LEVEE_DESSUS - arrSec / 2;
+    [[-1, xFaitGauche], [1, xFaitDroit]].forEach(([sx, xf]) => {
+      [1, -1].forEach((sz) => {
+        addBeam(sx * L / 2, yAretBas, sz * lg / 2, xf, yAretHaut, 0, arrSec, woodMat);
+      });
+    });
+
 setPiece("Chevron");
-    // ===== CHEVRONS sur les 2 grands pans (entre les aretiers) =====
-    // Uniquement dans la zone du faitage (au-dela, ce sont les empannons)
+    // ===== CHEVRONS DES GRANDS PANS (entre les deux aretiers) =====
+    const yChevBas = Ht + LEVEE;
+    const yChevHaut = yApex + LEVEE;
     const nbChevGrandPan = Math.max(2, Math.floor(Lfait / espChevron));
     for (let i = 0; i <= nbChevGrandPan; i++) {
       const x = xFaitGauche + (i / nbChevGrandPan) * Lfait;
-      // pan avant (Z+)
-      addBeam(x, Ht, lg/2, x, yFait, 0, sec("Chevron", secChevron, secChevron)[1], woodMat);
-      // pan arriere (Z-)
-      addBeam(x, Ht, -lg/2, x, yFait, 0, sec("Chevron", secChevron, secChevron)[1], woodMat);
+      addBeam(x, yChevBas, lg / 2, x, yChevHaut, 0, chH, woodMat);
+      addBeam(x, yChevBas, -lg / 2, x, yChevHaut, 0, chH, woodMat);
     }
 
 setPiece("Empannon");
-    // ===== EMPANNONS (chevrons courts s'appuyant sur les aretiers) =====
-    // Signature de la croupe : sur chaque pan, des chevrons de longueur
-    // decroissante qui butent sur l'aretier au lieu d'atteindre le faitage.
+    // ===== EMPANNONS DES GRANDS PANS : ils butent sur l aretier =====
     const empannonsParCote = Math.max(2, Math.floor(reculCroupe / espChevron));
-
-    // Helper local : projette un point du bas de pan vers l'aretier correspondant
-    const drawEmpannonsGrandPan = (signZ) => {
-      // Cote gauche (vers aretier gauche) et droit (vers aretier droit)
-      [[-1, xFaitGauche, -L/2], [1, xFaitDroit, L/2]].forEach(([signX, xf, xCoin]) => {
+    [1, -1].forEach((signZ) => {
+      [[xFaitGauche, -L / 2], [xFaitDroit, L / 2]].forEach(([xf, xCoin]) => {
         for (let i = 1; i <= empannonsParCote; i++) {
           const f = i / (empannonsParCote + 1);
-          // point bas : sur la sabliere, entre le coin et le debut du faitage
           const xb = xCoin + (xf - xCoin) * f;
-          const zb = signZ * (lg/2);
-          // point haut : sur l'aretier, a la meme fraction
-          const xh = xCoin + (xf - xCoin) * f;
-          const yh = Ht + hf * f;
-          const zh = signZ * (lg/2) * (1 - f);
-          addBeam(xb, Ht, zb, xh, yh, zh, sec("Empannon", secChevron, secChevron)[1] * 0.9, woodMat);
+          const yh = Ht + hf * f + LEVEE;
+          const zh = signZ * (lg / 2) * (1 - f);
+          addBeam(xb, yChevBas, signZ * (lg / 2), xb, yh, zh, chH * 0.9, woodMat);
         }
       });
-    };
-    drawEmpannonsGrandPan(1);   // grand pan avant
-    drawEmpannonsGrandPan(-1);  // grand pan arriere
+    });
 
 setPiece("Empannon de croupe");
-    // ===== EMPANNONS DE CROUPE (sur les 2 triangles de bout) =====
-    const drawEmpannonsCroupe = (signX) => {
-      const xCoinAv = signX * (L/2);
-      const xf = signX * (Lfait/2);
-      const nbEmp = Math.max(2, Math.floor((lg/2) / espChevron));
+    // ===== EMPANNONS DE CROUPE (les deux triangles de bout) =====
+    [-1, 1].forEach((signX) => {
+      const xCoin = signX * (L / 2);
+      const xf = signX * (Lfait / 2);
+      const nbEmp = Math.max(2, Math.floor((lg / 2) / espChevron));
       for (let i = 1; i <= nbEmp; i++) {
         const f = i / (nbEmp + 1);
-        // point bas sur la sabliere de pignon (varie en Z)
-        const zb = -lg/2 + f * lg;
-        const xb = signX * (L/2);
-        // point haut : sur l'aretier le plus proche
-        // aretier avant si zb>0, arriere si zb<0
+        const zb = -lg / 2 + f * lg;
         const signZ = zb >= 0 ? 1 : -1;
-        const fAr = 1 - Math.abs(zb) / (lg/2);  // fraction le long de l'aretier
-        const xh = xCoinAv + (xf - xCoinAv) * fAr;
-        const yh = Ht + hf * fAr;
-        const zh = signZ * (lg/2) * (1 - fAr);
-        addBeam(xb, Ht, zb, xh, yh, zh, sec("Empannon de croupe", secChevron, secChevron)[1] * 0.85, woodMat);
+        const fAr = 1 - Math.abs(zb) / (lg / 2);
+        const xh = xCoin + (xf - xCoin) * fAr;
+        const yh = Ht + hf * fAr + LEVEE;
+        const zh = signZ * (lg / 2) * (1 - fAr);
+        addBeam(xCoin, yChevBas, zb, xh, yh, zh, chH * 0.85, woodMat);
       }
+    });
+
+    // ===== COUVERTURE 4 PANS : posee sur le DESSUS des chevrons =====
+    const yC = Ht + LEVEE_DESSUS;          // egout
+    const yF = yApex + LEVEE_DESSUS;       // faitage
+    const pan = (sommets) => {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(sommets), 3));
+      geo.computeVertexNormals();
+      scene.add(new THREE.Mesh(geo, roof4Mat));
     };
-    drawEmpannonsCroupe(-1);  // croupe gauche
-    drawEmpannonsCroupe(1);   // croupe droite
-
-    // ===== COUVERTURE 4 PANS (semi-transparente) =====
-    // Grand pan avant
-    const panAvGeo = new THREE.BufferGeometry();
-    panAvGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
-      -L/2, Ht, lg/2,   L/2, Ht, lg/2,   xFaitDroit, yFait, 0,
-      -L/2, Ht, lg/2,   xFaitDroit, yFait, 0,   xFaitGauche, yFait, 0,
-    ]), 3));
-    panAvGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(panAvGeo, roof4Mat));
-
-    // Grand pan arriere
-    const panArGeo = new THREE.BufferGeometry();
-    panArGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
-      -L/2, Ht, -lg/2,   xFaitGauche, yFait, 0,   xFaitDroit, yFait, 0,
-      -L/2, Ht, -lg/2,   xFaitDroit, yFait, 0,   L/2, Ht, -lg/2,
-    ]), 3));
-    panArGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(panArGeo, roof4Mat));
-
-    // Croupe gauche
-    const croupeGGeo = new THREE.BufferGeometry();
-    croupeGGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
-      -L/2, Ht, -lg/2,   -L/2, Ht, lg/2,   xFaitGauche, yFait, 0,
-    ]), 3));
-    croupeGGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(croupeGGeo, roof4Mat));
-
-    // Croupe droite
-    const croupeDGeo = new THREE.BufferGeometry();
-    croupeDGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
-      L/2, Ht, -lg/2,   xFaitDroit, yFait, 0,   L/2, Ht, lg/2,
-    ]), 3));
-    croupeDGeo.computeVertexNormals();
-    scene.add(new THREE.Mesh(croupeDGeo, roof4Mat));
+    pan([-L/2, yC, lg/2,   L/2, yC, lg/2,   xFaitDroit, yF, 0,
+         -L/2, yC, lg/2,   xFaitDroit, yF, 0,   xFaitGauche, yF, 0]);
+    pan([-L/2, yC, -lg/2,   xFaitGauche, yF, 0,   xFaitDroit, yF, 0,
+         -L/2, yC, -lg/2,   xFaitDroit, yF, 0,   L/2, yC, -lg/2]);
+    pan([-L/2, yC, -lg/2,   -L/2, yC, lg/2,   xFaitGauche, yF, 0]);
+    pan([L/2, yC, -lg/2,   xFaitDroit, yF, 0,   L/2, yC, lg/2]);
   };
 
   const drawPenetration = () => {
