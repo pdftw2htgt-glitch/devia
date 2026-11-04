@@ -4986,13 +4986,29 @@ const themes = {
 };
 // ====================================================
 
-function getZone(commune, altitude) {
-const key = commune.toLowerCase().trim();
-let zone = null;
-for (const k of Object.keys(ZONES_DB)) {
-if (key.includes(k) || k.includes(key)) { zone = ZONES_DB[k]; break; }
+function getZone(commune, altitude, zoneNeigeForcee) {
+// RECHERCHE EXACTE. Avant : key.includes(k) || k.includes(key), dans les DEUX sens.
+// "Nicey-sur-Aire" (Meuse) heritait donc des zones de NICE. Et surtout, toute commune
+// absente de la table de 26 villes retombait EN SILENCE sur une zone de plaine :
+// Rumilly recevait 0,68 kN/m2 la ou Annecy, a 18 km, en recoit 1,77. La charpente
+// etait sous-dimensionnee sans la moindre alerte. On avoue desormais notre ignorance.
+const brut = String(commune || "").toLowerCase().trim();
+const sansCP = brut.replace(/\b\d{5}\b/g, " ");          // "annecy 74000" -> "annecy"
+const key = sansCP.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+let zone = ZONES_DB[key] || null;
+if (zone === null) {
+  // Un seul mot de la saisie peut etre la ville : "lyon 3e arrondissement".
+  const mots = key.split(" ");
+  for (let i = 0; i < mots.length; i++) {
+    if (ZONES_DB[mots[i]]) { zone = ZONES_DB[mots[i]]; break; }
+  }
 }
-if (!zone) zone = { neige: "A2", vent: "2", sismique: "1" };
+const communeInconnue = (zone === null);
+if (communeInconnue) zone = { neige: "A2", vent: "2", sismique: "1" };
+// Zone imposee a la main : elle gagne toujours sur la table.
+const forcee = String(zoneNeigeForcee || "");
+if ((forcee === "") === false) zone = { neige: forcee, vent: zone.vent, sismique: zone.sismique };
 const nl = zone.neige.match(/([A-D])(\d?)/);
 const nL = nl ? nl[1] : "A";
 const nC = nl ? parseInt(nl[2] || "1") : 1;
@@ -5011,6 +5027,10 @@ const qb = (1.25 * vb0 * vb0) / 2000;
 const ag = { "0": 0, "1": 0.07, "2": 0.10, "3": 0.15, "4": 0.20 }[zone.sismique] || 0.07;
 return {
   ...zone,
+  // inconnue = la commune n est pas dans la table ET personne n a impose de zone.
+  // Le formulaire doit le DIRE, pas laisser croire que 0,45 kN/m2 est un resultat.
+  inconnue: (communeInconnue && (forcee === "")),
+  forcee: ((forcee === "") === false),
   sk: Math.round(skBrut * 100) / 100,            // sk brut 200m (pour calcul EC5 + mu)
   skAltitude: Math.round(skAltitude * 100) / 100, // sk + dS (pour affichages)
   altitude: altNum,
@@ -6533,6 +6553,7 @@ const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / 
 const [formFinitionMur, setFormFinitionMur] = useState(""); // aspect de la maconnerie (voir FINITIONS_MUR)
 const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
 const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan (defaut historique) | 2 | 4
+const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..D imposee a la main
 const [formAppuis, setFormAppuis] = useState("poteaux");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
@@ -8416,7 +8437,7 @@ return out;
 
 // ===== BRIQUES REUTILISABLES DE GENERATION (solo + multi-ouvrages) =====
   const buildDeviaPrompt = (fp) => {
-    const zoneInfo = getZone(commune, altitude);
+    const zoneInfo = getZone(commune, altitude, formZoneNeige);
     // Construction de la liste de prix selon le choix utilisateur
     let prixList = [];
     let catalogSource = "marche";
@@ -8617,7 +8638,7 @@ return out;
         catalogSourceGlobal = catalogSource;
         let contenuOuvrage = fp.description || "Genere un devis pour cet ouvrage.";
         try {
-          const ziO = getZone(commune, altitude);
+          const ziO = getZone(commune, altitude, formZoneNeige);
           const texteMetreO = metreTexteDepuisParams({ ...fp, sk: ziO ? ziO.sk : undefined, dS: ziO ? ziO.dS : undefined, altitude: altitude });
           if (texteMetreO) contenuOuvrage += "\n\n" + texteMetreO;
         } catch (eMO) { console.warn("[DEVIA] Metre moteur indisponible (ouvrage)", eMO); }
@@ -8625,7 +8646,7 @@ return out;
         tokensInTotal += (data.usage && data.usage.input_tokens) || 0;
         tokensOutTotal += (data.usage && data.usage.output_tokens) || 0;
         // Harmonisation par ouvrage : sections des designations = moteur unique (conseillees)
-        const ziH = getZone(commune, altitude);
+        const ziH = getZone(commune, altitude, formZoneNeige);
         harmoniserSectionsDevis(parsed, ziH ? ziH.sk : 0.45, ziH ? ziH.dS : 0, fp);
         devisParOuvrage.push(parsed);
       }
@@ -8760,7 +8781,7 @@ stepTimers.push(setTimeout(() => { setLoadingStep(4); setLoadingProgress(85); },
 // Garde une référence pour nettoyer si necessaire
 window._deviaStepTimers = stepTimers;
 setLoadingProgress(5);
-const zoneInfo = getZone(commune, altitude);
+const zoneInfo = getZone(commune, altitude, formZoneNeige);
 const { systemPrompt, catalogSource } = buildDeviaPrompt(finalParams);
 try {
 let userContent = finalParams.description || prompt || "Genere un devis pour ce projet de charpente.";
@@ -9189,7 +9210,7 @@ const loadProjectDetails = (project) => {
   };
 
 const typeEffectif = formType === "custom" ? formSousType : formType;
-const zoneInfo = commune ? getZone(commune, altitude) : null;
+const zoneInfo = commune ? getZone(commune, altitude, formZoneNeige) : null;
 // === DEVIA Design System v2 - Liquid Glass ===
 // Cards translucides avec backdrop-filter, bordures ultra-fines, plus d'espace
 // Les styles cardStyle/inputStyle/btnPrimary/btnSecondary
@@ -9522,7 +9543,7 @@ return (
                       const entraxeEff = formRemede === "dense" ? 0.4 : 0.5;
                       let dimP = null;
                       try {
-                        const zP = getZone(commune || "", altitude || 200);
+                        const zP = getZone(commune || "", altitude || 200, formZoneNeige);
                         const chP = ec5DescenteCharge(formCouverture || "tuile_terre", zP ? zP.sk : 0.45, 0, zP ? zP.dS : 0, false);
                         dimP = dimensionnerPiece("Solive", { portee: porteeEff, entraxe: entraxeEff, G: chP.G, Q: chP.Q, S: chP.S, classeService: 2, dureeVariable: "moyen", typeBatiment: "courant", altitude: parseFloat(altitude) || 200, console: false });
                       } catch (eP) { dimP = null; }
@@ -9797,11 +9818,34 @@ return (
                   <input value={altitude} onChange={e => { setAltitude(e.target.value); altitudeManuelle.current = true; }} type="number" placeholder="200" style={inputStyle} />
                 </div>
               </div>
+              {zoneInfo && zoneInfo.inconnue === true ? (
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.45)", color: themeMode === "light" ? "#9b1c1c" : "#fca5a5", fontSize: 12, lineHeight: 1.5 }}>
+                  Cette commune n est pas dans la base de DEVIA. Les zones affichees sont une
+                  <strong> hypothese de plaine</strong>, pas un resultat : en montagne la charge de neige peut
+                  etre deux a trois fois superieure. Choisis la zone de neige ci-dessous avant de chiffrer.
+                </div>
+              ) : null}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Zone de neige</label>
+                <select value={formZoneNeige} onChange={e => setFormZoneNeige(e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer" }}>
+                  <option value="">Selon la commune (automatique)</option>
+                  <option value="A1">A1 - 0,45 kN/m2</option>
+                  <option value="A2">A2 - 0,45 kN/m2</option>
+                  <option value="B1">B1 - 0,65 kN/m2</option>
+                  <option value="B2">B2 - 0,90 kN/m2</option>
+                  <option value="C1">C1 - 1,40 kN/m2</option>
+                  <option value="C2">C2 - 1,70 kN/m2</option>
+                  <option value="D">D - 2,30 kN/m2</option>
+                </select>
+              </div>
               {zoneInfo && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                   <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk} kN/m2</Badge>
                   <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
                   <Badge color="#f97316">Sismique {zoneInfo.sismique} - {zoneInfo.ag}g</Badge>
+                  {zoneInfo.inconnue === true ? <Badge color="#ef4444">Commune non reconnue - zone SUPPOSEE</Badge> : null}
+                  {zoneInfo.forcee === true ? <Badge color="#22c55e">Zone de neige imposee a la main</Badge> : null}
                 </div>
               )}
               <div style={{ marginBottom: 16 }}>
