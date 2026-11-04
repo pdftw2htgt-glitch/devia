@@ -3692,6 +3692,7 @@ async function enTetesIA() {
 }
 import { useLicense } from "./src/hooks/useLicense.js";
 import ActivateLicense from "./src/components/ActivateLicense.jsx";
+import LicenceExpiree from "./src/components/LicenceExpiree.jsx";
 import SubscriptionBanner from "./src/components/SubscriptionBanner.jsx";
 import UserMenu from "./src/components/UserMenu.jsx";
 import jsPDF from "jspdf";
@@ -12758,6 +12759,28 @@ function DeviaAuthGate() {
       <ActivateLicense
         userEmail={user.email}
         onActivated={refreshLicense}
+      />
+    );
+  }
+
+  // Licence TEMPORAIRE arrivee a echeance -> acces coupe net, compte conserve.
+  // Avant, une echeance passee n affichait qu un bandeau jaune : le testeur continuait
+  // d analyser des plans a 1,80 $ piece sur le compte de DEVIA. La seule coupure reelle
+  // etait d effacer la ligne de licences, ce qui perdait le rattachement de la cle.
+  //
+  // /!\ ON TESTE "IL Y A UNE DATE *ET* ELLE EST PASSEE", jamais subscription_valid :
+  // la licence de Mathis est en statut "none" SANS date d echeance, donc subscription_valid
+  // vaut false pour lui. S y fier lui fermerait la porte de son propre logiciel.
+  const echeanceLicence = license && license.subscription_expires_at;
+  const licenceEchue = (echeanceLicence
+    ? (new Date(echeanceLicence).getTime() < Date.now())
+    : false);
+  if (licenceEchue === true) {
+    return (
+      <LicenceExpiree
+        userEmail={user.email}
+        echeance={echeanceLicence}
+        cle={license.license_key}
       />
     );
   }

@@ -91,6 +91,18 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: "Aucune licence sur ce compte." });
   }
 
+  // ECHEANCE. Meme regle que le portail : une date PRESENTE et PASSEE ferme l acces ;
+  // une licence sans date d echeance ne peut pas expirer (celle de Mathis, statut "none").
+  // Le portail affiche deja un ecran dedie, mais le verrou est repete ici parce que c est
+  // ICI que part l argent : un client qui appellerait l API directement serait refuse aussi.
+  const echeanceLic = licence && licence.subscription_expires_at;
+  const licenceEchue = (echeanceLic
+    ? (new Date(echeanceLic).getTime() < Date.now())
+    : false);
+  if (licenceEchue === true) {
+    return res.status(403).json({ error: "Ta licence temporaire a expire. Contacte DEVIA pour la prolonger." });
+  }
+
   // --- 3. LE QUOTA ---
   // Compte exact sans transferer les lignes : PostgREST renvoie le total dans content-range.
   // La politique RLS limite d elle-meme le decompte aux lignes du compte.
