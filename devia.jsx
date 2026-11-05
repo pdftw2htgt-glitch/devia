@@ -509,7 +509,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // celle dessinee en 3D, sinon les pannes seraient dimensionnees sur une portee fausse.
   const carport1Pan = ((TYPE_SEC === "carport") && (pansCarportSec === "1"));
   const ENTRAXE_FERMES = carport1Pan
-    ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 5)))
+    ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 10)))
     : ((TYPE_SEC === "hangar") || carportCharpente)
     ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
     : ((TYPE_SEC === "4_pans")
@@ -1620,6 +1620,35 @@ function buildScene3D(scene, params, opts) {
     metre[metre.length - 1].profil = { pts: ptsL, len: ep, axe: "x" };
   };
 
+  // ===== PIECE A PROFIL LIBRE DANS LE PLAN (z, y), FILEE SELON X =====
+  // Sert aux abouts coupes d aplomb : arbaletrier qui bute dans le talon du poteau,
+  // tete de poteau entaillee au rampant. Le profil reel part aussi dans l IFC.
+  const addProfilZY = (x, ep, cont, lgDebit, hDebit, nomForce) => {
+    const shp = new THREE.Shape();
+    shp.moveTo(cont[0][0], cont[0][1]);
+    for (let q = 1; q < cont.length; q++) shp.lineTo(cont[q][0], cont[q][1]);
+    shp.closePath();
+    const g = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
+    const m = new THREE.Mesh(g, woodMat);
+    m.rotation.y = -Math.PI / 2;
+    m.position.set(x + ep / 2, 0, 0);
+    m.castShadow = true;
+    scene.add(m);
+    let zc = 0, yc = 0;
+    cont.forEach((q) => { zc += q[0]; yc += q[1]; });
+    zc = zc / cont.length; yc = yc / cont.length;
+    let pts = cont.map((q) => [q[1] - yc, q[0] - zc]);
+    let aire = 0;
+    for (let q = 0; q < pts.length; q++) {
+      const u = pts[q], w = pts[(q + 1) % pts.length];
+      aire += u[0] * w[1] - w[0] * u[1];
+    }
+    if (aire < 0) pts = pts.slice().reverse();
+    // Le metre garde la section NOMINALE : les coupes d about sont un usinage.
+    logPiece(ep, hDebit, lgDebit, { pos: [x, yc, zc], rot: null, quat: null }, nomForce);
+    metre[metre.length - 1].profil = { pts: pts, len: ep, axe: "x" };
+  };
+
   const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
     const pts = sectionDelardee(h, b, tanP, signAval, del);
     const x1 = px - lgX / 2, x2 = px + lgX / 2;
@@ -2643,9 +2672,24 @@ setPiece("Empannon de croupe");
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;
     const yDessusArb = (z) => yLigne(z) + arH / cosM;   // plan d assise des pannes
     const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanM + eEch + ph / 2;
-    // Tete de poteau a mi-hauteur d arbaletrier : celui-ci est ENCASTRE dedans, serre
-    // entre les joues du poteau (plus large que lui), juste sous la sabliere.
-    const yTetePot = (z) => yLigne(z) + arH / (2 * cosM);
+    // La tete de poteau est ENTAILLEE au rampant : son dessus suit la sous-face de
+    // l arbaletrier, et un TALON se releve du cote aval contre lequel l about de
+    // l arbaletrier vient buter. C est l embrevement classique du pied de ferme.
+    const talE = 0.05;                        // epaisseur du talon
+    const talH = arH / (2 * cosM);            // il monte a mi-hauteur d arbaletrier
+    const contPoteau = (z0, signTalon) => {
+      const zi = z0 - potB / 2, zo = z0 + potB / 2;
+      const zInt = (signTalon > 0) ? (zo - talE) : (zi + talE);
+      const pts = [[zi, 0], [zo, 0]];
+      if (signTalon > 0) {
+        pts.push([zo, yLigne(zo) + talH], [zInt, yLigne(zInt) + talH],
+          [zInt, yLigne(zInt)], [zi, yLigne(zi)]);
+      } else {
+        pts.push([zo, yLigne(zo)], [zInt, yLigne(zInt)],
+          [zInt, yLigne(zInt) + talH], [zi, yLigne(zi) + talH]);
+      }
+      return pts;
+    };
 
     // Nombre de pannes intermediaires : il fixe aussi la hauteur de l entrait.
     const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
@@ -2660,22 +2704,30 @@ setPiece("Empannon de croupe");
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    // Deux demi-fermes suffisent jusqu a 5 m de long ; au-dela on en rajoute une.
-    const nbInt = Math.max(1, Math.ceil(L / 5));
+    // Meme regle que la trad : sous 10 m de long, les deux demi-fermes de rive suffisent.
+    const nbInt = Math.max(1, Math.ceil(L / 10));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
-    const hPotAv = yTetePot(-lg / 2), hPotAr = yTetePot(lg / 2);
+    const hPotAv = yLigne(-lg / 2 - potB / 2) + talH;
+    const hPotAr = yLigne(lg / 2 + potB / 2) + talH;
     xs.forEach((x) => {
-      addBox(potB, hPotAv, potB, x, hPotAv / 2, -lg / 2);
-      addBox(potB, hPotAr, potB, x, hPotAr / 2, lg / 2);
+      addProfilZY(x, potB, contPoteau(-lg / 2, -1), hPotAv, potB, "Poteau");
+      addProfilZY(x, potB, contPoteau(lg / 2, 1), hPotAr, potB, "Poteau");
     });
 
     setPiece("Arbaletrier");
-    // Allonge d une demi-largeur de panne a chaque bout pour que la sabliere et la
-    // faitiere portent en plein sur lui.
-    xs.forEach((x) => {
-      addBox(arB, arH, plM + pw, x, Hbas + denivele / 2 + dAxeArb, 0, woodMat, [-angM, 0, 0]);
-    });
+    // Abouts coupes D APLOMB, cales contre le talon de chaque poteau : il ne deborde
+    // plus. Entre les deux il traverse la moise de l entrait, qui le serre.
+    const zArbBas = -lg / 2 - potB / 2 + talE;
+    const zArbHaut = lg / 2 + potB / 2 - talE;
+    const contArba = [
+      [zArbBas, yLigne(zArbBas)],
+      [zArbHaut, yLigne(zArbHaut)],
+      [zArbHaut, yDessusArb(zArbHaut)],
+      [zArbBas, yDessusArb(zArbBas)],
+    ];
+    const lgArba = (zArbHaut - zArbBas) / cosM;
+    xs.forEach((x) => { addProfilZY(x, arB, contArba, lgArba, arH, "Arbaletrier"); });
 
     setPiece("Lien");
     // Un lien par pied de ferme, piece pleine dans le plan de la ferme : pied coupe
