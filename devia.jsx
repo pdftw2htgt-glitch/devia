@@ -2672,23 +2672,27 @@ setPiece("Empannon de croupe");
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;
     const yDessusArb = (z) => yLigne(z) + arH / cosM;   // plan d assise des pannes
     const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanM + eEch + ph / 2;
-    // La tete de poteau est ENTAILLEE au rampant : son dessus suit la sous-face de
-    // l arbaletrier, et un TALON se releve du cote aval contre lequel l about de
-    // l arbaletrier vient buter. C est l embrevement classique du pied de ferme.
-    const talE = 0.05;                        // epaisseur du talon
-    const talH = arH / (2 * cosM);            // il monte a mi-hauteur d arbaletrier
-    const contPoteau = (z0, signTalon) => {
-      const zi = z0 - potB / 2, zo = z0 + potB / 2;
-      const zInt = (signTalon > 0) ? (zo - talE) : (zi + talE);
-      const pts = [[zi, 0], [zo, 0]];
-      if (signTalon > 0) {
-        pts.push([zo, yLigne(zo) + talH], [zInt, yLigne(zInt) + talH],
-          [zInt, yLigne(zInt)], [zi, yLigne(zi)]);
-      } else {
-        pts.push([zo, yLigne(zo)], [zInt, yLigne(zInt)],
-          [zInt, yLigne(zInt) + talH], [zi, yLigne(zi) + talH]);
-      }
-      return pts;
+    // TETE DE POTEAU. Elle fait trois choses d un coup, dans un seul profil :
+    //  - un LOGEMENT a son angle interieur, au rampant, ou vient mourir l about
+    //    d arbaletrier, coupe d aplomb AVANT le poteau ;
+    //  - une ENCOCHE qui recoit la panne de rive (sabliere en bas, faitiere en haut),
+    //    assise exactement au meme niveau que si elle etait sur une echantignole ;
+    //  - une JOUE exterieure qui monte au dessus de la panne et la retient.
+    // sInt = +1 quand l ouvrage est du cote des z croissants (poteau avant), -1 sinon.
+    const contPoteau = (z0, sInt) => {
+      const zi = z0 - sInt * potB / 2;      // face exterieure
+      const zo = z0 + sInt * potB / 2;      // face interieure, cote arbaletrier
+      const zc1 = z0 - sInt * pw / 2;       // cote exterieur de l encoche
+      const zc2 = z0 + sInt * pw / 2;       // joue contre laquelle l about vient buter
+      const ySeat = yPanne(z0) - ph / 2;    // assise de la panne
+      const yJoue = yPanne(z0) + ph / 2;    // la joue monte au ras du dessus de panne
+      const pts = [
+        [zi, 0], [zo, 0],
+        [zo, yLigne(zo)], [zc2, yLigne(zc2)],
+        [zc2, ySeat], [zc1, ySeat],
+        [zc1, yJoue], [zi, yJoue],
+      ];
+      return (sInt > 0) ? pts : pts.slice().reverse();
     };
 
     // Nombre de pannes intermediaires : il fixe aussi la hauteur de l entrait.
@@ -2708,18 +2712,19 @@ setPiece("Empannon de croupe");
     const nbInt = Math.max(1, Math.ceil(L / 10));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
-    const hPotAv = yLigne(-lg / 2 - potB / 2) + talH;
-    const hPotAr = yLigne(lg / 2 + potB / 2) + talH;
+    const hPotAv = yPanne(-lg / 2) + ph / 2;
+    const hPotAr = yPanne(lg / 2) + ph / 2;
     xs.forEach((x) => {
-      addProfilZY(x, potB, contPoteau(-lg / 2, -1), hPotAv, potB, "Poteau");
-      addProfilZY(x, potB, contPoteau(lg / 2, 1), hPotAr, potB, "Poteau");
+      addProfilZY(x, potB, contPoteau(-lg / 2, 1), hPotAv, potB, "Poteau");
+      addProfilZY(x, potB, contPoteau(lg / 2, -1), hPotAr, potB, "Poteau");
     });
 
     setPiece("Arbaletrier");
-    // Abouts coupes D APLOMB, cales contre le talon de chaque poteau : il ne deborde
-    // plus. Entre les deux il traverse la moise de l entrait, qui le serre.
-    const zArbBas = -lg / 2 - potB / 2 + talE;
-    const zArbHaut = lg / 2 + potB / 2 - talE;
+    // Abouts coupes D APLOMB AVANT le poteau : ils meurent dans le logement de la tete
+    // de poteau, sous l encoche de la panne de rive. Entre les deux l arbaletrier
+    // traverse la moise de l entrait, qui le serre.
+    const zArbBas = -lg / 2 + pw / 2;
+    const zArbHaut = lg / 2 - pw / 2;
     const contArba = [
       [zArbBas, yLigne(zArbBas)],
       [zArbHaut, yLigne(zArbHaut)],
@@ -2758,8 +2763,9 @@ setPiece("Empannon de croupe");
     const niv = [];
     for (let i = 0; i <= nbInter + 1; i++) {
       const z = -lg / 2 + i * pasPanne;
+      const bout = ((i === 0) || (i === nbInter + 1));
       const nom = (i === 0) ? "Sabliere" : ((i === nbInter + 1) ? "Panne faitiere" : "Panne");
-      niv.push({ z: z, yRef: yDessusArb(z), yP: yPanne(z), nom: nom });
+      niv.push({ z: z, yRef: yDessusArb(z), yP: yPanne(z), nom: nom, bout: bout });
     }
     niv.forEach((n) => {
       setPiece(n.nom);
@@ -2769,7 +2775,8 @@ setPiece("Empannon de croupe");
       " pannes alignees, entrait moise a " + yEntraitHaut.toFixed(3) + " m");
 
     setPiece("Echantignole");
-    niv.forEach((n) => {
+    // Les pannes de rive sont tenues par l encoche du poteau : pas d echantignole la.
+    niv.filter((n) => (n.bout === false)).forEach((n) => {
       xs.forEach((x) => { addEchantignoleGen(x, -n.z, n.yRef, -1, arB, pw, tanM, eEch); });
     });
 
@@ -2784,12 +2791,21 @@ setPiece("Empannon de croupe");
     // ===== COUVERTURE (1 pan) : sommets explicites, une PlaneGeometry tournee sort a plat =====
     const couvM = getCouverture(opts && opts.couverture);
     const matM = makeRoofMaterial(couvM, L, plM);
-    const yAvT = Hbas + LEVEE_DESSUS, yArT = Hhaut + LEVEE_DESSUS;
+    // Le plan de couverture etait EXACTEMENT au niveau du dessus des chevrons : les
+    // deux surfaces se disputaient le meme pixel et les chevrons transparaissaient a
+    // travers la texture. On le remonte de l epaisseur du liteau, comme en vrai.
+    const epLiteau = 0.03;
+    // Elle depasse aussi l about des chevrons, sinon leurs 10 derniers centimetres
+    // sortent de la couverture a l egout comme au faitage.
+    const debEgout = 0.10 * cosM + 0.04;
+    const zAv = -lg / 2 - debEgout, zAr = lg / 2 + debEgout;
+    const yAvT = Hbas + LEVEE_DESSUS + epLiteau - debEgout * tanM;
+    const yArT = Hhaut + LEVEE_DESSUS + epLiteau + debEgout * tanM;
     const xA = -L / 2 - dp, xB = L / 2 + dp;
     const gM = new THREE.BufferGeometry();
     gM.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
-      xA, yAvT, -lg / 2,  xB, yAvT, -lg / 2,  xB, yArT, lg / 2,
-      xA, yAvT, -lg / 2,  xB, yArT, lg / 2,   xA, yArT, lg / 2,
+      xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
+      xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
     ]), 3));
     gM.computeVertexNormals();
     scene.add(new THREE.Mesh(gM, matM));
