@@ -1574,6 +1574,52 @@ function buildScene3D(scene, params, opts) {
     metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
   };
 
+  // ===== LIEN A COUPES D ABOUT =====
+  // Profil dessine dans le plan (z, y) puis file selon X, comme l echantignole.
+  // Pied coupe d aplomb contre le poteau, tete coupee parallele au rampant pour
+  // venir porter a plat sous l arbaletrier. Deux exemplaires de part et d autre de
+  // l entrait = une moise qui le serre au passage.
+  const addLienCoupe = (x, ep, zA, yA, zB, yB, h, tanTete, nomForce) => {
+    const dz = zB - zA, dy = yB - yA;
+    const Lax = Math.sqrt(dz * dz + dy * dy);
+    if (Lax < 0.08) return;
+    const uz = dz / Lax, uy = dy / Lax;
+    const nz = -uy, ny = uz;
+    const croix = (az, ay, bz, by) => az * by - ay * bz;
+    const inter = (pz, py, dz2, dy2, qz, qy, ez, ey) => {
+      const den = croix(dz2, dy2, ez, ey);
+      if (Math.abs(den) < 0.000001) return [pz, py];
+      const t = croix(qz - pz, qy - py, ez, ey) / den;
+      return [pz + t * dz2, py + t * dy2];
+    };
+    const cont = [];
+    const bords = [1, -1].map((sg) => [zA + sg * (h / 2) * nz, yA + sg * (h / 2) * ny]);
+    const pieds = bords.map((b) => inter(b[0], b[1], uz, uy, zA, yA, 0, 1));
+    const tetes = bords.map((b) => inter(b[0], b[1], uz, uy, zB, yB, 1, tanTete));
+    cont.push(pieds[0], tetes[0], tetes[1], pieds[1]);
+    const shp = new THREE.Shape();
+    shp.moveTo(cont[0][0], cont[0][1]);
+    for (let q = 1; q < cont.length; q++) shp.lineTo(cont[q][0], cont[q][1]);
+    shp.closePath();
+    const g = new THREE.ExtrudeGeometry(shp, { depth: ep, bevelEnabled: false });
+    const m = new THREE.Mesh(g, woodMat);
+    m.rotation.y = -Math.PI / 2;
+    m.position.set(x + ep / 2, 0, 0);
+    m.castShadow = true;
+    scene.add(m);
+    const zc = (cont[0][0] + cont[1][0] + cont[2][0] + cont[3][0]) / 4;
+    const yc = (cont[0][1] + cont[1][1] + cont[2][1] + cont[3][1]) / 4;
+    let ptsL = cont.map((q) => [q[1] - yc, q[0] - zc]);
+    let aireL = 0;
+    for (let q = 0; q < ptsL.length; q++) {
+      const u = ptsL[q], w = ptsL[(q + 1) % ptsL.length];
+      aireL += u[0] * w[1] - w[0] * u[1];
+    }
+    if (aireL < 0) ptsL = ptsL.slice().reverse();
+    logPiece(ep, h, Lax, { pos: [x, yc, zc], rot: null, quat: null }, nomForce);
+    metre[metre.length - 1].profil = { pts: ptsL, len: ep, axe: "x" };
+  };
+
   const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
     const pts = sectionDelardee(h, b, tanP, signAval, del);
     const x1 = px - lgX / 2, x2 = px + lgX / 2;
@@ -2567,35 +2613,39 @@ setPiece("Empannon de croupe");
     const nbPansCarport = String((params && params.carport_pans) || "1");
     if (nbPansCarport === "2") { drawCarport2Pans(); return; }
     if (nbPansCarport === "4") { drawCarport4Pans(); return; }
-    // Empilement trad : poteau -> arbaletrier -> echantignole -> pannes -> chevron.
-    // L arbaletrier passe SOUS toutes les pannes, sabliere et faitiere comprises :
-    // c est ce qui les met toutes dans le meme plan, celui qui porte les chevrons.
+    // DEMI-FERME DE MONOPENTE : poteau -> entrait -> arbaletrier encastre dans la tete
+    // de poteau -> echantignole -> pannes toutes alignees -> chevron sur le delardement.
+    // Deux liens moises serrent l entrait et viennent reprendre l arbaletrier par-dessous.
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;                       // tete des poteaux avant (bas)
-    const Hhaut = Ht + denivele;           // tete des poteaux arriere (haut)
+    const Hbas = Ht;                       // sous-face d arbaletrier a l avant (bas)
+    const Hhaut = Ht + denivele;           // sous-face d arbaletrier a l arriere (haut)
     const angM = Math.atan(denivele / lg);
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
-    const plM = lg / cosM;                 // longueur de rampant
-    const dp = debordPanne;                // debord en pignon
+    const plM = lg / cosM;
+    const dp = debordPanne;
 
-    const [potB] = sec("Poteau", 0.18, 0.18);
-    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
-    const [enB, enH] = sec("Entrait", 0.16, 0.16);
-    const [chB, chH] = sec("Chevron", 0.10, 0.14);
-    const lienS = sec("Lien", 0.10, 0.10)[0];
-    // UNE seule section de panne pour les trois roles : c est la condition pour que
+    const [potB] = sec("Poteau", 0.20, 0.20);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.22);
+    const [enB, enH] = sec("Entrait", 0.16, 0.22);
+    const [chB, chH] = sec("Chevron", 0.10, 0.16);
+    const [liB, liH] = sec("Lien", 0.14, 0.14);
+    // Une seule section de panne pour les trois roles : c est la condition pour que
     // sabliere, intermediaires et faitiere soient alignees sur le meme plan.
-    const [pw, ph] = sec("Panne", 0.12, 0.24);
-    const eEch = 0.03;
+    const [pw, ph] = sec("Panne", 0.14, 0.24);
+    const eEch = 0.03, EMBREV = 0.04;
 
-    // Ligne porteuse = tetes de poteaux = SOUS-FACE de l arbaletrier.
-    const yLigne = (z) => Hbas + (z + lg / 2) * tanM;
+    const yLigne = (z) => Hbas + (z + lg / 2) * tanM;   // sous-face de l arbaletrier
     const dAxeArb = (arH / 2) / cosM;
     const dPerp = arH / 2 + (ph + eEch - delardement) * cosM + pw * sinM + chH / 2;
-    const LEVEE = dAxeArb + dPerp / cosM;              // ligne -> axe du chevron
-    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;     // ligne -> dessus du chevron
-    const yDessusArb = (z) => yLigne(z) + arH / cosM;  // plan d assise des pannes
+    const LEVEE = dAxeArb + dPerp / cosM;
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;
+    const yDessusArb = (z) => yLigne(z) + arH / cosM;   // plan d assise des pannes
     const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanM + eEch + ph / 2;
+    // La tete de poteau monte a mi-hauteur d arbaletrier : celui-ci est ENCASTRE dedans,
+    // serre entre les joues du poteau (200) plus large que lui (160), juste sous la sabliere.
+    const yTetePot = (z) => yLigne(z) + arH / (2 * cosM);
+    const yEntraitHaut = Hbas + EMBREV;                 // l entrait reprend sous le talon
+    const yEntraitBas = yEntraitHaut - enH;
 
     drawDalleBeton(L, lg, 0.3);
 
@@ -2604,25 +2654,44 @@ setPiece("Empannon de croupe");
     const nbInt = Math.max(1, Math.ceil(L / 5));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
+    const hPotAv = yTetePot(-lg / 2), hPotAr = yTetePot(lg / 2);
     xs.forEach((x) => {
-      addBox(potB, Hbas, potB, x, Hbas / 2, -lg / 2);
-      addBox(potB, Hhaut, potB, x, Hhaut / 2, lg / 2);
+      addBox(potB, hPotAv, potB, x, hPotAv / 2, -lg / 2);
+      addBox(potB, hPotAr, potB, x, hPotAr / 2, lg / 2);
     });
 
     setPiece("Entrait");
-    // Loge contre les deux poteaux, dessus a l aplomb des tetes : il recoit le talon
-    // de l arbaletrier et tient l ecartement avant / arriere.
-    xs.forEach((x) => { addBox(enB, enH, lg, x, Hbas - enH / 2, 0, woodMat); });
+    xs.forEach((x) => { addBox(enB, enH, lg, x, yEntraitHaut - enH / 2, 0, woodMat); });
 
     setPiece("Arbaletrier");
-    // Assis DIRECTEMENT sur les tetes de poteaux. Allonge d une demi-largeur de panne
-    // a chaque bout pour que la sabliere et la faitiere portent en plein.
+    // Allonge d une demi-largeur de panne a chaque bout pour que la sabliere et la
+    // faitiere portent en plein sur lui.
     xs.forEach((x) => {
       addBox(arB, arH, plM + pw, x, Hbas + denivele / 2 + dAxeArb, 0, woodMat, [-angM, 0, 0]);
     });
 
+    setPiece("Lien");
+    // Deux liens par demi-ferme, chacun en MOISE : deux joues de part et d autre de
+    // l entrait, qu elles serrent au croisement, et qui montent porter a plat sous
+    // l arbaletrier. Celui de devant le reprend du cote sabliere, celui du poteau
+    // arriere du cote faitiere.
+    const dPied = Math.min(0.6, Math.max(0.3, Hbas * 0.25));
+    const yPiedLien = yEntraitBas - dPied;
+    const xJoue = enB / 2 + liB / 4;        // joue collee a la joue de l entrait
+    const epJoue = liB / 2;
+    xs.forEach((x) => {
+      [-1, 1].forEach((sgn) => {
+        const zPied = sgn * (lg / 2 - potB / 2);        // face interieure du poteau
+        const zTete = sgn * (lg / 2 - 0.35 * lg);       // sous l arbaletrier, vers le milieu
+        const yTete = yLigne(zTete);
+        [-1, 1].forEach((cote) => {
+          addLienCoupe(x + cote * xJoue, epJoue, zPied, yPiedLien, zTete, yTete, liH, tanM, "Lien");
+        });
+      });
+    });
+
     // PANNES : sabliere en bas, faitiere en haut, intermediaires entre les deux,
-    // toutes assises sur l arbaletrier, donc toutes dans le meme plan.
+    // toutes assises sur l arbaletrier donc toutes dans le meme plan.
     const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
     const niv = [];
     for (let i = 0; i <= nbInter + 1; i++) {
@@ -2633,39 +2702,17 @@ setPiece("Empannon de croupe");
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      // Aval vers -z : le plat delarde regarde la pente.
       addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
     });
     console.log("[DEVIA] Carport 1 pan : " + xs.length + " demi-ferme(s), " + niv.length +
-      " pannes alignees sur l arbaletrier (dessus a " + yPanne(0).toFixed(3) + " m au milieu)");
+      " pannes alignees, liens moises sur l entrait");
 
     setPiece("Echantignole");
     niv.forEach((n) => {
       xs.forEach((x) => { addEchantignoleGen(x, -n.z, n.yRef, -1, arB, pw, tanM, eEch); });
     });
 
-    setPiece("Lien");
-    // Liens a 45 degres en tete de poteau, dans le plan des pannes de rive : c est eux
-    // qui empechent le carport de se coucher dans le sens de la longueur.
-    const aLien = Math.min(0.7, Math.max(0.3, Hbas * 0.3));
-    const ySousBas = yPanne(-lg / 2) - ph / 2;
-    const ySousHaut = yPanne(lg / 2) - ph / 2;
-    const pasPot = L / nbInt;
-    if (pasPot > 2 * aLien + 0.1) {
-      xs.forEach((x) => {
-        [-1, 1].forEach((sgn) => {
-          const xT = x + sgn * aLien;
-          const dedans = ((xT > -L / 2 - 0.001) && (xT < L / 2 + 0.001));
-          if (dedans === true) {
-            addBeam(x, Hbas - aLien, -lg / 2, xT, ySousBas - lienS / 2, -lg / 2, lienS, woodMat);
-            addBeam(x, Hhaut - aLien, lg / 2, xT, ySousHaut - lienS / 2, lg / 2, lienS, woodMat);
-          }
-        });
-      });
-    }
-
     setPiece("Chevron");
-    // Poses a plat sur le delardement, et ils portent maintenant sur TOUTES les pannes.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
     for (let i = 0; i <= nbCh; i++) {
