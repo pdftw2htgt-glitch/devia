@@ -6767,6 +6767,7 @@ const [commune, setCommune] = useState("");
   const [extractingAddress, setExtractingAddress] = useState(false); // indicateur visuel
   const [communeSuggestions, setCommuneSuggestions] = useState([]); // liste de communes homonymes a proposer
   const [communeChoisie, setCommuneChoisie] = useState(false); // true quand l'user a clique une suggestion (evite re-recherche)
+  const [rechercheAdresse, setRechercheAdresse] = useState(false); // true = saisie en cours, on ne reproche rien a l utilisateur
 const [altitude, setAltitude] = useState("200");
 const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne pas ecraser) / false = auto-remplie
 const [files, setFiles] = useState([]);
@@ -7997,33 +7998,70 @@ return out;
     return () => clearTimeout(timer);
   }, [prompt]);
 
-  // Auto-recherche des communes quand l'utilisateur SAISIT la localisation (debounce 600ms)
+  // Auto-recherche villes ET adresses quand l'utilisateur SAISIT la localisation (debounce 350ms)
   // -> propose une liste de suggestions (gestion des homonymes) au lieu de choisir直接
   useEffect(() => {
-    if (!commune || commune.trim().length < 3) { setCommuneSuggestions([]); return; }
+    const brut = (commune || "").trim();
+    // CHAMP VIDE : on remet tout a zero (adresse, altitude, zones imposees)
+    if (brut === "") {
+      setCommuneSuggestions([]);
+      setRechercheAdresse(false);
+      if (addressData) {
+        setAddressData(null);
+        setSismiqueOfficiel("");
+        setFormZoneNeige("");
+        setFormZoneVent("");
+        altitudeManuelle.current = false;
+        setAltitude("200");
+        console.log("[DEVIA] Localisation effacee : adresse, altitude et zones remises a zero");
+      }
+      return;
+    }
     // Si l'utilisateur vient de cliquer une suggestion, on ne relance pas la recherche
-    if (communeChoisie) { setCommuneChoisie(false); return; }
+    if (communeChoisie) { setCommuneChoisie(false); setRechercheAdresse(false); return; }
     // Si addressData correspond deja exactement, pas de recherche
-    if (addressData && addressData.label === commune) return;
+    if (addressData && addressData.label === commune) { setRechercheAdresse(false); return; }
+    // L API adresse demande 3 caracteres, et un numero seul (12, 1250) ne se cherche pas.
+    // Dans ces deux cas on attend la suite SANS rien afficher et SANS rien reprocher.
+    const numeroSeul = /^[0-9]{1,4}$/.test(brut);
+    if (brut.length < 3 || numeroSeul === true) {
+      setCommuneSuggestions([]);
+      setRechercheAdresse(true);
+      return;
+    }
+    setRechercheAdresse(true);
     const timer = setTimeout(async () => {
-      const isLikelyAddress = /\d{1,4}\s+(rue|avenue|av|boulevard|bd|place|impasse|chemin|route|allee|quai)/i.test(commune);
+      const q = brut;
       try {
-        // Pour une adresse complete -> recherche normale (1 resultat). Pour une ville -> communes (plusieurs)
-        const typeParam = isLikelyAddress ? "" : "&type=municipality";
-        const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(commune) + typeParam + "&limit=6";
-        const resp = await fetch(url);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (!data.features || data.features.length === 0) { setCommuneSuggestions([]); return; }
-        // Construire la liste de suggestions (dedupliquees par citycode)
+        // Deux requetes en parallele : les communes (gestion des homonymes) ET les
+        // adresses completes, pour que la recherche trouve au fur et a mesure de la frappe.
+        const urlVilles = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(q) + "&type=municipality&limit=5";
+        const urlAdresses = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(q) + "&limit=8";
+        const reponses = await Promise.all([
+          fetch(urlVilles).catch(() => null),
+          fetch(urlAdresses).catch(() => null)
+        ]);
+        const lire = async (rep) => {
+          if (rep === null) return [];
+          if (rep.ok === false) return [];
+          try {
+            const j = await rep.json();
+            return (j && j.features) ? j.features : [];
+          } catch (err) { return []; }
+        };
+        const featsVilles = await lire(reponses[0]);
+        const featsAdresses = await lire(reponses[1]);
         const seen = new Set();
         const suggestions = [];
-        for (const feat of data.features) {
-          const p = feat.properties;
-          if (p.score && p.score < 0.4) continue; // ignorer les resultats trop faibles
-          const key = p.citycode || p.label;
-          if (seen.has(key)) continue;
-          seen.add(key);
+        const ajouter = (feat) => {
+          const p = feat && feat.properties;
+          if (p === undefined || p === null) return;
+          if (p.score && p.score < 0.2) return;
+          const estVille = (p.type === "municipality");
+          // Les adresses d une meme commune partagent le citycode : on les distingue par leur id.
+          const cle = estVille ? ("C:" + (p.citycode || p.label)) : ("A:" + (p.id || p.label));
+          if (seen.has(cle)) return;
+          seen.add(cle);
           suggestions.push({
             label: p.label,
             ville: p.city || p.name,
@@ -8035,20 +8073,34 @@ return out;
             lng: feat.geometry.coordinates[0],
             score: p.score
           });
-        }
-        // Si 1 seule suggestion tres pertinente -> on la prend directement
-        if (suggestions.length === 1) {
-          setAddressData(suggestions[0]);
-          setCommuneSuggestions([]);
-        } else if (suggestions.length > 1) {
-          setCommuneSuggestions(suggestions);
-        } else {
-          setCommuneSuggestions([]);
-        }
+        };
+        for (const f of featsVilles) ajouter(f);
+        for (const f of featsAdresses) ajouter(f);
+        // Tri par pertinence ; a score egal la commune passe devant l adresse.
+        suggestions.sort((a, b) => {
+          const sa = (a.score || 0) + ((a.type === "municipality") ? 0.001 : 0);
+          const sb = (b.score || 0) + ((b.type === "municipality") ? 0.001 : 0);
+          return sb - sa;
+        });
+        const liste = suggestions.slice(0, 10);
+        console.log("[DEVIA] Recherche adresse \"" + q + "\" -> " + liste.length + " resultat(s)",
+          liste.map(x => (x.type || "?") + " | " + x.label));
+        if (liste.length === 0) { setCommuneSuggestions([]); return; }
+        // On affiche TOUJOURS la liste : c est elle qui montre ce qui a ete trouve.
+        setCommuneSuggestions(liste);
+        // On retient deja la meilleure piste si elle est franche, pour que les zones
+        // soient calculees sans attendre le clic.
+        const meilleure = liste[0];
+        const franche = ((liste.length === 1) || ((meilleure.score || 0) >= 0.8));
+        const codeActuel = (addressData && addressData.citycode) || "";
+        const dejaBon = (meilleure.citycode === codeActuel);
+        if (franche === true && dejaBon === false) setAddressData(meilleure);
       } catch (e) {
         console.warn("[DEVIA] Erreur recherche communes:", e);
+      } finally {
+        setRechercheAdresse(false);
       }
-    }, 600);
+    }, 350);
     return () => clearTimeout(timer);
   }, [commune]);
 
@@ -9868,7 +9920,7 @@ return (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Localisation</label>
-                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Ville, code postal ou adresse complète" style={inputStyle} />
+                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Tape une ville ou une adresse — la recherche se fait en direct" style={inputStyle} />
                   {/* Liste de suggestions de communes (gestion homonymes) */}
                   {communeSuggestions.length > 0 && (
                     <div style={{ marginTop: 6, background: "#0e1118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
@@ -9876,8 +9928,9 @@ return (
                         <button key={i} type="button"
                           onClick={() => {
                             setCommuneChoisie(true);
-                            // On affiche la ville + code postal dans le champ pour etre clair
-                            setCommune(s.ville + (s.codePostal ? " " + s.codePostal : ""));
+                            // Adresse complete -> on garde la rue dans le champ ; commune -> "Ville CP"
+                            const estVilleSug = (s.type === "municipality");
+                            setCommune(estVilleSug ? (s.ville + (s.codePostal ? " " + s.codePostal : "")) : s.label);
                             setAddressData(s);
                             setCommuneSuggestions([]);
                           }}
@@ -9886,8 +9939,11 @@ return (
                             color: cl("#d0d2dc", "#3a3e50"), fontSize: 13 }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(240,192,64,0.08)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.ville || s.label}</span>
-                          {s.context && <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}> — {s.context}</span>}
+                          <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.type === "municipality" ? (s.ville || s.label) : s.label}</span>
+                          <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11 }}>
+                            {" — "}
+                            {s.type === "municipality" ? (s.context || "") : ((s.codePostal ? s.codePostal + " " : "") + (s.ville || ""))}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -9898,10 +9954,16 @@ return (
                   <input value={altitude} onChange={e => { setAltitude(e.target.value); altitudeManuelle.current = true; }} type="number" placeholder="200" style={inputStyle} />
                 </div>
               </div>
-              {zoneInfo && zoneInfo.inconnue === true ? (
+              {zoneInfo && zoneInfo.inconnue === true && addressData && rechercheAdresse === false && communeSuggestions.length === 0 ? (
                 <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.45)", color: themeMode === "light" ? "#9b1c1c" : "#fca5a5", fontSize: 12, lineHeight: 1.5 }}>
                   Commune non localisee : choisis-la dans la liste de suggestions pour que DEVIA
                   trouve sa zone de neige, ou impose la zone ci-dessous.
+                </div>
+              ) : null}
+              {(commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)", border: themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.08)", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, lineHeight: 1.5 }}>
+                  Aucune adresse trouvee pour le moment. Continue a taper le numero, la rue et la
+                  ville : la recherche se fait a chaque frappe.
                 </div>
               ) : null}
               {zoneInfo && zoneInfo.depMixte ? (
@@ -9938,7 +10000,7 @@ return (
                   <option value="4">4 - 28 m/s (littoral, Corse)</option>
                 </select>
               </div>
-              {zoneInfo && (
+              {zoneInfo && (addressData || formZoneNeige || formZoneVent) && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                   <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk} kN/m2</Badge>
                   <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
