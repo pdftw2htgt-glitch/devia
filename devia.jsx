@@ -2613,26 +2613,28 @@ setPiece("Empannon de croupe");
     const nbPansCarport = String((params && params.carport_pans) || "1");
     if (nbPansCarport === "2") { drawCarport2Pans(); return; }
     if (nbPansCarport === "4") { drawCarport4Pans(); return; }
-    // DEMI-FERME DE MONOPENTE : poteau -> entrait -> arbaletrier encastre dans la tete
-    // de poteau -> echantignole -> pannes toutes alignees -> chevron sur le delardement.
-    // Deux liens moises serrent l entrait et viennent reprendre l arbaletrier par-dessous.
+    // DEMI-FERME DE MONOPENTE. Poteau -> arbaletrier encastre dans la tete de poteau ->
+    // echantignole -> pannes toutes alignees -> chevron sur le delardement.
+    // L ENTRAIT EST MOISE : deux joues de part et d autre, qui serrent le poteau, le lien
+    // et le talon d arbaletrier. C est ce qui lui permet de passer PLUS HAUT que la
+    // sous-face d arbaletrier, entre la sabliere et la premiere panne intermediaire.
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;                       // sous-face d arbaletrier a l avant (bas)
-    const Hhaut = Ht + denivele;           // sous-face d arbaletrier a l arriere (haut)
+    const Hbas = Ht;
+    const Hhaut = Ht + denivele;
     const angM = Math.atan(denivele / lg);
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
     const plM = lg / cosM;
     const dp = debordPanne;
 
-    const [potB] = sec("Poteau", 0.20, 0.20);
-    const [arB, arH] = sec("Arbaletrier", 0.16, 0.22);
-    const [enB, enH] = sec("Entrait", 0.16, 0.22);
-    const [chB, chH] = sec("Chevron", 0.10, 0.16);
-    const [liB, liH] = sec("Lien", 0.14, 0.14);
+    const [potB] = sec("Poteau", 0.25, 0.25);
+    const [arB, arH] = sec("Arbaletrier", 0.20, 0.28);
+    const [enB, enH] = sec("Entrait", 0.10, 0.28);   // enB = UNE joue de la moise
+    const [chB, chH] = sec("Chevron", 0.12, 0.20);
+    const [liB, liH] = sec("Lien", 0.20, 0.20);
     // Une seule section de panne pour les trois roles : c est la condition pour que
     // sabliere, intermediaires et faitiere soient alignees sur le meme plan.
-    const [pw, ph] = sec("Panne", 0.14, 0.24);
-    const eEch = 0.03, EMBREV = 0.04;
+    const [pw, ph] = sec("Panne", 0.18, 0.28);
+    const eEch = 0.03;
 
     const yLigne = (z) => Hbas + (z + lg / 2) * tanM;   // sous-face de l arbaletrier
     const dAxeArb = (arH / 2) / cosM;
@@ -2641,11 +2643,19 @@ setPiece("Empannon de croupe");
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;
     const yDessusArb = (z) => yLigne(z) + arH / cosM;   // plan d assise des pannes
     const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanM + eEch + ph / 2;
-    // La tete de poteau monte a mi-hauteur d arbaletrier : celui-ci est ENCASTRE dedans,
-    // serre entre les joues du poteau (200) plus large que lui (160), juste sous la sabliere.
+    // Tete de poteau a mi-hauteur d arbaletrier : celui-ci est ENCASTRE dedans, serre
+    // entre les joues du poteau (plus large que lui), juste sous la sabliere.
     const yTetePot = (z) => yLigne(z) + arH / (2 * cosM);
-    const yEntraitHaut = Hbas + EMBREV;                 // l entrait reprend sous le talon
+
+    // Nombre de pannes intermediaires : il fixe aussi la hauteur de l entrait.
+    const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
+    const pasPanne = lg / (nbInter + 1);
+    // L entrait coupe la sous-face d arbaletrier a mi-chemin entre la sabliere et la
+    // premiere panne intermediaire : c est la hauteur demandee.
+    const zCroise = -lg / 2 + 0.5 * pasPanne;
+    const yEntraitHaut = yLigne(zCroise);
     const yEntraitBas = yEntraitHaut - enH;
+    const xMoise = liB / 2 + enB / 2;                  // joue collee au flanc du lien
 
     drawDalleBeton(L, lg, 0.3);
 
@@ -2660,9 +2670,6 @@ setPiece("Empannon de croupe");
       addBox(potB, hPotAr, potB, x, hPotAr / 2, lg / 2);
     });
 
-    setPiece("Entrait");
-    xs.forEach((x) => { addBox(enB, enH, lg, x, yEntraitHaut - enH / 2, 0, woodMat); });
-
     setPiece("Arbaletrier");
     // Allonge d une demi-largeur de panne a chaque bout pour que la sabliere et la
     // faitiere portent en plein sur lui.
@@ -2671,32 +2678,34 @@ setPiece("Empannon de croupe");
     });
 
     setPiece("Lien");
-    // Deux liens par demi-ferme, chacun en MOISE : deux joues de part et d autre de
-    // l entrait, qu elles serrent au croisement, et qui montent porter a plat sous
-    // l arbaletrier. Celui de devant le reprend du cote sabliere, celui du poteau
-    // arriere du cote faitiere.
+    // Un lien par pied de ferme, piece pleine dans le plan de la ferme : pied coupe
+    // d aplomb contre le poteau, tete coupee parallele au rampant pour porter a plat
+    // sous l arbaletrier. Celui de devant le reprend cote sabliere, celui de derriere
+    // cote faitiere. Les joues de l entrait viennent les serrer au croisement.
     const dPied = Math.min(0.6, Math.max(0.3, Hbas * 0.25));
     const yPiedLien = yEntraitBas - dPied;
-    const xJoue = enB / 2 + liB / 4;        // joue collee a la joue de l entrait
-    const epJoue = liB / 2;
     xs.forEach((x) => {
       [-1, 1].forEach((sgn) => {
-        const zPied = sgn * (lg / 2 - potB / 2);        // face interieure du poteau
-        const zTete = sgn * (lg / 2 - 0.35 * lg);       // sous l arbaletrier, vers le milieu
-        const yTete = yLigne(zTete);
-        [-1, 1].forEach((cote) => {
-          addLienCoupe(x + cote * xJoue, epJoue, zPied, yPiedLien, zTete, yTete, liH, tanM, "Lien");
-        });
+        const zPied = sgn * (lg / 2 - potB / 2);
+        const zTete = sgn * (lg / 2 - 0.35 * lg);
+        addLienCoupe(x, liB, zPied, yPiedLien, zTete, yLigne(zTete), liH, tanM, "Lien");
+      });
+    });
+
+    setPiece("Entrait");
+    // LA MOISE : deux joues, une de chaque cote, qui serrent au passage les deux poteaux,
+    // les deux liens et le talon d arbaletrier qu elles recouvrent pres de la sabliere.
+    xs.forEach((x) => {
+      [-1, 1].forEach((cote) => {
+        addBox(enB, enH, lg, x + cote * xMoise, yEntraitHaut - enH / 2, 0, woodMat);
       });
     });
 
     // PANNES : sabliere en bas, faitiere en haut, intermediaires entre les deux,
     // toutes assises sur l arbaletrier donc toutes dans le meme plan.
-    const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
     const niv = [];
     for (let i = 0; i <= nbInter + 1; i++) {
-      const t = i / (nbInter + 1);
-      const z = -lg / 2 + t * lg;
+      const z = -lg / 2 + i * pasPanne;
       const nom = (i === 0) ? "Sabliere" : ((i === nbInter + 1) ? "Panne faitiere" : "Panne");
       niv.push({ z: z, yRef: yDessusArb(z), yP: yPanne(z), nom: nom });
     }
@@ -2705,7 +2714,7 @@ setPiece("Empannon de croupe");
       addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
     });
     console.log("[DEVIA] Carport 1 pan : " + xs.length + " demi-ferme(s), " + niv.length +
-      " pannes alignees, liens moises sur l entrait");
+      " pannes alignees, entrait moise a " + yEntraitHaut.toFixed(3) + " m");
 
     setPiece("Echantignole");
     niv.forEach((n) => {
