@@ -162,7 +162,7 @@ const EC5_LARGEUR_MINI = {
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
-  "Lien de faitage":0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
+  "Lien de faitage":0, Lien:0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
 
@@ -347,6 +347,7 @@ function recalerQuantitesDevis(parsed, agg) {
       ["arbaletrier", ["Arbaletrier"]], ["entrait", ["Entrait"]],
       ["contrefiche", ["Contrefiche"]], ["poincon", ["Poincon"]],
       ["lien de faitage", ["Lien de faitage"]], ["echantignole", ["Echantignole"]],
+      ["lien", ["Lien"]],
       ["empannon", ["Empannon", "Empannon de croupe"]], ["chevron", ["Chevron"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
       ["solive", ["Solive", "Solive balcon"]], ["poteau", ["Poteau"]],
@@ -2561,61 +2562,119 @@ setPiece("Empannon de croupe");
     const nbPansCarport = String((params && params.carport_pans) || "1");
     if (nbPansCarport === "2") { drawCarport2Pans(); return; }
     if (nbPansCarport === "4") { drawCarport4Pans(); return; }
+    // Empilement identique a la trad, au hangar, au 4 pans et au carport 2 pans :
+    // poteau -> sabliere -> arbaletrier -> echantignole -> panne delardee -> chevron.
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;
-    const Hhaut = Ht + denivele;
-    const [potCB] = sec("Poteau", 0.18, 0.18); const sectionPotau = potCB;
-    const ang = Math.atan(denivele / lg);
-    const longueurChevron = lg / Math.cos(ang);
+    const Hbas = Ht;                       // ligne porteuse a l avant (bas)
+    const Hhaut = Ht + denivele;           // ligne porteuse a l arriere (haut)
+    const angM = Math.atan(denivele / lg);
+    const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
+    const plM = lg / cosM;                 // longueur de rampant
+    const dp = debordPanne;                // debord en pignon
 
-    // ===== DALLE BETON (apparente, deborde de l'emprise) =====
+    const [potB] = sec("Poteau", 0.18, 0.18);
+    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
+    const [pw, ph] = sec("Panne", 0.12, 0.24);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
+    const lienS = sec("Lien", 0.10, 0.10)[0];
+    const eEch = 0.03;
+
+    // Ligne porteuse = dessus des sablieres. Les poteaux s arretent SOUS elles.
+    const yLigne = (z) => Hbas + (z + lg / 2) * tanM;
+    const yTetePot = (z) => yLigne(z) - sbH;
+    // L arbaletrier est pose sur les sablieres : son axe est a mi-hauteur au-dessus de la ligne.
+    const dAxeArb = (arH / 2) / cosM;
+    // Plan porteur des chevrons, mesure depuis l AXE de l arbaletrier.
+    const dPerp = arH / 2 + (ph + eEch - delardement) * cosM + pw * sinM + chH / 2;
+    const LEVEE = dAxeArb + dPerp / cosM;              // ligne -> axe du chevron
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;     // ligne -> dessus du chevron
+
     drawDalleBeton(L, lg, 0.3);
 
-setPiece("Poteau");
-    // ===== POTEAUX (specificite carport) =====
-    // Poteaux intermediaires aussi si carport long
-    const nbPoteauxLong = Math.max(1, Math.ceil(L / 4));
-    for (let i = 0; i <= nbPoteauxLong; i++) {
-      const x = -L/2 + (i / nbPoteauxLong) * L;
-      addBox(sectionPotau, Hbas, sectionPotau, x, Hbas/2, -lg/2);   // avant (bas)
-      addBox(sectionPotau, Hhaut, sectionPotau, x, Hhaut/2, lg/2);  // arriere (haut)
+    setPiece("Poteau");
+    // Un poteau sous chaque arbaletrier : jamais d arbaletrier sans poteau dessous.
+    const nbInt = Math.max(1, Math.ceil(L / 4));
+    const xs = [];
+    for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
+    const hPotBas = yTetePot(-lg / 2), hPotHaut = yTetePot(lg / 2);
+    xs.forEach((x) => {
+      addBox(potB, hPotBas, potB, x, hPotBas / 2, -lg / 2);
+      addBox(potB, hPotHaut, potB, x, hPotHaut / 2, lg / 2);
+    });
+
+    setPiece("Sabliere");
+    // Assises sur les tetes de poteaux, dessus a l aplomb de la ligne porteuse.
+    addBox(L + 2 * dp, sbH, sbB, 0, Hbas - sbH / 2, -lg / 2, woodMat);
+    addBox(L + 2 * dp, sbH, sbB, 0, Hhaut - sbH / 2, lg / 2, woodMat);
+
+    setPiece("Lien");
+    // Liens a 45 degres en tete de poteau, dans le plan des sablieres : c est eux qui
+    // empechent le carport de se coucher dans le sens de la longueur.
+    const aLien = Math.min(0.7, Math.max(0.3, hPotBas * 0.3));
+    const pasPot = L / nbInt;
+    if (pasPot > 2 * aLien + 0.1) {
+      xs.forEach((x) => {
+        [-1, 1].forEach((sgn) => {
+          const xT = x + sgn * aLien;
+          const dedans = ((xT > -L / 2 - 0.001) && (xT < L / 2 + 0.001));
+          if (dedans === true) {
+            // Bout haut rentre d une demi-section : le lien se loge sous la sabliere
+            // au lieu de la traverser de 5 cm.
+            addBeam(x, hPotBas - aLien, -lg / 2, xT, hPotBas - lienS / 2, -lg / 2, lienS, woodMat);
+            addBeam(x, hPotHaut - aLien, lg / 2, xT, hPotHaut - lienS / 2, lg / 2, lienS, woodMat);
+          }
+        });
+      });
     }
 
-    // ===== SABLIERES (basse avant + haute arriere) =====
-    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
-    addBox(L + 0.3, sbH, sbB, 0, Hhaut, lg/2, woodMat);
+    setPiece("Arbaletrier");
+    // Il va d une sabliere a l autre et porte toutes les pannes : plus rien ne levite.
+    xs.forEach((x) => {
+      addBox(arB, arH, plM, x, Hbas + denivele / 2 + dAxeArb, 0, woodMat, [-angM, 0, 0]);
+    });
 
-setPiece("Panne");
-    // ===== PANNES INTERMEDIAIRES (suivent la pente) =====
-    const nbPannes = 3;
-    for (let i = 0; i < nbPannes; i++) {
-      const t = i / (nbPannes - 1);
-      const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele;
-      const [pnB, pnH] = sec("Panne", 0.12, 0.24);
-      addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
+    setPiece("Panne");
+    // UNE SEULE file de pannes, et uniquement ENTRE les sablieres : plus de panne
+    // superposee a la sabliere haute (l ancienne "faitiere" qui doublait la piece).
+    const nbPannes = Math.max(1, Math.ceil(plM / 2.2) - 1);
+    const niv = [];
+    for (let i = 1; i <= nbPannes; i++) {
+      const t = i / (nbPannes + 1);
+      const zRef = -lg / 2 + t * lg;
+      const yRef = yLigne(zRef) + dAxeArb + (arH / 2) / cosM;   // dessus de l arbaletrier
+      const yP = yRef + (pw / 2) * tanM + eEch + ph / 2;
+      niv.push({ yRef: yRef, zRef: zRef });
+      // Aval vers -z (l avant est le point bas) : le plat delarde regarde la pente.
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, zRef, tanM, -1, delardement, woodMat);
     }
 
-setPiece("Chevron");
-    // ===== CHEVRONS RAPPROCHES (~tous les 0.6m) =====
-    const espChevron = 0.6;
-    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    const yCentre = Hbas + denivele/2;
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      const [chB, chH] = sec("Chevron", 0.10, 0.14);
-      addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.06, 0, woodMat, [-ang, 0, 0]);
+    setPiece("Echantignole");
+    niv.forEach((n) => {
+      xs.forEach((x) => { addEchantignoleGen(x, -n.zRef, n.yRef, -1, arB, pw, tanM, eEch); });
+    });
+
+    setPiece("Chevron");
+    // Poses A PLAT sur le delardement des pannes, plus dedans.
+    const espM = getCouverture(opts && opts.couverture).espChevron;
+    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
+    for (let i = 0; i <= nbCh; i++) {
+      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
+      addBox(chB, chH, plM + 0.2, x, Hbas + denivele / 2 + LEVEE, 0, woodMat, [-angM, 0, 0]);
     }
 
-    // ===== COUVERTURE (1 pan) - texture tuile en realiste, transparent en technique =====
-    const couv = getCouverture(opts && opts.couverture);
-    const carportRoofMat = makeRoofMaterial(couv, L, longueurChevron);
-    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
-    const roof = new THREE.Mesh(rg, carportRoofMat);
-    roof.position.set(0, yCentre + 0.16, 0);
-    roof.rotation.x = Math.PI/2 - ang;
-    scene.add(roof);
+    // ===== COUVERTURE (1 pan) : sommets explicites, une PlaneGeometry tournee sort a plat =====
+    const couvM = getCouverture(opts && opts.couverture);
+    const matM = makeRoofMaterial(couvM, L, plM);
+    const yAvT = Hbas + LEVEE_DESSUS, yArT = Hhaut + LEVEE_DESSUS;
+    const xA = -L / 2 - dp, xB = L / 2 + dp;
+    const gM = new THREE.BufferGeometry();
+    gM.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
+      xA, yAvT, -lg / 2,  xB, yAvT, -lg / 2,  xB, yArT, lg / 2,
+      xA, yAvT, -lg / 2,  xB, yArT, lg / 2,   xA, yArT, lg / 2,
+    ]), 3));
+    gM.computeVertexNormals();
+    scene.add(new THREE.Mesh(gM, matM));
   };
 
   // ============================================================
