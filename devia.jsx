@@ -1743,6 +1743,38 @@ function buildScene3D(scene, params, opts) {
   // ============================================================
   // TEXTURES PROCEDURALES DE COUVERTURE (mode realiste)
   // ============================================================
+  // ===== COORDONNEES DE TEXTURE D UN PAN DE TOITURE =====
+  // Une BufferGeometry construite a la main n a pas d attribut "uv" : le shader lit
+  // alors (0,0) pour tous les fragments et le pan sort d une seule couleur, celle du
+  // premier texel. C est ce qui rendait le bac acier uniformement noir en vue realiste.
+  // U = horizontale du pan, V = ligne de plus grande pente, ramenes sur [0,1].
+  const uvDuPan = (v) => {
+    const n = Math.floor(v.length / 3);
+    const ax = v[3] - v[0], ay = v[4] - v[1], az = v[5] - v[2];
+    const bx = v[6] - v[0], by = v[7] - v[1], bz = v[8] - v[2];
+    let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+    const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx = nx / nl; ny = ny / nl; nz = nz / nl;
+    let ux = -nz, uy = 0, uz = nx;                       // n x Yup
+    const ul = Math.sqrt(ux * ux + uz * uz) || 1;
+    ux = ux / ul; uz = uz / ul;
+    const vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+    const us = [], vs = [];
+    for (let i = 0; i < n; i++) {
+      us.push(v[i * 3] * ux + v[i * 3 + 2] * uz);
+      vs.push(v[i * 3] * vx + v[i * 3 + 1] * vy + v[i * 3 + 2] * vz);
+    }
+    let u0 = us[0], u1 = us[0], w0 = vs[0], w1 = vs[0];
+    for (let i = 1; i < n; i++) {
+      u0 = Math.min(u0, us[i]); u1 = Math.max(u1, us[i]);
+      w0 = Math.min(w0, vs[i]); w1 = Math.max(w1, vs[i]);
+    }
+    const du = (u1 - u0) || 1, dw = (w1 - w0) || 1;
+    const out = [];
+    for (let i = 0; i < n; i++) out.push((us[i] - u0) / du, (vs[i] - w0) / dw);
+    return out;
+  };
+
   const makeCouvTexture = (couv) => {
     const S = 512;
     const c = document.createElement("canvas");
@@ -2471,11 +2503,13 @@ setPiece("Chevron");
     const xA = -L / 2 - dp, xB = L / 2 + dp;
     [1, -1].forEach((sz) => {
       const zE = sz * (lg / 2 + dp * 0);
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
+      const som = [
         xA, yE, zE,  xB, yE, zE,  xB, yF, 0,
         xA, yE, zE,  xB, yF, 0,   xA, yF, 0,
-      ]), 3));
+      ];
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(som), 3));
+      g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvDuPan(som)), 2));
       g.computeVertexNormals();
       scene.add(new THREE.Mesh(g, matC));
     });
@@ -2626,6 +2660,7 @@ setPiece("Empannon de croupe");
     const pan4 = (v) => {
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(v), 3));
+      g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvDuPan(v)), 2));
       g.computeVertexNormals();
       scene.add(new THREE.Mesh(g, mat4));
     };
@@ -2802,11 +2837,13 @@ setPiece("Empannon de croupe");
     const yAvT = Hbas + LEVEE_DESSUS + epLiteau - debEgout * tanM;
     const yArT = Hhaut + LEVEE_DESSUS + epLiteau + debEgout * tanM;
     const xA = -L / 2 - dp, xB = L / 2 + dp;
-    const gM = new THREE.BufferGeometry();
-    gM.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
+    const somM = [
       xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
       xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
-    ]), 3));
+    ];
+    const gM = new THREE.BufferGeometry();
+    gM.setAttribute("position", new THREE.BufferAttribute(new Float32Array(somM), 3));
+    gM.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvDuPan(somM)), 2));
     gM.computeVertexNormals();
     scene.add(new THREE.Mesh(gM, matM));
   };
@@ -4088,6 +4125,7 @@ setPiece("Empannon de croupe");
     const pan = (sommets) => {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(sommets), 3));
+      geo.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvDuPan(sommets)), 2));
       geo.computeVertexNormals();
       scene.add(new THREE.Mesh(geo, roof4Mat));
     };
