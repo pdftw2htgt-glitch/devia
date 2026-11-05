@@ -2577,6 +2577,7 @@ setPiece("Empannon de croupe");
     const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
     const [pw, ph] = sec("Panne", 0.12, 0.24);
     const [chB, chH] = sec("Chevron", 0.10, 0.14);
+    const [enB, enH] = sec("Entrait", 0.16, 0.16);
     const lienS = sec("Lien", 0.10, 0.10)[0];
     const eEch = 0.03;
 
@@ -2607,6 +2608,15 @@ setPiece("Empannon de croupe");
     // Assises sur les tetes de poteaux, dessus a l aplomb de la ligne porteuse.
     addBox(L + 2 * dp, sbH, sbB, 0, Hbas - sbH / 2, -lg / 2, woodMat);
     addBox(L + 2 * dp, sbH, sbB, 0, Hhaut - sbH / 2, lg / 2, woodMat);
+
+    setPiece("Entrait");
+    // Un entrait par file de poteaux, loge CONTRE les deux poteaux juste sous les
+    // sablieres : c est lui qui tient l ecartement avant / arriere. Avec l arbaletrier
+    // et le poteau arriere il forme la demi-ferme du monopente.
+    const assezHaut = ((hPotBas - enH) > 0.8);
+    if (assezHaut === true) {
+      xs.forEach((x) => { addBox(enB, enH, lg, x, hPotBas - enH / 2, 0, woodMat); });
+    }
 
     setPiece("Lien");
     // Liens a 45 degres en tete de poteau, dans le plan des sablieres : c est eux qui
