@@ -505,7 +505,12 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // changeraient de sections - Mathis a demande qu on ajoute sans rien retirer.
   const pansCarportSec = String((params && params.carport_pans) || "1");
   const carportCharpente = ((TYPE_SEC === "carport") && ((pansCarportSec === "1") === false));
-  const ENTRAXE_FERMES = ((TYPE_SEC === "hangar") || carportCharpente)
+  // Carport 1 pan : deux demi-fermes suffisent jusqu a 5 m de long. Meme regle que
+  // celle dessinee en 3D, sinon les pannes seraient dimensionnees sur une portee fausse.
+  const carport1Pan = ((TYPE_SEC === "carport") && (pansCarportSec === "1"));
+  const ENTRAXE_FERMES = carport1Pan
+    ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 5)))
+    : ((TYPE_SEC === "hangar") || carportCharpente)
     ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
     : ((TYPE_SEC === "4_pans")
       ? entraxe4Pans
@@ -2562,66 +2567,89 @@ setPiece("Empannon de croupe");
     const nbPansCarport = String((params && params.carport_pans) || "1");
     if (nbPansCarport === "2") { drawCarport2Pans(); return; }
     if (nbPansCarport === "4") { drawCarport4Pans(); return; }
-    // Empilement identique a la trad, au hangar, au 4 pans et au carport 2 pans :
-    // poteau -> sabliere -> arbaletrier -> echantignole -> panne delardee -> chevron.
+    // Empilement trad : poteau -> arbaletrier -> echantignole -> pannes -> chevron.
+    // L arbaletrier passe SOUS toutes les pannes, sabliere et faitiere comprises :
+    // c est ce qui les met toutes dans le meme plan, celui qui porte les chevrons.
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;                       // ligne porteuse a l avant (bas)
-    const Hhaut = Ht + denivele;           // ligne porteuse a l arriere (haut)
+    const Hbas = Ht;                       // tete des poteaux avant (bas)
+    const Hhaut = Ht + denivele;           // tete des poteaux arriere (haut)
     const angM = Math.atan(denivele / lg);
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
     const plM = lg / cosM;                 // longueur de rampant
     const dp = debordPanne;                // debord en pignon
 
     const [potB] = sec("Poteau", 0.18, 0.18);
-    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
     const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
-    const [pw, ph] = sec("Panne", 0.12, 0.24);
-    const [chB, chH] = sec("Chevron", 0.10, 0.14);
     const [enB, enH] = sec("Entrait", 0.16, 0.16);
+    const [chB, chH] = sec("Chevron", 0.10, 0.14);
     const lienS = sec("Lien", 0.10, 0.10)[0];
+    // UNE seule section de panne pour les trois roles : c est la condition pour que
+    // sabliere, intermediaires et faitiere soient alignees sur le meme plan.
+    const [pw, ph] = sec("Panne", 0.12, 0.24);
     const eEch = 0.03;
 
-    // Ligne porteuse = dessus des sablieres. Les poteaux s arretent SOUS elles.
+    // Ligne porteuse = tetes de poteaux = SOUS-FACE de l arbaletrier.
     const yLigne = (z) => Hbas + (z + lg / 2) * tanM;
-    const yTetePot = (z) => yLigne(z) - sbH;
-    // L arbaletrier est pose sur les sablieres : son axe est a mi-hauteur au-dessus de la ligne.
     const dAxeArb = (arH / 2) / cosM;
-    // Plan porteur des chevrons, mesure depuis l AXE de l arbaletrier.
     const dPerp = arH / 2 + (ph + eEch - delardement) * cosM + pw * sinM + chH / 2;
     const LEVEE = dAxeArb + dPerp / cosM;              // ligne -> axe du chevron
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosM;     // ligne -> dessus du chevron
+    const yDessusArb = (z) => yLigne(z) + arH / cosM;  // plan d assise des pannes
+    const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanM + eEch + ph / 2;
 
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    // Un poteau sous chaque arbaletrier : jamais d arbaletrier sans poteau dessous.
-    const nbInt = Math.max(1, Math.ceil(L / 4));
+    // Deux demi-fermes suffisent jusqu a 5 m de long ; au-dela on en rajoute une.
+    const nbInt = Math.max(1, Math.ceil(L / 5));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
-    const hPotBas = yTetePot(-lg / 2), hPotHaut = yTetePot(lg / 2);
     xs.forEach((x) => {
-      addBox(potB, hPotBas, potB, x, hPotBas / 2, -lg / 2);
-      addBox(potB, hPotHaut, potB, x, hPotHaut / 2, lg / 2);
+      addBox(potB, Hbas, potB, x, Hbas / 2, -lg / 2);
+      addBox(potB, Hhaut, potB, x, Hhaut / 2, lg / 2);
     });
 
-    setPiece("Sabliere");
-    // Assises sur les tetes de poteaux, dessus a l aplomb de la ligne porteuse.
-    addBox(L + 2 * dp, sbH, sbB, 0, Hbas - sbH / 2, -lg / 2, woodMat);
-    addBox(L + 2 * dp, sbH, sbB, 0, Hhaut - sbH / 2, lg / 2, woodMat);
-
     setPiece("Entrait");
-    // Un entrait par file de poteaux, loge CONTRE les deux poteaux juste sous les
-    // sablieres : c est lui qui tient l ecartement avant / arriere. Avec l arbaletrier
-    // et le poteau arriere il forme la demi-ferme du monopente.
-    const assezHaut = ((hPotBas - enH) > 0.8);
-    if (assezHaut === true) {
-      xs.forEach((x) => { addBox(enB, enH, lg, x, hPotBas - enH / 2, 0, woodMat); });
+    // Loge contre les deux poteaux, dessus a l aplomb des tetes : il recoit le talon
+    // de l arbaletrier et tient l ecartement avant / arriere.
+    xs.forEach((x) => { addBox(enB, enH, lg, x, Hbas - enH / 2, 0, woodMat); });
+
+    setPiece("Arbaletrier");
+    // Assis DIRECTEMENT sur les tetes de poteaux. Allonge d une demi-largeur de panne
+    // a chaque bout pour que la sabliere et la faitiere portent en plein.
+    xs.forEach((x) => {
+      addBox(arB, arH, plM + pw, x, Hbas + denivele / 2 + dAxeArb, 0, woodMat, [-angM, 0, 0]);
+    });
+
+    // PANNES : sabliere en bas, faitiere en haut, intermediaires entre les deux,
+    // toutes assises sur l arbaletrier, donc toutes dans le meme plan.
+    const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
+    const niv = [];
+    for (let i = 0; i <= nbInter + 1; i++) {
+      const t = i / (nbInter + 1);
+      const z = -lg / 2 + t * lg;
+      const nom = (i === 0) ? "Sabliere" : ((i === nbInter + 1) ? "Panne faitiere" : "Panne");
+      niv.push({ z: z, yRef: yDessusArb(z), yP: yPanne(z), nom: nom });
     }
+    niv.forEach((n) => {
+      setPiece(n.nom);
+      // Aval vers -z : le plat delarde regarde la pente.
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
+    });
+    console.log("[DEVIA] Carport 1 pan : " + xs.length + " demi-ferme(s), " + niv.length +
+      " pannes alignees sur l arbaletrier (dessus a " + yPanne(0).toFixed(3) + " m au milieu)");
+
+    setPiece("Echantignole");
+    niv.forEach((n) => {
+      xs.forEach((x) => { addEchantignoleGen(x, -n.z, n.yRef, -1, arB, pw, tanM, eEch); });
+    });
 
     setPiece("Lien");
-    // Liens a 45 degres en tete de poteau, dans le plan des sablieres : c est eux qui
-    // empechent le carport de se coucher dans le sens de la longueur.
-    const aLien = Math.min(0.7, Math.max(0.3, hPotBas * 0.3));
+    // Liens a 45 degres en tete de poteau, dans le plan des pannes de rive : c est eux
+    // qui empechent le carport de se coucher dans le sens de la longueur.
+    const aLien = Math.min(0.7, Math.max(0.3, Hbas * 0.3));
+    const ySousBas = yPanne(-lg / 2) - ph / 2;
+    const ySousHaut = yPanne(lg / 2) - ph / 2;
     const pasPot = L / nbInt;
     if (pasPot > 2 * aLien + 0.1) {
       xs.forEach((x) => {
@@ -2629,43 +2657,15 @@ setPiece("Empannon de croupe");
           const xT = x + sgn * aLien;
           const dedans = ((xT > -L / 2 - 0.001) && (xT < L / 2 + 0.001));
           if (dedans === true) {
-            // Bout haut rentre d une demi-section : le lien se loge sous la sabliere
-            // au lieu de la traverser de 5 cm.
-            addBeam(x, hPotBas - aLien, -lg / 2, xT, hPotBas - lienS / 2, -lg / 2, lienS, woodMat);
-            addBeam(x, hPotHaut - aLien, lg / 2, xT, hPotHaut - lienS / 2, lg / 2, lienS, woodMat);
+            addBeam(x, Hbas - aLien, -lg / 2, xT, ySousBas - lienS / 2, -lg / 2, lienS, woodMat);
+            addBeam(x, Hhaut - aLien, lg / 2, xT, ySousHaut - lienS / 2, lg / 2, lienS, woodMat);
           }
         });
       });
     }
 
-    setPiece("Arbaletrier");
-    // Il va d une sabliere a l autre et porte toutes les pannes : plus rien ne levite.
-    xs.forEach((x) => {
-      addBox(arB, arH, plM, x, Hbas + denivele / 2 + dAxeArb, 0, woodMat, [-angM, 0, 0]);
-    });
-
-    setPiece("Panne");
-    // UNE SEULE file de pannes, et uniquement ENTRE les sablieres : plus de panne
-    // superposee a la sabliere haute (l ancienne "faitiere" qui doublait la piece).
-    const nbPannes = Math.max(1, Math.ceil(plM / 2.2) - 1);
-    const niv = [];
-    for (let i = 1; i <= nbPannes; i++) {
-      const t = i / (nbPannes + 1);
-      const zRef = -lg / 2 + t * lg;
-      const yRef = yLigne(zRef) + dAxeArb + (arH / 2) / cosM;   // dessus de l arbaletrier
-      const yP = yRef + (pw / 2) * tanM + eEch + ph / 2;
-      niv.push({ yRef: yRef, zRef: zRef });
-      // Aval vers -z (l avant est le point bas) : le plat delarde regarde la pente.
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, zRef, tanM, -1, delardement, woodMat);
-    }
-
-    setPiece("Echantignole");
-    niv.forEach((n) => {
-      xs.forEach((x) => { addEchantignoleGen(x, -n.zRef, n.yRef, -1, arB, pw, tanM, eEch); });
-    });
-
     setPiece("Chevron");
-    // Poses A PLAT sur le delardement des pannes, plus dedans.
+    // Poses a plat sur le delardement, et ils portent maintenant sur TOUTES les pannes.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
     for (let i = 0; i <= nbCh; i++) {
