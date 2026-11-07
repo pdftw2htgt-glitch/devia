@@ -297,6 +297,7 @@ function metreTexteDepuisParams(p) {
       carport_pans: p.carport_pans || undefined,
       carport_faitage: p.carport_faitage || undefined,
       carport_croupe: p.carport_croupe || undefined,
+      debord_cotes: p.debord_cotes || undefined,
       murs: p.murs,
       pignon: p.pignon,
       appuis: p.appuis,
@@ -415,6 +416,7 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       carport_pans: (src && src.carport_pans) || (parsed && parsed._carportPans) || undefined,
       carport_faitage: (src && src.carport_faitage) || (parsed && parsed._carportFaitage) || undefined,
       carport_croupe: (src && src.carport_croupe) || (parsed && parsed._carportCroupe) || undefined,
+      debord_cotes: (src && src.debord_cotes) || (parsed && parsed._debordCotes) || undefined,
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
       pignon: (src && src.pignon) || (parsed && parsed._pignon) || undefined,
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
@@ -918,6 +920,14 @@ function buildScene3D(scene, params, opts) {
   const Ht = params.hauteur || 3;
   const pente = params.pente || 35;
   const debord = Math.max(0, parseFloat(params.debord) || 0); // depasse de toiture (m), egouts + rives
+  // COTES DE LA DEPASSE : masque de 4 caracteres, avant / arriere / gauche / droite.
+  // avant = cote des z negatifs, arriere = z positifs, gauche = x negatifs, droite = x positifs.
+  const mskDeb = String((params && params.debord_cotes) || "1111");
+  const okDeb = (i) => (mskDeb.charAt(i) === "1");
+  const debAv = okDeb(0) ? debord : 0;
+  const debAr = okDeb(1) ? debord : 0;
+  const debG = okDeb(2) ? debord : 0;
+  const debD = okDeb(3) ? debord : 0;
   // DELARDEMENT DES PANNES (m). Une panne d aplomb ne touche le chevron que par l arete AVAL
   // de son dessus : on y coupe un plat parallele au rampant pour que le chevron porte a plat.
   // Saisi en MILLIMETRES dans le formulaire, 15 par defaut (usinage courant de charpentier).
@@ -2450,6 +2460,7 @@ setPiece("Chevron");
     //     petit pan : c est lui qui porte le petit pan en porte-a-faux, en prenant
     //     appui sur le poteau B et en se bridant sous l arbaletrier du grand pan.
     const dp = debordPanne;
+    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
     const brutF = (params && params.carport_faitage);
     const pctF = ((brutF === undefined) || (brutF === null) || (brutF === "")) ? 33 : (parseFloat(brutF) || 33);
     const f = Math.min(0.75, Math.max(0.25, pctF / 100));
@@ -2595,10 +2606,10 @@ setPiece("Chevron");
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanP, n.sg, delardement, woodMat, n.nom);
+      addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, n.yP, n.z, tanP, n.sg, delardement, woodMat, n.nom);
     });
     setPiece("Panne faitiere");
-    addPanneDelardee(L + 2 * dp, ph, pw, 0, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
+    addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
     console.log("[DEVIA] Carport 2 pans asymetrique : faitage a " + Math.round(f * 100) +
       " pour cent, egouts a " + yEgG.toFixed(2) + " (grand pan) et " + yEgP.toFixed(2) +
       " m, faitage a " + yFait.toFixed(2) + " m, entrait de z=" + zEntG.toFixed(2) + " a z=" + zEntP.toFixed(2));
@@ -2610,21 +2621,23 @@ setPiece("Chevron");
 
     setPiece("Chevron");
     const espM = getCouverture(opts && opts.couverture).espChevron;
-    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
+    const nbCh = Math.max(2, Math.floor((L + dpG + dpD) / espM));
     // Coupe d aplomb a l egout, COUPE D ONGLET au faitage : les deux pans ont la meme
     // pente, la bissectrice est donc verticale et une coupe d aplomb en z = zFait fait
     // un onglet parfait. La depasse de toiture saisie s ajoute a chaque egout.
-    const extEg = Math.max(0.10, debord);
+    // Le grand pan est du cote sG : c est l arriere quand sG vaut 1, l avant sinon.
+    const extG = Math.max(0.10, (sG > 0) ? debAr : debAv);
+    const extP = Math.max(0.10, (sG > 0) ? debAv : debAr);
     const sousG = (z) => yG(z) + LEVEE - (chH / 2) / cosP;
     const dessG = (z) => yG(z) + LEVEE + (chH / 2) / cosP;
     const sousPt = (z) => yP(z) + LEVEE - (chH / 2) / cosP;
     const dessPt = (z) => yP(z) + LEVEE + (chH / 2) / cosP;
-    const zChG = zEgG + sG * extEg, zChP = zEgP - sG * extEg;
+    const zChG = zEgG + sG * extG, zChP = zEgP - sG * extP;
     const contChG = [[zChG, sousG(zChG)], [zFait, sousG(zFait)], [zFait, dessG(zFait)], [zChG, dessG(zChG)]];
     const contChP = [[zChP, sousPt(zChP)], [zFait, sousPt(zFait)], [zFait, dessPt(zFait)], [zChP, dessPt(zChP)]];
     const lgChG = Math.abs(zFait - zChG) / cosP, lgChP = Math.abs(zFait - zChP) / cosP;
     for (let i = 0; i <= nbCh; i++) {
-      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
+      const x = -L / 2 - dpG + (i / nbCh) * (L + dpG + dpD);
       addProfilZY(x, chB, contChG, lgChG, chH, "Chevron");
       addProfilZY(x, chB, contChP, lgChP, chH, "Chevron");
     }
@@ -2633,12 +2646,12 @@ setPiece("Chevron");
     const couvC = getCouverture(opts && opts.couverture);
     const matC = makeRoofMaterial(couvC, L, Math.max(plG, plP));
     const epLiteau = 0.03;
-    const debEg = extEg + 0.04;
-    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
+    const debEgG = extG + 0.04, debEgP = extP + 0.04;
+    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
     const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
     const bords = [
-      [zEgG + sG * debEg, yEgG + LEVEE_DESSUS + epLiteau - debEg * tanP],
-      [zEgP - sG * debEg, yEgP + LEVEE_DESSUS + epLiteau - debEg * tanP],
+      [zEgG + sG * debEgG, yEgG + LEVEE_DESSUS + epLiteau - debEgG * tanP],
+      [zEgP - sG * debEgP, yEgP + LEVEE_DESSUS + epLiteau - debEgP * tanP],
     ];
     bords.forEach((eg) => {
       const som = [
@@ -2665,6 +2678,7 @@ setPiece("Chevron");
     // ne sont pas egales : le recul du faitage est plus court a l avant (petit pan)
     // qu a l arriere (grand pan).
     const dp = debordPanne;
+    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
     const angC = (pente * Math.PI) / 180;
     const cosC = Math.cos(angC), sinC = Math.sin(angC), tanC = Math.tan(angC);
     const hf = (lg / 2) * tanC;
@@ -2708,7 +2722,12 @@ setPiece("Chevron");
     const yEntraitHaut = yL(lg / 2 - 0.5 * pas);
     const yEntraitBas = yEntraitHaut - enH;
     const xMoise = liB / 2 + enB / 2;
-    const extEg = Math.max(0.10, debord);
+    // Une depasse par cote : avant et arriere sur les grands pans (z), gauche et
+    // droite sur les croupes (x).
+    const extAv = Math.max(0.10, debAv), extAr = Math.max(0.10, debAr);
+    const extGa = Math.max(0.10, debG), extDr = Math.max(0.10, debD);
+    const extZ = (sz) => ((sz > 0) ? extAr : extAv);
+    const extX = (sx) => ((sx > 0) ? extDr : extGa);
 
     drawDalleBeton(L, lg, 0.3);
 
@@ -2822,7 +2841,7 @@ setPiece("Chevron");
     const dessCh = (z) => yL(z) + LEVEE + (chH / 2) / cosC;
     const nbCh4 = Math.max(2, Math.floor(Lf / esp4));
     [1, -1].forEach((sz) => {
-      const zEg = sz * (lg / 2 + extEg);
+      const zEg = sz * (lg / 2 + extZ(sz));
       const cont = [[zEg, sousCh(zEg)], [0, sousCh(0)], [0, dessCh(0)], [zEg, dessCh(zEg)]];
       const lgc = Math.abs(zEg) / cosC;
       // Rentres d une demi-largeur : le flanc du chevron de rive affleure le bout de
@@ -2849,7 +2868,7 @@ setPiece("Chevron");
         for (let i = 1; i <= nbE; i++) {
           const f = i / (nbE + 1);
           const xb = b[1] + (b[0] - b[1]) * f;
-          addEmpannon(xb, yCB - extEg * tanC, sz * (lg / 2 + extEg), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9);
+          addEmpannon(xb, yCB - extZ(sz) * tanC, sz * (lg / 2 + extZ(sz)), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9);
         }
       });
     });
@@ -2864,7 +2883,7 @@ setPiece("Chevron");
         const zb = -lg / 2 + fz * lg;
         const sz = (zb >= 0) ? 1 : -1;
         const fa = 1 - Math.abs(zb) / (lg / 2);
-        addEmpannon(b[2] + b[0] * extEg, yCB - extEg * tanCr, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85);
+        addEmpannon(b[2] + b[0] * extX(b[0]), yCB - extX(b[0]) * tanCr, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85);
       }
     });
 
@@ -2872,11 +2891,13 @@ setPiece("Chevron");
     const couv4 = getCouverture(opts && opts.couverture);
     const mat4 = makeRoofMaterial(couv4, L, plC);
     const epLiteau = 0.03;
-    const debT = extEg + 0.10;   // elle coiffe les abouts, coupes perpendiculaires au rampant
-    const yE4 = Ht + LEVEE_DESSUS + epLiteau - debT * tanC;
+    // Elle coiffe les abouts de 10 cm, cote par cote.
+    const dAv = extAv + 0.10, dAr = extAr + 0.10, dGa = extGa + 0.10, dDr = extDr + 0.10;
+    const yAv4 = Ht + LEVEE_DESSUS + epLiteau - dAv * tanC;
+    const yAr4 = Ht + LEVEE_DESSUS + epLiteau - dAr * tanC;
     const yF4 = yApex + LEVEE_DESSUS + epLiteau;
-    const xE1 = -L / 2 - debT, xE2 = L / 2 + debT;
-    const zE = lg / 2 + debT;
+    const xE1 = -L / 2 - dGa, xE2 = L / 2 + dDr;
+    const zAv4 = -(lg / 2 + dAv), zAr4 = lg / 2 + dAr;
     // Le faitage ne deborde pas : la croupe de la couverture doit plonger des le VRAI
     // bout de faitage, sinon le grand pan se prolonge a plat avant de descendre et on
     // voit un replat au droit de l aretier.
@@ -2888,10 +2909,10 @@ setPiece("Chevron");
       g.computeVertexNormals();
       scene.add(new THREE.Mesh(g, mat4));
     };
-    pan4([xE1, yE4, zE,  xE2, yE4, zE,  xF2, yF4, 0,  xE1, yE4, zE,  xF2, yF4, 0,  xF1, yF4, 0]);
-    pan4([xE1, yE4, -zE,  xF1, yF4, 0,  xF2, yF4, 0,  xE1, yE4, -zE,  xF2, yF4, 0,  xE2, yE4, -zE]);
-    pan4([xE1, yE4, -zE,  xE1, yE4, zE,  xF1, yF4, 0]);
-    pan4([xE2, yE4, -zE,  xF2, yF4, 0,  xE2, yE4, zE]);
+    pan4([xE1, yAr4, zAr4,  xE2, yAr4, zAr4,  xF2, yF4, 0,  xE1, yAr4, zAr4,  xF2, yF4, 0,  xF1, yF4, 0]);
+    pan4([xE1, yAv4, zAv4,  xF1, yF4, 0,  xF2, yF4, 0,  xE1, yAv4, zAv4,  xF2, yF4, 0,  xE2, yAv4, zAv4]);
+    pan4([xE1, yAv4, zAv4,  xE1, yAr4, zAr4,  xF1, yF4, 0]);
+    pan4([xE2, yAv4, zAv4,  xF2, yF4, 0,  xE2, yAr4, zAr4]);
     console.log("[DEVIA] Carport 4 pans : croupe avant " + Math.round(kAv * 100) +
       " pour cent (recul " + reculAv.toFixed(2) + " m), croupe arriere recul " +
       reculAr.toFixed(2) + " m, faitage de " + Lf.toFixed(2) + " m");
@@ -2916,6 +2937,7 @@ setPiece("Chevron");
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
     const plM = lg / cosM;
     const dp = debordPanne;
+    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
 
     const [potB] = sec("Poteau", 0.25, 0.25);
     const [arB, arH] = sec("Arbaletrier", 0.20, 0.28);
@@ -3031,7 +3053,7 @@ setPiece("Chevron");
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
+      addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
     });
     console.log("[DEVIA] Carport 1 pan : " + xs.length + " demi-ferme(s), " + niv.length +
       " pannes alignees, entrait moise a " + yEntraitHaut.toFixed(3) + " m");
@@ -3046,9 +3068,9 @@ setPiece("Chevron");
     // Poses a plat sur le delardement, abouts coupes d aplomb, et la depasse de
     // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
-    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
-    const extEg = Math.max(0.10, debord);
-    const zChB = -lg / 2 - extEg, zChH = lg / 2 + pw / 2;
+    const nbCh = Math.max(2, Math.floor((L + dpG + dpD) / espM));
+    const extAv = Math.max(0.10, debAv);
+    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + debAr;
     const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
     const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosM;
     const contCh = [
@@ -3056,7 +3078,7 @@ setPiece("Chevron");
     ];
     const lgCh = (zChH - zChB) / cosM;
     for (let i = 0; i <= nbCh; i++) {
-      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
+      const x = -L / 2 - dpG + (i / nbCh) * (L + dpG + dpD);
       addProfilZY(x, chB, contCh, lgCh, chH, "Chevron");
     }
 
@@ -3074,7 +3096,7 @@ setPiece("Chevron");
     const yArT = yLigne(zAr) + LEVEE_DESSUS + epLiteau;
     // Elle va jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe :
     // sinon la derniere demi-largeur de chevron reste a decouvert de chaque cote.
-    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
+    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
     const somM = [
       xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
       xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
@@ -7109,6 +7131,7 @@ const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan 
 const [formCarportFaitage, setFormCarportFaitage] = useState("33"); // carport 2 pans : position du faitage en pour cent de la largeur
 const [formCarportCroupe, setFormCarportCroupe] = useState("70"); // carport 4 pans : croupe avant en pour cent de la croupe standard
 const [formHauteurRef, setFormHauteurRef] = useState("sabliere"); // la hauteur saisie se lit a la sabliere ou au faitage
+const [formDebordCotes, setFormDebordCotes] = useState("1111"); // depasse de toiture : avant / arriere / gauche / droite
 const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..E imposee a la main
 const [formZoneVent, setFormZoneVent] = useState(""); // "" = selon la commune, sinon 1..4 imposee a la main
 const [sismiqueOfficiel, setSismiqueOfficiel] = useState(""); // zone sismique renvoyee par Georisques
@@ -9324,7 +9347,7 @@ return out;
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, pignon: s.pignon || undefined, appuis: s.appuis || undefined, remede: s.remede || undefined, debord: s.debord || undefined,
-        carport_pans: s.carport_pans || undefined, carport_faitage: s.carport_faitage || undefined, carport_croupe: s.carport_croupe || undefined,
+        carport_pans: s.carport_pans || undefined, carport_faitage: s.carport_faitage || undefined, carport_croupe: s.carport_croupe || undefined, debord_cotes: s.debord_cotes || undefined,
         pos: s.pos || undefined,
         pose: s.pose || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
@@ -9337,6 +9360,7 @@ return out;
       if (formCarportPans) fusion._carportPans = formCarportPans;
       if (formCarportFaitage) fusion._carportFaitage = formCarportFaitage;
       if (formCarportCroupe) fusion._carportCroupe = formCarportCroupe;
+      if (formDebordCotes) fusion._debordCotes = formDebordCotes;
       if (zoneInfo) { fusion._sk = zoneInfo.sk; fusion._dS = zoneInfo.dS; }
       setResult(fusion);
       setView3DParams({
@@ -9349,6 +9373,7 @@ return out;
         carport_pans: (structures[0] && structures[0].carport_pans) || undefined,
         carport_faitage: (structures[0] && structures[0].carport_faitage) || undefined,
         carport_croupe: (structures[0] && structures[0].carport_croupe) || undefined,
+        debord_cotes: formDebordCotes || undefined,
         ouvrages: ouvrages3D,
         finition_mur: formFinitionMur || undefined,
         delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
@@ -9442,6 +9467,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
   if (finalParams.carport_pans) parsed._carportPans = finalParams.carport_pans;
   if (finalParams.carport_faitage) parsed._carportFaitage = finalParams.carport_faitage;
   if (finalParams.carport_croupe) parsed._carportCroupe = finalParams.carport_croupe;
+  if (finalParams.debord_cotes) parsed._debordCotes = finalParams.debord_cotes;
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.finition_mur) parsed._finitionMur = finalParams.finition_mur;
   if (finalParams.pignon) parsed._pignon = finalParams.pignon;
@@ -9469,6 +9495,7 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         carport_pans: finalParams.carport_pans || undefined,
         carport_faitage: finalParams.carport_faitage || undefined,
         carport_croupe: finalParams.carport_croupe || undefined,
+        debord_cotes: finalParams.debord_cotes || undefined,
         murs: finalParams.murs || undefined,
         finition_mur: finalParams.finition_mur || undefined,
         pignon: finalParams.pignon || undefined,
@@ -9568,6 +9595,7 @@ const loadProjectDetails = (project) => {
         carport_pans: project.devis_data._carportPans || undefined,
         carport_faitage: project.devis_data._carportFaitage || undefined,
         carport_croupe: project.devis_data._carportCroupe || undefined,
+        debord_cotes: project.devis_data._debordCotes || undefined,
         murs: project.devis_data._murs || undefined,
         finition_mur: project.devis_data._finitionMur || undefined,
         pignon: project.devis_data._pignon || undefined,
@@ -9803,6 +9831,7 @@ const loadProjectDetails = (project) => {
       carport_pans: formCarportPans || undefined,
       carport_faitage: formCarportFaitage || undefined,
       carport_croupe: formCarportCroupe || undefined,
+      debord_cotes: formDebordCotes || undefined,
       appuis: formAppuis || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
@@ -10127,6 +10156,7 @@ return (
                         carport_pans: formCarportPans || undefined,
                         carport_faitage: formCarportFaitage || undefined,
                         carport_croupe: formCarportCroupe || undefined,
+                        debord_cotes: formDebordCotes || undefined,
                         appuis: formAppuis || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
@@ -10323,8 +10353,40 @@ return (
                 <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
-                  <span style={{ color: "#545870", fontSize: 12 }}>cm (egouts et rives)</span>
+                  <span style={{ color: "#545870", fontSize: 12 }}>cm</span>
                 </div>
+                {/* Sur quels cotes la depasse s applique */}
+                {(formDebord && parseFloat(formDebord) > 0) ? (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, marginBottom: 6 }}>Sur quels cotes ?</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
+                      {[
+                        { i: 0, label: "Avant" },
+                        { i: 1, label: "Arriere" },
+                        { i: 2, label: "Gauche" },
+                        { i: 3, label: "Droite" }
+                      ].map((c) => {
+                        const actif = (String(formDebordCotes || "1111").charAt(c.i) === "1");
+                        const bascule = () => {
+                          const t = String(formDebordCotes || "1111").split("");
+                          while (t.length < 4) t.push("1");
+                          t[c.i] = actif ? "0" : "1";
+                          setFormDebordCotes(t.join(""));
+                        };
+                        return (
+                          <button key={c.i} type="button" onClick={bascule}
+                            style={{ background: actif ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: actif ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 8, padding: "8px 4px", cursor: "pointer", color: actif ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "center", fontSize: 11, fontWeight: 500 }}>
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: 6, color: cl("#7a7d92", "#5f6374"), fontSize: 10, lineHeight: 1.5 }}>
+                      Avant et arriere = les deux longs cotes, gauche et droite = les deux pignons.
+                      Decoche le cote adosse a un mur.
+                    </div>
+                  </div>
+                ) : null}
               </div>
               {/* Delardement des pannes */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
