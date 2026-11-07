@@ -1627,7 +1627,15 @@ function buildScene3D(scene, params, opts) {
   // ===== PIECE A PROFIL LIBRE DANS LE PLAN (z, y), FILEE SELON X =====
   // Sert aux abouts coupes d aplomb : arbaletrier qui bute dans le talon du poteau,
   // tete de poteau entaillee au rampant. Le profil reel part aussi dans l IFC.
-  const addProfilZY = (x, ep, cont, lgDebit, hDebit, nomForce) => {
+  const addProfilZY = (x, ep, cont0, lgDebit, hDebit, nomForce) => {
+    // Sens trigonometrique impose : un contour parcouru a l envers sort les normales
+    // a l interieur et la piece apparait creuse.
+    let aireC = 0;
+    for (let q = 0; q < cont0.length; q++) {
+      const u = cont0[q], w = cont0[(q + 1) % cont0.length];
+      aireC += u[0] * w[1] - w[0] * u[1];
+    }
+    const cont = (aireC < 0) ? cont0.slice().reverse() : cont0;
     const shp = new THREE.Shape();
     shp.moveTo(cont[0][0], cont[0][1]);
     for (let q = 1; q < cont.length; q++) shp.lineTo(cont[q][0], cont[q][1]);
@@ -2484,6 +2492,7 @@ setPiece("Chevron");
       const z = zEgG - sG * i * pasG;
       if (Math.abs(yG(z) - yEntraitHaut) < Math.abs(yG(zEntG) - yEntraitHaut)) zEntG = z;
     }
+    zEntG = zEntG + sG * pw / 2;                          // jusqu au nu exterieur de la panne
     const zEntP = zEgP - sG * pw / 2;                      // jusqu au nu exterieur de la sabliere
     const xMoise = liB / 2 + enB / 2;
 
@@ -2539,6 +2548,10 @@ setPiece("Chevron");
       // Sous le poteau B : il reprend le grand pan et se fait serrer par la moise.
       const zTb = zFait + sG * 0.45 * lgG;
       addLienCoupe(x, liB, zFait + sG * potB / 2, yEntraitBas - dPied, zTb, yG(zTb), liH, -sG * tanP, "Lien");
+      // Et un second DE L AUTRE COTE du meme poteau : il va buter sous l entrait et
+      // c est lui qui epaule le porte-a-faux du petit pan.
+      const zTc = zFait - sG * (dPied + potB / 2);
+      addLienCoupe(x, liB, zFait - sG * potB / 2, yEntraitBas - dPied, zTc, yEntraitBas, liH, 0, "Lien");
     });
 
     setPiece("Entrait");
@@ -2584,21 +2597,29 @@ setPiece("Chevron");
     setPiece("Chevron");
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
-    const poseChev = (x, z1, y1, z2, y2, rot) => {
-      const lgc = Math.sqrt((z2 - z1) * (z2 - z1) + (y2 - y1) * (y2 - y1));
-      addBox(chB, chH, lgc, x, (y1 + y2) / 2, (z1 + z2) / 2, woodMat, [rot, 0, 0]);
-    };
+    // Coupe d aplomb a l egout, COUPE D ONGLET au faitage : les deux pans ont la meme
+    // pente, la bissectrice est donc verticale et une coupe d aplomb en z = zFait fait
+    // un onglet parfait. La depasse de toiture saisie s ajoute a chaque egout.
+    const extEg = Math.max(0.10, debord);
+    const sousG = (z) => yG(z) + LEVEE - (chH / 2) / cosP;
+    const dessG = (z) => yG(z) + LEVEE + (chH / 2) / cosP;
+    const sousPt = (z) => yP(z) + LEVEE - (chH / 2) / cosP;
+    const dessPt = (z) => yP(z) + LEVEE + (chH / 2) / cosP;
+    const zChG = zEgG + sG * extEg, zChP = zEgP - sG * extEg;
+    const contChG = [[zChG, sousG(zChG)], [zFait, sousG(zFait)], [zFait, dessG(zFait)], [zChG, dessG(zChG)]];
+    const contChP = [[zChP, sousPt(zChP)], [zFait, sousPt(zFait)], [zFait, dessPt(zFait)], [zChP, dessPt(zChP)]];
+    const lgChG = Math.abs(zFait - zChG) / cosP, lgChP = Math.abs(zFait - zChP) / cosP;
     for (let i = 0; i <= nbCh; i++) {
       const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
-      poseChev(x, zEgG + sG * 0.1 * cosP, yEgG + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, (sG > 0) ? angP : -angP);
-      poseChev(x, zEgP - sG * 0.1 * cosP, yEgP + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, (sG > 0) ? -angP : angP);
+      addProfilZY(x, chB, contChG, lgChG, chH, "Chevron");
+      addProfilZY(x, chB, contChP, lgChP, chH, "Chevron");
     }
 
     // ===== COUVERTURE : deux pans, jusqu au bord exterieur du chevron de rive =====
     const couvC = getCouverture(opts && opts.couverture);
     const matC = makeRoofMaterial(couvC, L, Math.max(plG, plP));
     const epLiteau = 0.03;
-    const debEg = 0.10 * cosP + 0.04;
+    const debEg = extEg + 0.04;
     const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
     const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
     const bords = [
@@ -2919,11 +2940,21 @@ setPiece("Empannon de croupe");
     });
 
     setPiece("Chevron");
+    // Poses a plat sur le delardement, abouts coupes d aplomb, et la depasse de
+    // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
+    const extEg = Math.max(0.10, debord);
+    const zChB = -lg / 2 - extEg, zChH = lg / 2 + pw / 2;
+    const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
+    const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosM;
+    const contCh = [
+      [zChB, sousCh(zChB)], [zChH, sousCh(zChH)], [zChH, dessCh(zChH)], [zChB, dessCh(zChB)],
+    ];
+    const lgCh = (zChH - zChB) / cosM;
     for (let i = 0; i <= nbCh; i++) {
       const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
-      addBox(chB, chH, plM + 0.2, x, Hbas + denivele / 2 + LEVEE, 0, woodMat, [-angM, 0, 0]);
+      addProfilZY(x, chB, contCh, lgCh, chH, "Chevron");
     }
 
     // ===== COUVERTURE (1 pan) : sommets explicites, une PlaneGeometry tournee sort a plat =====
@@ -2935,10 +2966,9 @@ setPiece("Empannon de croupe");
     const epLiteau = 0.03;
     // Elle depasse aussi l about des chevrons, sinon leurs 10 derniers centimetres
     // sortent de la couverture a l egout comme au faitage.
-    const debEgout = 0.10 * cosM + 0.04;
-    const zAv = -lg / 2 - debEgout, zAr = lg / 2 + debEgout;
-    const yAvT = Hbas + LEVEE_DESSUS + epLiteau - debEgout * tanM;
-    const yArT = Hhaut + LEVEE_DESSUS + epLiteau + debEgout * tanM;
+    const zAv = zChB - 0.04, zAr = zChH + 0.04;
+    const yAvT = yLigne(zAv) + LEVEE_DESSUS + epLiteau;
+    const yArT = yLigne(zAr) + LEVEE_DESSUS + epLiteau;
     // Elle va jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe :
     // sinon la derniere demi-largeur de chevron reste a decouvert de chaque cote.
     const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
