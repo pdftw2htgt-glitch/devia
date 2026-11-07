@@ -2460,7 +2460,6 @@ setPiece("Chevron");
     //     petit pan : c est lui qui porte le petit pan en porte-a-faux, en prenant
     //     appui sur le poteau B et en se bridant sous l arbaletrier du grand pan.
     const dp = debordPanne;
-    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
     const brutF = (params && params.carport_faitage);
     const pctF = ((brutF === undefined) || (brutF === null) || (brutF === "")) ? 33 : (parseFloat(brutF) || 33);
     const f = Math.min(0.75, Math.max(0.25, pctF / 100));
@@ -2606,10 +2605,10 @@ setPiece("Chevron");
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, n.yP, n.z, tanP, n.sg, delardement, woodMat, n.nom);
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanP, n.sg, delardement, woodMat, n.nom);
     });
     setPiece("Panne faitiere");
-    addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
+    addPanneDelardee(L + 2 * dp, ph, pw, 0, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
     console.log("[DEVIA] Carport 2 pans asymetrique : faitage a " + Math.round(f * 100) +
       " pour cent, egouts a " + yEgG.toFixed(2) + " (grand pan) et " + yEgP.toFixed(2) +
       " m, faitage a " + yFait.toFixed(2) + " m, entrait de z=" + zEntG.toFixed(2) + " a z=" + zEntP.toFixed(2));
@@ -2621,7 +2620,7 @@ setPiece("Chevron");
 
     setPiece("Chevron");
     const espM = getCouverture(opts && opts.couverture).espChevron;
-    const nbCh = Math.max(2, Math.floor((L + dpG + dpD) / espM));
+    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
     // Coupe d aplomb a l egout, COUPE D ONGLET au faitage : les deux pans ont la meme
     // pente, la bissectrice est donc verticale et une coupe d aplomb en z = zFait fait
     // un onglet parfait. La depasse de toiture saisie s ajoute a chaque egout.
@@ -2637,7 +2636,7 @@ setPiece("Chevron");
     const contChP = [[zChP, sousPt(zChP)], [zFait, sousPt(zFait)], [zFait, dessPt(zFait)], [zChP, dessPt(zChP)]];
     const lgChG = Math.abs(zFait - zChG) / cosP, lgChP = Math.abs(zFait - zChP) / cosP;
     for (let i = 0; i <= nbCh; i++) {
-      const x = -L / 2 - dpG + (i / nbCh) * (L + dpG + dpD);
+      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
       addProfilZY(x, chB, contChG, lgChG, chH, "Chevron");
       addProfilZY(x, chB, contChP, lgChP, chH, "Chevron");
     }
@@ -2647,7 +2646,7 @@ setPiece("Chevron");
     const matC = makeRoofMaterial(couvC, L, Math.max(plG, plP));
     const epLiteau = 0.03;
     const debEgG = extG + 0.04, debEgP = extP + 0.04;
-    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
+    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
     const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
     const bords = [
       [zEgG + sG * debEgG, yEgG + LEVEE_DESSUS + epLiteau - debEgG * tanP],
@@ -2678,7 +2677,6 @@ setPiece("Chevron");
     // ne sont pas egales : le recul du faitage est plus court a l avant (petit pan)
     // qu a l arriere (grand pan).
     const dp = debordPanne;
-    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
     const angC = (pente * Math.PI) / 180;
     const cosC = Math.cos(angC), sinC = Math.sin(angC), tanC = Math.tan(angC);
     const hf = (lg / 2) * tanC;
@@ -2937,7 +2935,6 @@ setPiece("Chevron");
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
     const plM = lg / cosM;
     const dp = debordPanne;
-    const dpG = okDeb(2) ? dp : 0, dpD = okDeb(3) ? dp : 0;   // queues de panne par pignon
 
     const [potB] = sec("Poteau", 0.25, 0.25);
     const [arB, arH] = sec("Arbaletrier", 0.20, 0.28);
@@ -3053,7 +3050,7 @@ setPiece("Chevron");
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      addPanneDelardee(L + dpG + dpD, ph, pw, (dpD - dpG) / 2, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanM, -1, delardement, woodMat, n.nom);
     });
     console.log("[DEVIA] Carport 1 pan : " + xs.length + " demi-ferme(s), " + niv.length +
       " pannes alignees, entrait moise a " + yEntraitHaut.toFixed(3) + " m");
@@ -3068,7 +3065,7 @@ setPiece("Chevron");
     // Poses a plat sur le delardement, abouts coupes d aplomb, et la depasse de
     // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
-    const nbCh = Math.max(2, Math.floor((L + dpG + dpD) / espM));
+    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
     const extAv = Math.max(0.10, debAv);
     const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + debAr;
     const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
@@ -3078,7 +3075,7 @@ setPiece("Chevron");
     ];
     const lgCh = (zChH - zChB) / cosM;
     for (let i = 0; i <= nbCh; i++) {
-      const x = -L / 2 - dpG + (i / nbCh) * (L + dpG + dpD);
+      const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
       addProfilZY(x, chB, contCh, lgCh, chH, "Chevron");
     }
 
@@ -3096,7 +3093,7 @@ setPiece("Chevron");
     const yArT = yLigne(zAr) + LEVEE_DESSUS + epLiteau;
     // Elle va jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe :
     // sinon la derniere demi-largeur de chevron reste a decouvert de chaque cote.
-    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
+    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
     const somM = [
       xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
       xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
