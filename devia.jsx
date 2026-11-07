@@ -2418,158 +2418,167 @@ setPiece("Chevron");
   // Reprend l empilement du hangar, qui est deja un abri sur poteaux sans murs.
   // ============================================================
   const drawCarport2Pans = () => {
-    // MEME LOGIQUE DE CONSTRUCTION QUE LE CARPORT 1 PAN :
-    //   poteau a tete entaillee qui recoit la panne de rive dans une encoche,
-    //   arbaletrier coupe d aplomb qui meurt dedans, entrait MOISE qui serre les
-    //   poteaux et les liens, pannes toutes alignees, chevrons a plat sur le delardement.
-    // La difference : deux pans et un FAITAGE DECALE. Meme pente des deux cotes, donc
-    // les deux egouts ne tombent pas a la meme hauteur et les rampants sont inegaux.
+    // CARPORT 2 PANS ASYMETRIQUE. Memes assemblages que le 1 pan, mais la ferme n est
+    // pas symetrique : le DEUXIEME POTEAU est sous la FAITIERE, pas a l autre egout.
+    //   - poteau A a l egout du GRAND pan, tete entaillee qui recoit sa sabliere ;
+    //   - arbaletrier du grand pan : du faitage il descend la pente et se coupe sur A ;
+    //   - poteau B sous la faitiere, qu il recoit dans son encoche ;
+    //   - arbaletrier du petit pan : il part de B et descend la pente jusqu a sa sabliere ;
+    //   - entrait MOISE de la panne intermediaire du grand pan jusqu a la sabliere du
+    //     petit pan : c est lui qui porte le petit pan en porte-a-faux, en prenant
+    //     appui sur le poteau B et en se bridant sous l arbaletrier du grand pan.
     const dp = debordPanne;
     const brutF = (params && params.carport_faitage);
     const pctF = ((brutF === undefined) || (brutF === null) || (brutF === "")) ? 33 : (parseFloat(brutF) || 33);
-    const f = Math.min(0.75, Math.max(0.25, pctF / 100));   // position du faitage depuis l avant
+    const f = Math.min(0.75, Math.max(0.25, pctF / 100));
 
     const angP = (pente * Math.PI) / 180;
     const cosP = Math.cos(angP), sinP = Math.sin(angP), tanP = Math.tan(angP);
     const zFait = -lg / 2 + f * lg;
-    const lgAv = f * lg, lgAr = (1 - f) * lg;               // portees horizontales des deux pans
-    const plAv = lgAv / cosP, plAr = lgAr / cosP;           // longueurs de rampant
-    // Le grand pan pose son egout a la hauteur saisie ; l autre se retrouve plus haut.
-    const yFait = Ht + Math.max(lgAv, lgAr) * tanP;
-    const yEgAv = yFait - lgAv * tanP;
-    const yEgAr = yFait - lgAr * tanP;
+    const lgAvant = f * lg, lgArriere = (1 - f) * lg;
+    const grandArr = (lgArriere >= lgAvant);
+    const sG = grandArr ? 1 : -1;                          // cote du GRAND pan
+    const lgG = Math.max(lgAvant, lgArriere);              // portee horizontale du grand pan
+    const lgP = Math.min(lgAvant, lgArriere);              // du petit pan
+    const plG = lgG / cosP, plP = lgP / cosP;
+    const yFait = Ht + lgG * tanP;                         // le grand pan pose son egout a Ht
+    const yEgG = Ht;
+    const yEgP = yFait - lgP * tanP;                       // l egout du petit pan est plus haut
 
     const [potB] = sec("Poteau", 0.25, 0.25);
     const [arB, arH] = sec("Arbaletrier", 0.20, 0.28);
-    const [enB, enH] = sec("Entrait", 0.10, 0.28);          // enB = UNE joue de la moise
+    const [enB, enH] = sec("Entrait", 0.10, 0.28);         // enB = UNE joue de la moise
     const [chB, chH] = sec("Chevron", 0.12, 0.20);
     const [liB, liH] = sec("Lien", 0.20, 0.20);
-    const [poB, poH] = sec("Poincon", 0.20, 0.20);
     const [pw, ph] = sec("Panne", 0.18, 0.28);
-    const eEch = 0.03, EMBREV = 0.04;
+    const eEch = 0.03;
 
-    const yLigneAv = (z) => yEgAv + (z + lg / 2) * tanP;    // sous-face d arbaletrier, pan avant
-    const yLigneAr = (z) => yEgAr + (lg / 2 - z) * tanP;    // pan arriere
+    const zEgG = sG * lg / 2, zEgP = -sG * lg / 2;         // les deux egouts
+    const yG = (z) => yEgG + sG * (zEgG - z) * tanP;       // sous-face d arbaletrier, grand pan
+    const yP = (z) => yEgP - sG * (zEgP - z) * tanP;       // petit pan
     const dAxeArb = (arH / 2) / cosP;
     const dPerp = arH / 2 + (ph + eEch - delardement) * cosP + pw * sinP + chH / 2;
     const LEVEE = dAxeArb + dPerp / cosP;
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosP;
-    const yDessusAv = (z) => yLigneAv(z) + arH / cosP;
-    const yDessusAr = (z) => yLigneAr(z) + arH / cosP;
-    const yPanneAv = (z) => yDessusAv(z) + (pw / 2) * tanP + eEch + ph / 2;
-    const yPanneAr = (z) => yDessusAr(z) + (pw / 2) * tanP + eEch + ph / 2;
-
-    // Pannes intermediaires : une de plus des que le chevron depasse 2,20 m de portee.
-    const nbIntAv = Math.max(0, Math.ceil(plAv / 2.2) - 1);
-    const nbIntAr = Math.max(0, Math.ceil(plAr / 2.2) - 1);
-    const pasAv = lgAv / (nbIntAv + 1), pasAr = lgAr / (nbIntAr + 1);
-    // L entrait coupe la sous-face du GRAND pan a mi-chemin entre sa sabliere et sa
-    // premiere panne intermediaire, comme sur le 1 pan.
-    const grandArriere = (lgAr >= lgAv);
-    const yEntraitHaut = grandArriere
-      ? yLigneAr(lg / 2 - 0.5 * pasAr)
-      : yLigneAv(-lg / 2 + 0.5 * pasAv);
-    const yEntraitBas = yEntraitHaut - enH;
-    const xMoise = liB / 2 + enB / 2;
+    const yDesG = (z) => yG(z) + arH / cosP;               // plan d assise des pannes
+    const yDesP = (z) => yP(z) + arH / cosP;
+    const yPanG = (z) => yDesG(z) + (pw / 2) * tanP + eEch + ph / 2;
+    const yPanP = (z) => yDesP(z) + (pw / 2) * tanP + eEch + ph / 2;
 
     // Faitiere : son dessus delarde touche le plan des chevrons au faitage.
     const yDessusFait = yFait + LEVEE - (chH / 2) / cosP;
     const yPfait = yDessusFait - ph / 2 + delardement - (pw / 2) * tanP;
     const ySousFait = yPfait - ph / 2;
-    const yTetePoincon = ySousFait + EMBREV;
+    const yJoueFait = yPfait + ph / 2 - delardement;       // les joues s arretent au ras des aretes
+
+    const nbIntG = Math.max(0, Math.ceil(plG / 2.2) - 1);
+    const nbIntP = Math.max(0, Math.ceil(plP / 2.2) - 1);
+    const pasG = lgG / (nbIntG + 1), pasP = lgP / (nbIntP + 1);
+
+    // L entrait est horizontal, son dessus a la sous-face de la sabliere du petit pan.
+    const yEntraitHaut = yPanP(zEgP) - ph / 2;
+    const yEntraitBas = yEntraitHaut - enH;
+    // Cote grand pan il s arrete sous la panne intermediaire la plus proche de ce niveau.
+    let zEntG = zFait + sG * 0.5 * lgG;
+    for (let i = 1; i <= nbIntG; i++) {
+      const z = zEgG - sG * i * pasG;
+      if (Math.abs(yG(z) - yEntraitHaut) < Math.abs(yG(zEntG) - yEntraitHaut)) zEntG = z;
+    }
+    const zEntP = zEgP - sG * pw / 2;                      // jusqu au nu exterieur de la sabliere
+    const xMoise = liB / 2 + enB / 2;
 
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    // Meme regle que la trad : sous 10 m de long, les deux fermes de rive suffisent.
     const nbInt = Math.max(1, Math.ceil(L / 10));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
-    const contPoteau = (z0, sInt, yL, yPn) => {
-      const zi = z0 - sInt * potB / 2;      // face exterieure
-      const zo = z0 + sInt * potB / 2;      // face interieure, cote arbaletrier
-      const zc1 = z0 - sInt * pw / 2;       // cote exterieur de l encoche
-      const zc2 = z0 + sInt * pw / 2;       // joue contre laquelle l about vient buter
-      const ySeat = yPn(z0) - ph / 2;
-      const yJoue = yPn(z0) + ph / 2;
+    // Poteau A : meme tete que sur le 1 pan, encoche de sabliere plus logement d about.
+    const contPoteauA = () => {
+      const zi = zEgG + sG * potB / 2;      // face exterieure
+      const zo = zEgG - sG * potB / 2;      // face interieure, cote arbaletrier
+      const zc1 = zEgG + sG * pw / 2;
+      const zc2 = zEgG - sG * pw / 2;
+      const ySeat = yPanG(zEgG) - ph / 2;
+      const yJoue = yPanG(zEgG) + ph / 2;
       const pts = [
         [zi, 0], [zo, 0],
-        [zo, yL(zo)], [zc2, yL(zc2)],
+        [zo, yG(zo)], [zc2, yG(zc2)],
         [zc2, ySeat], [zc1, ySeat],
         [zc1, yJoue], [zi, yJoue],
       ];
-      return (sInt > 0) ? pts : pts.slice().reverse();
+      return (sG > 0) ? pts.slice().reverse() : pts;
     };
-    const hPotAv = yPanneAv(-lg / 2) + ph / 2;
-    const hPotAr = yPanneAr(lg / 2) + ph / 2;
-    xs.forEach((x) => {
-      addProfilZY(x, potB, contPoteau(-lg / 2, 1, yLigneAv, yPanneAv), hPotAv, potB, "Poteau");
-      addProfilZY(x, potB, contPoteau(lg / 2, -1, yLigneAr, yPanneAr), hPotAr, potB, "Poteau");
-    });
+    const hPotA = yPanG(zEgG) + ph / 2;
+    xs.forEach((x) => { addProfilZY(x, potB, contPoteauA(), hPotA, potB, "Poteau"); });
+    // Poteau B : il monte de la dalle jusqu au dessus de la faitiere, qu il encoche.
+    xs.forEach((x) => { addPoinconEncoche(x, potB, potB, 0, yJoueFait, pw, ph - delardement, zFait); });
 
     setPiece("Arbaletrier");
-    // Abouts coupes d aplomb : dans la tete de poteau a l egout, contre le poincon au faitage.
-    const zAv1 = -lg / 2 + pw / 2, zAv2 = zFait - poH / 2;
-    const zAr1 = zFait + poH / 2, zAr2 = lg / 2 - pw / 2;
-    const contArbAv = [
-      [zAv1, yLigneAv(zAv1)], [zAv2, yLigneAv(zAv2)],
-      [zAv2, yDessusAv(zAv2)], [zAv1, yDessusAv(zAv1)],
+    // Grand pan : du nu du poteau B jusque dans le logement du poteau A, coupes d aplomb.
+    const zG1 = zFait + sG * potB / 2, zG2 = zEgG - sG * pw / 2;
+    const contArbG = [
+      [zG1, yG(zG1)], [zG2, yG(zG2)], [zG2, yDesG(zG2)], [zG1, yDesG(zG1)],
     ];
-    const contArbAr = [
-      [zAr1, yLigneAr(zAr1)], [zAr2, yLigneAr(zAr2)],
-      [zAr2, yDessusAr(zAr2)], [zAr1, yDessusAr(zAr1)],
+    // Petit pan : du nu du poteau B jusqu au nu exterieur de sa sabliere.
+    const zP1 = zFait - sG * potB / 2, zP2 = zEgP - sG * pw / 2;
+    const contArbP = [
+      [zP1, yP(zP1)], [zP2, yP(zP2)], [zP2, yDesP(zP2)], [zP1, yDesP(zP1)],
     ];
     xs.forEach((x) => {
-      addProfilZY(x, arB, contArbAv, (zAv2 - zAv1) / cosP, arH, "Arbaletrier");
-      addProfilZY(x, arB, contArbAr, (zAr2 - zAr1) / cosP, arH, "Arbaletrier");
+      addProfilZY(x, arB, contArbG, Math.abs(zG2 - zG1) / cosP, arH, "Arbaletrier");
+      addProfilZY(x, arB, contArbP, Math.abs(zP2 - zP1) / cosP, arH, "Arbaletrier");
     });
-
-    setPiece("Poincon");
-    // Il monte de l entrait jusqu au DESSUS de la faitiere, qu il recoit dans son encoche.
-    xs.forEach((x) => { addPoinconEncoche(x, poB, poH, yEntraitHaut, yTetePoincon, pw, EMBREV, zFait); });
 
     setPiece("Lien");
     const dPied = Math.min(0.6, Math.max(0.3, Ht * 0.25));
-    const yPiedLien = yEntraitBas - dPied;
     xs.forEach((x) => {
-      const zTav = -lg / 2 + 0.5 * lgAv, zTar = lg / 2 - 0.5 * lgAr;
-      addLienCoupe(x, liB, -lg / 2 + potB / 2, yPiedLien, zTav, yLigneAv(zTav), liH, tanP, "Lien");
-      addLienCoupe(x, liB, lg / 2 - potB / 2, yPiedLien, zTar, yLigneAr(zTar), liH, -tanP, "Lien");
+      // Sous le poteau A : triangle poteau / arbaletrier du grand pan.
+      const zTa = zEgG - sG * 0.35 * lgG;
+      addLienCoupe(x, liB, zEgG - sG * potB / 2, yG(zEgG) - 0.75, zTa, yG(zTa), liH, -sG * tanP, "Lien");
+      // Sous le poteau B : il reprend le grand pan et se fait serrer par la moise.
+      const zTb = zFait + sG * 0.45 * lgG;
+      addLienCoupe(x, liB, zFait + sG * potB / 2, yEntraitBas - dPied, zTb, yG(zTb), liH, -sG * tanP, "Lien");
     });
 
     setPiece("Entrait");
-    // La moise : deux joues qui serrent les poteaux, les liens et les talons d arbaletrier.
+    // La moise : deux joues de la panne intermediaire du grand pan jusqu a la sabliere
+    // du petit pan. Elles serrent au passage l arbaletrier du grand pan, le lien, le
+    // poteau B et l arbaletrier du petit pan, et portent la sabliere a leur bout.
+    const lgEnt = Math.abs(zEntG - zEntP);
+    const zEntC = (zEntG + zEntP) / 2;
     xs.forEach((x) => {
       [-1, 1].forEach((cote) => {
-        addBox(enB, enH, lg, x + cote * xMoise, yEntraitHaut - enH / 2, 0, woodMat);
+        addBox(enB, enH, lgEnt, x + cote * xMoise, yEntraitHaut - enH / 2, zEntC, woodMat);
       });
     });
 
-    // PANNES : une sabliere par egout (dans l encoche du poteau), les intermediaires
-    // sur les arbaletriers, et la faitiere sur le poincon. Toutes dans le plan des chevrons.
+    // PANNES : sabliere du grand pan dans l encoche du poteau A, sabliere du petit pan
+    // posee sur la moise, intermediaires sur les arbaletriers, faitiere sur le poteau B.
     const niv = [];
-    niv.push({ z: -lg / 2, yRef: yDessusAv(-lg / 2), yP: yPanneAv(-lg / 2), nom: "Sabliere", av: 1, bout: true });
-    for (let i = 1; i <= nbIntAv; i++) {
-      const z = -lg / 2 + i * pasAv;
-      niv.push({ z: z, yRef: yDessusAv(z), yP: yPanneAv(z), nom: "Panne", av: 1, bout: false });
+    niv.push({ z: zEgG, yRef: yDesG(zEgG), yP: yPanG(zEgG), nom: "Sabliere", sg: sG, bout: true });
+    for (let i = 1; i <= nbIntG; i++) {
+      const z = zEgG - sG * i * pasG;
+      niv.push({ z: z, yRef: yDesG(z), yP: yPanG(z), nom: "Panne", sg: sG, bout: false });
     }
-    niv.push({ z: lg / 2, yRef: yDessusAr(lg / 2), yP: yPanneAr(lg / 2), nom: "Sabliere", av: -1, bout: true });
-    for (let i = 1; i <= nbIntAr; i++) {
-      const z = lg / 2 - i * pasAr;
-      niv.push({ z: z, yRef: yDessusAr(z), yP: yPanneAr(z), nom: "Panne", av: -1, bout: false });
+    niv.push({ z: zEgP, yRef: yDesP(zEgP), yP: yPanP(zEgP), nom: "Sabliere", sg: -sG, bout: true });
+    for (let i = 1; i <= nbIntP; i++) {
+      const z = zEgP + sG * i * pasP;
+      niv.push({ z: z, yRef: yDesP(z), yP: yPanP(z), nom: "Panne", sg: -sG, bout: false });
     }
     niv.forEach((n) => {
       setPiece(n.nom);
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanP, -n.av, delardement, woodMat, n.nom);
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanP, n.sg, delardement, woodMat, n.nom);
     });
     setPiece("Panne faitiere");
     addPanneDelardee(L + 2 * dp, ph, pw, 0, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
     console.log("[DEVIA] Carport 2 pans asymetrique : faitage a " + Math.round(f * 100) +
-      " pour cent, egouts a " + yEgAv.toFixed(2) + " et " + yEgAr.toFixed(2) + " m, faitage a " + yFait.toFixed(2) + " m");
+      " pour cent, egouts a " + yEgG.toFixed(2) + " (grand pan) et " + yEgP.toFixed(2) +
+      " m, faitage a " + yFait.toFixed(2) + " m, entrait de z=" + zEntG.toFixed(2) + " a z=" + zEntP.toFixed(2));
 
     setPiece("Echantignole");
     niv.filter((n) => (n.bout === false)).forEach((n) => {
-      xs.forEach((x) => { addEchantignoleGen(x, -n.av * n.z, n.yRef, -n.av, arB, pw, tanP, eEch); });
+      xs.forEach((x) => { addEchantignoleGen(x, n.sg * n.z, n.yRef, n.sg, arB, pw, tanP, eEch); });
     });
 
     setPiece("Chevron");
@@ -2581,20 +2590,22 @@ setPiece("Chevron");
     };
     for (let i = 0; i <= nbCh; i++) {
       const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
-      poseChev(x, -lg / 2 - 0.1 * cosP, yEgAv + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, -angP);
-      poseChev(x, lg / 2 + 0.1 * cosP, yEgAr + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, angP);
+      poseChev(x, zEgG + sG * 0.1 * cosP, yEgG + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, (sG > 0) ? angP : -angP);
+      poseChev(x, zEgP - sG * 0.1 * cosP, yEgP + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, (sG > 0) ? -angP : angP);
     }
 
     // ===== COUVERTURE : deux pans, jusqu au bord exterieur du chevron de rive =====
     const couvC = getCouverture(opts && opts.couverture);
-    const matC = makeRoofMaterial(couvC, L, Math.max(plAv, plAr));
+    const matC = makeRoofMaterial(couvC, L, Math.max(plG, plP));
     const epLiteau = 0.03;
-    const debEgout = 0.10 * cosP + 0.04;
+    const debEg = 0.10 * cosP + 0.04;
     const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
     const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
-    const zAvT = -lg / 2 - debEgout, yAvT = yEgAv + LEVEE_DESSUS + epLiteau - debEgout * tanP;
-    const zArT = lg / 2 + debEgout, yArT = yEgAr + LEVEE_DESSUS + epLiteau - debEgout * tanP;
-    [[zAvT, yAvT], [zArT, yArT]].forEach((eg) => {
+    const bords = [
+      [zEgG + sG * debEg, yEgG + LEVEE_DESSUS + epLiteau - debEg * tanP],
+      [zEgP - sG * debEg, yEgP + LEVEE_DESSUS + epLiteau - debEg * tanP],
+    ];
+    bords.forEach((eg) => {
       const som = [
         xA, eg[1], eg[0],  xB, eg[1], eg[0],  xB, yFaitT, zFait,
         xA, eg[1], eg[0],  xB, yFaitT, zFait,  xA, yFaitT, zFait,
