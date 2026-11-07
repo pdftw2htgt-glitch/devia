@@ -523,6 +523,18 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       : entraxeFermesOptimal(L_BAT_SEC, (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0));
   const PORTEE_MAX = 8;
   const result = {};
+  // Hypotheses du calcul, remontees a l ecran : sans elles on ne sait pas sur quelle
+  // portee la panne a ete dimensionnee, donc on ne peut pas relire le resultat.
+  const nbAppuis = Math.max(2, Math.round(L_BAT_SEC / Math.max(0.5, ENTRAXE_FERMES)) + 1);
+  result._hyp = {
+    type: TYPE_SEC,
+    longueur: L_BAT_SEC,
+    largeur: LG_BAT_SEC,
+    entraxe: ENTRAXE_FERMES,
+    nbAppuis: nbAppuis,
+    porteeMax: PORTEE_MAX,
+    G: ch.G, Q: ch.Q, S: ch.S, sk: sk || 0.45,
+  };
 
   // dimensions batiment (pour la descente de charge poteaux)
   const Lbat = (params && params.longueur) || 8;
@@ -6062,6 +6074,35 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
         </div>
       </div>
 
+      {/* Hypotheses du calcul : de quoi relire les sections ci-dessus */}
+      {secsRef && secsRef._hyp ? (
+        <div style={card}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 10 }}>Hypotheses de calcul</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <tbody>
+              {[
+                ["Ouvrage", String(secsRef._hyp.type || "-") + " - " + fmt(secsRef._hyp.longueur, 2) + " x " + fmt(secsRef._hyp.largeur, 2) + " m"],
+                ["Files d appui (fermes ou portiques)", String(secsRef._hyp.nbAppuis)],
+                ["Portee de calcul des pannes", fmt(secsRef._hyp.entraxe, 2) + " m (entraxe des files)"],
+                ["Charge permanente G", fmt(secsRef._hyp.G, 2) + " kN/m2"],
+                ["Charge d exploitation Q", fmt(secsRef._hyp.Q, 2) + " kN/m2"],
+                ["Charge de neige S", fmt(secsRef._hyp.S, 2) + " kN/m2 (sk = " + fmt(secsRef._hyp.sk, 2) + ")"],
+                ["Combinaison ELU", "1,35 G + 1,5 Q + 0,5 S"],
+              ].map((r, i) => (
+                <tr key={i}>
+                  <td style={{ ...td, color: cl("#9ca0b8", "#565a6c") }}>{r[0]}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{r[1]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ fontSize: 11, color: "#545870", marginTop: 8, fontStyle: "italic" }}>
+            La panne est dimensionnee sur l entraxe ci-dessus, c est-a-dire entre deux files
+            d appui consecutives. {String(secsRef._hyp.nbAppuis)} files = {String(Math.max(1, secsRef._hyp.nbAppuis - 1))} travee(s).
+          </div>
+        </div>
+      ) : null}
+
       {/* Assemblages recommandes */}
       <div style={card}>
         <div style={{ fontSize: 14, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 10 }}>Assemblages recommandes (types)</div>
@@ -7067,6 +7108,7 @@ const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
 const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan (defaut historique) | 2 | 4
 const [formCarportFaitage, setFormCarportFaitage] = useState("33"); // carport 2 pans : position du faitage en pour cent de la largeur
 const [formCarportCroupe, setFormCarportCroupe] = useState("70"); // carport 4 pans : croupe avant en pour cent de la croupe standard
+const [formHauteurRef, setFormHauteurRef] = useState("sabliere"); // la hauteur saisie se lit a la sabliere ou au faitage
 const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..E imposee a la main
 const [formZoneVent, setFormZoneVent] = useState(""); // "" = selon la commune, sinon 1..4 imposee a la main
 const [sismiqueOfficiel, setSismiqueOfficiel] = useState(""); // zone sismique renvoyee par Georisques
@@ -10137,8 +10179,48 @@ return (
                     <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "balcon" ? "Profondeur / avancee (m)" : "Largeur (m)"}</div>
                   </div>
                   <div style={{ display: typeEffectif === "garde_corps" ? "none" : undefined }}>
-                    <input value={formHauteur} onChange={e => setFormHauteur(e.target.value)} type="number" placeholder="Hauteur" style={inputStyle} />
-                    <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "terrasse" ? "Hauteur du platelage (m)" : typeEffectif === "etage" ? "Hauteur sous plancher (m)" : typeEffectif === "balcon" ? "Hauteur du plancher (m)" : "Hauteur mur (m)"}</div>
+                    {(() => {
+                      // formHauteur est TOUJOURS stocke a la sabliere (hauteur des murs).
+                      // Si l utilisateur veut saisir au faitage, on convertit a la volee :
+                      // fleche = demi-largeur (ou largeur entiere en monopente) fois tangente.
+                      const sansToitH = ["terrasse", "etage", "balcon", "garde_corps"].includes(typeEffectif);
+                      const unPan = (["monopente", "appentis"].includes(typeEffectif))
+                        || ((typeEffectif === "carport") && (formCarportPans === "1"));
+                      const lgH = parseFloat(formLargeur), pH = parseFloat(formPente);
+                      const flecheOk = ((isNaN(lgH) === false) && (isNaN(pH) === false) && (pH > 0) && (sansToitH === false));
+                      const fleche = flecheOk ? ((lgH / (unPan ? 1 : 2)) * Math.tan((pH * Math.PI) / 180)) : 0;
+                      const auFait = ((formHauteurRef === "faitage") && flecheOk);
+                      const arrH = (v) => Math.round(v * 1000) / 1000;
+                      const valH = (formHauteur === "") ? "" : (auFait ? String(arrH(parseFloat(formHauteur) + fleche)) : formHauteur);
+                      const onH = (v) => {
+                        if (v === "") { setFormHauteur(""); return; }
+                        const nH = parseFloat(v);
+                        if (isNaN(nH)) return;
+                        setFormHauteur(auFait ? String(arrH(nH - fleche)) : String(nH));
+                      };
+                      const btnH = (actif) => ({
+                        flex: 1, padding: "5px 4px", borderRadius: 6, cursor: "pointer", fontSize: 10,
+                        fontWeight: actif ? 700 : 500, border: "none",
+                        background: actif ? "rgba(240,192,64,0.15)" : "transparent",
+                        color: actif ? "#f0c040" : cl("#7a7d92", "#5f6374"),
+                      });
+                      return (
+                        <div>
+                          <input value={valH} onChange={e => onH(e.target.value)} type="number" step="any" placeholder="Hauteur" style={inputStyle} />
+                          {sansToitH ? (
+                            <div style={{ color: "#545870", fontSize: 11, marginTop: 4, textAlign: "center" }}>{typeEffectif === "terrasse" ? "Hauteur du platelage (m)" : typeEffectif === "etage" ? "Hauteur sous plancher (m)" : typeEffectif === "balcon" ? "Hauteur du plancher (m)" : "Hauteur (m)"}</div>
+                          ) : (
+                            <div style={{ display: "flex", gap: 2, marginTop: 4, background: cl("rgba(255,255,255,0.03)", "rgba(0,0,0,0.03)"), borderRadius: 7, padding: 2 }}>
+                              <button type="button" onClick={() => setFormHauteurRef("sabliere")} style={btnH(formHauteurRef === "sabliere")}>a la sabliere</button>
+                              <button type="button" onClick={() => setFormHauteurRef("faitage")} style={btnH(auFait)}>au faitage</button>
+                            </div>
+                          )}
+                          {(formHauteurRef === "faitage") && (flecheOk === false) && (sansToitH === false) ? (
+                            <div style={{ color: "#f59e0b", fontSize: 10, marginTop: 3, textAlign: "center" }}>Renseigne largeur et pente</div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                 {typeEffectif === "etage" ? (
                   <div style={{ marginTop: 10 }}>
                     <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Le plancher porte sur</label>
@@ -10188,8 +10270,11 @@ return (
                 <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Pente du toit</label>
                 {(() => {
                   // formPente est TOUJOURS stocke en degres. On affiche selon l'unite choisie.
-                  const degToPct = (d) => Math.round(Math.tan(d * Math.PI / 180) * 100);
-                  const pctToDeg = (p) => Math.round(Math.atan(p / 100) * 180 / Math.PI);
+                  // Plus d arrondi au degre : la valeur saisie est conservee telle quelle,
+                  // y compris les decimales (31,5 degres ou 68 pour cent restent exacts).
+                  const arr2 = (v) => Math.round(v * 100) / 100;
+                  const degToPct = (d) => arr2(Math.tan(d * Math.PI / 180) * 100);
+                  const pctToDeg = (p) => arr2(Math.atan(p / 100) * 180 / Math.PI);
                   const isPct = formPenteUnite === "pourcent";
                   // valeur affichee dans le champ selon l'unite
                   const valAffichee = formPente === "" ? "" : (isPct ? String(degToPct(parseFloat(formPente))) : formPente);
@@ -10203,7 +10288,7 @@ return (
                   const raccourcis = isPct ? [20, 40, 60, 80, 100] : [20, 30, 35, 40, 45];
                   return (
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                      <input value={valAffichee} onChange={e => onInput(e.target.value)} type="number" placeholder={isPct ? "70" : "35"} style={{ ...inputStyle, maxWidth: 100 }} />
+                      <input value={valAffichee} onChange={e => onInput(e.target.value)} type="number" step="any" placeholder={isPct ? "70" : "35"} style={{ ...inputStyle, maxWidth: 100 }} />
                       {/* Toggle deg / pourcent */}
                       <div style={{ display: "flex", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
                         <button type="button" onClick={() => setFormPenteUnite("deg")}
@@ -11349,6 +11434,27 @@ return (
 
             {activeResultTab === "calcul" && (
               <div style={cardStyle}>
+                {/* SECTIONS ET HYPOTHESES : meme moteur que la 3D et le devis, mais
+                    calcule ici directement, sans avoir a ouvrir l onglet Vue 3D. */}
+                {(() => {
+                  const vp = view3DParams;
+                  const pret = ((vp === undefined) || (vp === null)) ? false : ((vp.type_projet === undefined) === false);
+                  if (pret === false) return null;
+                  let agg = null;
+                  try {
+                    const tmpG = new THREE.Group();
+                    const pre = buildScene3D(tmpG, vp, { couverture: vp.couverture, mode: "technique" });
+                    agg = agregerMetre(pre.metre, pre.densiteBois || 450);
+                    tmpG.traverse((o) => { if (o.isMesh && o.geometry) o.geometry.dispose(); });
+                  } catch (e) { console.warn("[DEVIA] Calcul sections onglet Calcul :", e); agg = null; }
+                  if (agg === null) return null;
+                  return (
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a") }}>Sections et descente de charge</div>
+                      <PanneauTechnique data={agg} params={vp} zoneInfo={zoneInfo} sectionMode={sectionMode} />
+                    </div>
+                  );
+                })()}
                 {/* Card Estimation temps fabrication + pose */}
                 {(result.temps_fabrication_h !== undefined || result.temps_pose_h !== undefined) && (() => {
                   const fab = Number(result.temps_fabrication_h) || 0;
