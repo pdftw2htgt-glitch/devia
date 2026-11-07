@@ -10352,8 +10352,9 @@ return (
                   <input value={formDebord} onChange={e => setFormDebord(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 100 }} />
                   <span style={{ color: "#545870", fontSize: 12 }}>cm</span>
                 </div>
-                {/* Sur quels cotes la depasse s applique */}
-                {(formDebord && parseFloat(formDebord) > 0) ? (
+                {/* Sur quels cotes la depasse s applique : toujours visibles, sinon on
+                    ne sait pas que le reglage existe tant qu on n a rien saisi. */}
+                {true ? (
                   <div style={{ marginTop: 8 }}>
                     <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11, marginBottom: 6 }}>Sur quels cotes ?</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
