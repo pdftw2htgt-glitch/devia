@@ -504,10 +504,10 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // Le carport 1 PAN garde son ancien dimensionnement, sinon les devis deja chiffres
   // changeraient de sections - Mathis a demande qu on ajoute sans rien retirer.
   const pansCarportSec = String((params && params.carport_pans) || "1");
-  const carportCharpente = ((TYPE_SEC === "carport") && ((pansCarportSec === "1") === false));
+  const carportCharpente = ((TYPE_SEC === "carport") && (pansCarportSec === "4"));
   // Carport 1 pan : deux demi-fermes suffisent jusqu a 5 m de long. Meme regle que
   // celle dessinee en 3D, sinon les pannes seraient dimensionnees sur une portee fausse.
-  const carport1Pan = ((TYPE_SEC === "carport") && (pansCarportSec === "1"));
+  const carport1Pan = ((TYPE_SEC === "carport") && ((pansCarportSec === "1") || (pansCarportSec === "2")));
   const ENTRAXE_FERMES = carport1Pan
     ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 10)))
     : ((TYPE_SEC === "hangar") || carportCharpente)
@@ -1680,13 +1680,15 @@ function buildScene3D(scene, params, opts) {
   // deux joues de part et d autre, la faitiere assise entre elles. C est l assemblage de base
   // d une ferme latine. Prisme file selon X, section dessinee dans le plan (z, y) : elle n est
   // pas convexe a cause de l encoche, d ou l extrusion plutot qu un eventail de triangles.
-  const addPoinconEncoche = (x, b, h, yBas, yHaut, encB, encH) => {
+  const addPoinconEncoche = (x, b, h, yBas, yHaut, encB, encH, zc0) => {
+    const zMonde = zc0 || 0;                                 // faitage decale : poincon hors axe
+    const zc = -zMonde;                                      // le quart de tour envoie le X du contour sur le -Z
     const encBr = Math.min(encB, h - 0.02);                  // au moins 1 cm de joue de chaque cote
     const encHr = Math.min(encH, (yHaut - yBas) - 0.05);     // l encoche n avale jamais tout le poincon
     const cont = [
-      [-h / 2, yBas], [h / 2, yBas], [h / 2, yHaut],
-      [encBr / 2, yHaut], [encBr / 2, yHaut - encHr], [-encBr / 2, yHaut - encHr], [-encBr / 2, yHaut],
-      [-h / 2, yHaut],
+      [-h / 2 + zc, yBas], [h / 2 + zc, yBas], [h / 2 + zc, yHaut],
+      [encBr / 2 + zc, yHaut], [encBr / 2 + zc, yHaut - encHr], [-encBr / 2 + zc, yHaut - encHr], [-encBr / 2 + zc, yHaut],
+      [-h / 2 + zc, yHaut],
     ];
     const shp = new THREE.Shape();
     shp.moveTo(cont[0][0], cont[0][1]);
@@ -1703,8 +1705,8 @@ function buildScene3D(scene, params, opts) {
     // Cadwork recoit un poteau PLEIN et l assemblage disparait. Le contour est trace en
     // (z, y) et le quart de tour envoie son X sur le -Z de la scene, d ou le signe.
     const yCp = (yBas + yHaut) / 2;
-    logPiece(b, h, yHaut - yBas, { pos: [x, yCp, 0], rot: null, quat: null });
-    metre[metre.length - 1].profil = { pts: profilTrigo(cont.map((q) => [q[1] - yCp, -q[0]])), len: b, axe: "x" };
+    logPiece(b, h, yHaut - yBas, { pos: [x, yCp, zMonde], rot: null, quat: null });
+    metre[metre.length - 1].profil = { pts: profilTrigo(cont.map((q) => [q[1] - yCp, -(q[0] - zc)])), len: b, axe: "x" };
   };
 
   // Poutre orientee entre 2 points (touche forcement les 2 extremites)
@@ -2412,101 +2414,186 @@ setPiece("Chevron");
   // Reprend l empilement du hangar, qui est deja un abri sur poteaux sans murs.
   // ============================================================
   const drawCarport2Pans = () => {
-    const dp = 0.3;
-    const hf = (lg / 2) * Math.tan((pente * Math.PI) / 180);
-    const angC = Math.atan(hf / (lg / 2));
-    const cosC = Math.cos(angC), sinC = Math.sin(angC), tanC = Math.tan(angC);
-    const plC = (lg / 2) / cosC;
-    const yApex = Ht + hf;
+    // MEME LOGIQUE DE CONSTRUCTION QUE LE CARPORT 1 PAN :
+    //   poteau a tete entaillee qui recoit la panne de rive dans une encoche,
+    //   arbaletrier coupe d aplomb qui meurt dedans, entrait MOISE qui serre les
+    //   poteaux et les liens, pannes toutes alignees, chevrons a plat sur le delardement.
+    // La difference : deux pans et un FAITAGE DECALE. Meme pente des deux cotes, donc
+    // les deux egouts ne tombent pas a la meme hauteur et les rampants sont inegaux.
+    const dp = debordPanne;
+    const brutF = (params && params.carport_faitage);
+    const pctF = ((brutF === undefined) || (brutF === null) || (brutF === "")) ? 33 : (parseFloat(brutF) || 33);
+    const f = Math.min(0.75, Math.max(0.25, pctF / 100));   // position du faitage depuis l avant
 
-    const [potB] = sec("Poteau", 0.18, 0.18);
-    const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    const [enB, enH] = sec("Entrait", 0.16, 0.16);
-    const [arB, arH] = sec("Arbaletrier", 0.16, 0.16);
-    const [poB, poH] = sec("Poincon", 0.18, 0.18);
-    const [pw, ph] = sec("Panne", 0.12, 0.24);
-    const [chB, chH] = sec("Chevron", 0.10, 0.14);
-    const [pfB, pfH] = sec("Panne faitiere", 0.16, 0.16);
+    const angP = (pente * Math.PI) / 180;
+    const cosP = Math.cos(angP), sinP = Math.sin(angP), tanP = Math.tan(angP);
+    const zFait = -lg / 2 + f * lg;
+    const lgAv = f * lg, lgAr = (1 - f) * lg;               // portees horizontales des deux pans
+    const plAv = lgAv / cosP, plAr = lgAr / cosP;           // longueurs de rampant
+    // Le grand pan pose son egout a la hauteur saisie ; l autre se retrouve plus haut.
+    const yFait = Ht + Math.max(lgAv, lgAr) * tanP;
+    const yEgAv = yFait - lgAv * tanP;
+    const yEgAr = yFait - lgAr * tanP;
+
+    const [potB] = sec("Poteau", 0.25, 0.25);
+    const [arB, arH] = sec("Arbaletrier", 0.20, 0.28);
+    const [enB, enH] = sec("Entrait", 0.10, 0.28);          // enB = UNE joue de la moise
+    const [chB, chH] = sec("Chevron", 0.12, 0.20);
+    const [liB, liH] = sec("Lien", 0.20, 0.20);
+    const [poB, poH] = sec("Poincon", 0.20, 0.20);
+    const [pw, ph] = sec("Panne", 0.18, 0.28);
     const eEch = 0.03, EMBREV = 0.04;
 
-    // Plan porteur des chevrons : meme formule qu en trad, hangar et 4 pans.
-    const dPerp = arH / 2 + (ph + eEch - delardement) * cosC + pw * sinC + chH / 2;
-    const LEVEE = dPerp / cosC;
-    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosC;
-    const ySousFaitiere = yApex + (dPerp - chH / 2) / cosC - pfH;
-    const yTetePoincon = ySousFaitiere + EMBREV;
+    const yLigneAv = (z) => yEgAv + (z + lg / 2) * tanP;    // sous-face d arbaletrier, pan avant
+    const yLigneAr = (z) => yEgAr + (lg / 2 - z) * tanP;    // pan arriere
+    const dAxeArb = (arH / 2) / cosP;
+    const dPerp = arH / 2 + (ph + eEch - delardement) * cosP + pw * sinP + chH / 2;
+    const LEVEE = dAxeArb + dPerp / cosP;
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosP;
+    const yDessusAv = (z) => yLigneAv(z) + arH / cosP;
+    const yDessusAr = (z) => yLigneAr(z) + arH / cosP;
+    const yPanneAv = (z) => yDessusAv(z) + (pw / 2) * tanP + eEch + ph / 2;
+    const yPanneAr = (z) => yDessusAr(z) + (pw / 2) * tanP + eEch + ph / 2;
+
+    // Pannes intermediaires : une de plus des que le chevron depasse 2,20 m de portee.
+    const nbIntAv = Math.max(0, Math.ceil(plAv / 2.2) - 1);
+    const nbIntAr = Math.max(0, Math.ceil(plAr / 2.2) - 1);
+    const pasAv = lgAv / (nbIntAv + 1), pasAr = lgAr / (nbIntAr + 1);
+    // L entrait coupe la sous-face du GRAND pan a mi-chemin entre sa sabliere et sa
+    // premiere panne intermediaire, comme sur le 1 pan.
+    const grandArriere = (lgAr >= lgAv);
+    const yEntraitHaut = grandArriere
+      ? yLigneAr(lg / 2 - 0.5 * pasAr)
+      : yLigneAv(-lg / 2 + 0.5 * pasAv);
+    const yEntraitBas = yEntraitHaut - enH;
+    const xMoise = liB / 2 + enB / 2;
+
+    // Faitiere : son dessus delarde touche le plan des chevrons au faitage.
+    const yDessusFait = yFait + LEVEE - (chH / 2) / cosP;
+    const yPfait = yDessusFait - ph / 2 + delardement - (pw / 2) * tanP;
+    const ySousFait = yPfait - ph / 2;
+    const yTetePoincon = ySousFait + EMBREV;
 
     drawDalleBeton(L, lg, 0.3);
 
-setPiece("Poteau");
-    // Un portique = deux poteaux + une ferme. Jamais de ferme sans poteau dessous.
-    const nbInt = Math.max(1, Math.ceil(L / 4));
+    setPiece("Poteau");
+    // Meme regle que la trad : sous 10 m de long, les deux fermes de rive suffisent.
+    const nbInt = Math.max(1, Math.ceil(L / 10));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
+    const contPoteau = (z0, sInt, yL, yPn) => {
+      const zi = z0 - sInt * potB / 2;      // face exterieure
+      const zo = z0 + sInt * potB / 2;      // face interieure, cote arbaletrier
+      const zc1 = z0 - sInt * pw / 2;       // cote exterieur de l encoche
+      const zc2 = z0 + sInt * pw / 2;       // joue contre laquelle l about vient buter
+      const ySeat = yPn(z0) - ph / 2;
+      const yJoue = yPn(z0) + ph / 2;
+      const pts = [
+        [zi, 0], [zo, 0],
+        [zo, yL(zo)], [zc2, yL(zc2)],
+        [zc2, ySeat], [zc1, ySeat],
+        [zc1, yJoue], [zi, yJoue],
+      ];
+      return (sInt > 0) ? pts : pts.slice().reverse();
+    };
+    const hPotAv = yPanneAv(-lg / 2) + ph / 2;
+    const hPotAr = yPanneAr(lg / 2) + ph / 2;
     xs.forEach((x) => {
-      addBox(potB, Ht, potB, x, Ht / 2, lg / 2);
-      addBox(potB, Ht, potB, x, Ht / 2, -lg / 2);
+      addProfilZY(x, potB, contPoteau(-lg / 2, 1, yLigneAv, yPanneAv), hPotAv, potB, "Poteau");
+      addProfilZY(x, potB, contPoteau(lg / 2, -1, yLigneAr, yPanneAr), hPotAr, potB, "Poteau");
     });
 
-setPiece("Sabliere");
-    addBox(L + 2 * dp, sbH, sbB, 0, Ht, lg / 2, woodMat);
-    addBox(L + 2 * dp, sbH, sbB, 0, Ht, -lg / 2, woodMat);
-
-    const nbPannes = Math.max(1, Math.ceil(plC / 2.2) - 1);
-    const tBasse = 1 / (nbPannes + 1);
-
+    setPiece("Arbaletrier");
+    // Abouts coupes d aplomb : dans la tete de poteau a l egout, contre le poincon au faitage.
+    const zAv1 = -lg / 2 + pw / 2, zAv2 = zFait - poH / 2;
+    const zAr1 = zFait + poH / 2, zAr2 = lg / 2 - pw / 2;
+    const contArbAv = [
+      [zAv1, yLigneAv(zAv1)], [zAv2, yLigneAv(zAv2)],
+      [zAv2, yDessusAv(zAv2)], [zAv1, yDessusAv(zAv1)],
+    ];
+    const contArbAr = [
+      [zAr1, yLigneAr(zAr1)], [zAr2, yLigneAr(zAr2)],
+      [zAr2, yDessusAr(zAr2)], [zAr1, yDessusAr(zAr1)],
+    ];
     xs.forEach((x) => {
-      setPiece("Entrait");
-      addBox(enB, enH, lg, x, Ht, 0, woodMat);
-      setPiece("Arbaletrier");
-      addBox(arB, arH, plC, x, Ht + hf / 2, lg / 4, woodMat, [angC, 0, 0]);
-      addBox(arB, arH, plC, x, Ht + hf / 2, -lg / 4, woodMat, [-angC, 0, 0]);
-      setPiece("Poincon");
-      addPoinconEncoche(x, poB, poH, Ht, yTetePoincon, pfB, EMBREV);
-      setPiece("Contrefiche");
-      const cfS = sec("Contrefiche", 0.16, 0.16)[0];
-      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, (lg / 2) * (1 - tBasse), cfS, woodMat);
-      addBeam(x, Ht + hf * 0.15, 0, x, Ht + tBasse * hf, -(lg / 2) * (1 - tBasse), cfS, woodMat);
+      addProfilZY(x, arB, contArbAv, (zAv2 - zAv1) / cosP, arH, "Arbaletrier");
+      addProfilZY(x, arB, contArbAr, (zAr2 - zAr1) / cosP, arH, "Arbaletrier");
     });
 
-setPiece("Panne faitiere");
-    addBox(L + 2 * dp, pfH, pfB, 0, ySousFaitiere + pfH / 2, 0, woodMat);
+    setPiece("Poincon");
+    // Il monte de l entrait jusqu au DESSUS de la faitiere, qu il recoit dans son encoche.
+    xs.forEach((x) => { addPoinconEncoche(x, poB, poH, yEntraitHaut, yTetePoincon, pw, EMBREV, zFait); });
 
-setPiece("Panne");
+    setPiece("Lien");
+    const dPied = Math.min(0.6, Math.max(0.3, Ht * 0.25));
+    const yPiedLien = yEntraitBas - dPied;
+    xs.forEach((x) => {
+      const zTav = -lg / 2 + 0.5 * lgAv, zTar = lg / 2 - 0.5 * lgAr;
+      addLienCoupe(x, liB, -lg / 2 + potB / 2, yPiedLien, zTav, yLigneAv(zTav), liH, tanP, "Lien");
+      addLienCoupe(x, liB, lg / 2 - potB / 2, yPiedLien, zTar, yLigneAr(zTar), liH, -tanP, "Lien");
+    });
+
+    setPiece("Entrait");
+    // La moise : deux joues qui serrent les poteaux, les liens et les talons d arbaletrier.
+    xs.forEach((x) => {
+      [-1, 1].forEach((cote) => {
+        addBox(enB, enH, lg, x + cote * xMoise, yEntraitHaut - enH / 2, 0, woodMat);
+      });
+    });
+
+    // PANNES : une sabliere par egout (dans l encoche du poteau), les intermediaires
+    // sur les arbaletriers, et la faitiere sur le poincon. Toutes dans le plan des chevrons.
     const niv = [];
-    for (let i = 1; i <= nbPannes; i++) {
-      const t = i / (nbPannes + 1);
-      const yRef = Ht + hf * t + (arH / 2) / cosC;
-      const zRef = (lg / 2) * (1 - t);
-      const yP = yRef + (pw / 2) * tanC + eEch + ph / 2;
-      niv.push({ yRef: yRef, zRef: zRef });
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, zRef, tanC, 1, delardement, woodMat);
-      addPanneDelardee(L + 2 * dp, ph, pw, 0, yP, -zRef, tanC, -1, delardement, woodMat);
+    niv.push({ z: -lg / 2, yRef: yDessusAv(-lg / 2), yP: yPanneAv(-lg / 2), nom: "Sabliere", av: 1, bout: true });
+    for (let i = 1; i <= nbIntAv; i++) {
+      const z = -lg / 2 + i * pasAv;
+      niv.push({ z: z, yRef: yDessusAv(z), yP: yPanneAv(z), nom: "Panne", av: 1, bout: false });
     }
+    niv.push({ z: lg / 2, yRef: yDessusAr(lg / 2), yP: yPanneAr(lg / 2), nom: "Sabliere", av: -1, bout: true });
+    for (let i = 1; i <= nbIntAr; i++) {
+      const z = lg / 2 - i * pasAr;
+      niv.push({ z: z, yRef: yDessusAr(z), yP: yPanneAr(z), nom: "Panne", av: -1, bout: false });
+    }
+    niv.forEach((n) => {
+      setPiece(n.nom);
+      addPanneDelardee(L + 2 * dp, ph, pw, 0, n.yP, n.z, tanP, -n.av, delardement, woodMat, n.nom);
+    });
+    setPiece("Panne faitiere");
+    addPanneDelardee(L + 2 * dp, ph, pw, 0, yPfait, zFait, tanP, 0, delardement, woodMat, "Panne faitiere");
+    console.log("[DEVIA] Carport 2 pans asymetrique : faitage a " + Math.round(f * 100) +
+      " pour cent, egouts a " + yEgAv.toFixed(2) + " et " + yEgAr.toFixed(2) + " m, faitage a " + yFait.toFixed(2) + " m");
 
-setPiece("Echantignole");
-    niv.forEach((n) => { xs.forEach((x) => { addEchantignoleGen(x, n.zRef, n.yRef, 1, arB, pw, tanC, eEch); addEchantignoleGen(x, n.zRef, n.yRef, -1, arB, pw, tanC, eEch); }); });
+    setPiece("Echantignole");
+    niv.filter((n) => (n.bout === false)).forEach((n) => {
+      xs.forEach((x) => { addEchantignoleGen(x, -n.av * n.z, n.yRef, -n.av, arB, pw, tanP, eEch); });
+    });
 
-setPiece("Chevron");
-    const esp = getCouverture(opts && opts.couverture).espChevron;
-    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / esp));
+    setPiece("Chevron");
+    const espM = getCouverture(opts && opts.couverture).espChevron;
+    const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
+    const poseChev = (x, z1, y1, z2, y2, rot) => {
+      const lgc = Math.sqrt((z2 - z1) * (z2 - z1) + (y2 - y1) * (y2 - y1));
+      addBox(chB, chH, lgc, x, (y1 + y2) / 2, (z1 + z2) / 2, woodMat, [rot, 0, 0]);
+    };
     for (let i = 0; i <= nbCh; i++) {
       const x = -L / 2 - dp + (i / nbCh) * (L + 2 * dp);
-      addBeam(x, Ht + LEVEE, lg / 2, x, yApex + LEVEE, 0, chH, woodMat);
-      addBeam(x, Ht + LEVEE, -lg / 2, x, yApex + LEVEE, 0, chH, woodMat);
+      poseChev(x, -lg / 2 - 0.1 * cosP, yEgAv + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, -angP);
+      poseChev(x, lg / 2 + 0.1 * cosP, yEgAr + LEVEE - 0.1 * sinP, zFait, yFait + LEVEE, angP);
     }
 
+    // ===== COUVERTURE : deux pans, jusqu au bord exterieur du chevron de rive =====
     const couvC = getCouverture(opts && opts.couverture);
-    const matC = makeRoofMaterial(couvC, L, plC);
-    const yE = Ht + LEVEE_DESSUS, yF = yApex + LEVEE_DESSUS;
-    // Sommets explicites : une PlaneGeometry tournee a la main sortait a plat.
-    // Jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe.
-    const xA = -L / 2 - dp - chH / 2, xB = L / 2 + dp + chH / 2;
-    [1, -1].forEach((sz) => {
-      const zE = sz * (lg / 2 + dp * 0);
+    const matC = makeRoofMaterial(couvC, L, Math.max(plAv, plAr));
+    const epLiteau = 0.03;
+    const debEgout = 0.10 * cosP + 0.04;
+    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
+    const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
+    const zAvT = -lg / 2 - debEgout, yAvT = yEgAv + LEVEE_DESSUS + epLiteau - debEgout * tanP;
+    const zArT = lg / 2 + debEgout, yArT = yEgAr + LEVEE_DESSUS + epLiteau - debEgout * tanP;
+    [[zAvT, yAvT], [zArT, yArT]].forEach((eg) => {
       const som = [
-        xA, yE, zE,  xB, yE, zE,  xB, yF, 0,
-        xA, yE, zE,  xB, yF, 0,   xA, yF, 0,
+        xA, eg[1], eg[0],  xB, eg[1], eg[0],  xB, yFaitT, zFait,
+        xA, eg[1], eg[0],  xB, yFaitT, zFait,  xA, yFaitT, zFait,
       ];
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(som), 3));
@@ -6842,6 +6929,7 @@ const [formMurs, setFormMurs] = useState(""); // "" = beton existant (defaut) / 
 const [formFinitionMur, setFormFinitionMur] = useState(""); // aspect de la maconnerie (voir FINITIONS_MUR)
 const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
 const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan (defaut historique) | 2 | 4
+const [formCarportFaitage, setFormCarportFaitage] = useState("33"); // carport 2 pans : position du faitage en pour cent de la largeur
 const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..E imposee a la main
 const [formZoneVent, setFormZoneVent] = useState(""); // "" = selon la commune, sinon 1..4 imposee a la main
 const [sismiqueOfficiel, setSismiqueOfficiel] = useState(""); // zone sismique renvoyee par Georisques
@@ -9518,6 +9606,7 @@ const loadProjectDetails = (project) => {
       finition_mur: formFinitionMur || undefined,
       pignon: formPignon || undefined,
       carport_pans: formCarportPans || undefined,
+      carport_faitage: formCarportFaitage || undefined,
       appuis: formAppuis || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
@@ -9840,6 +9929,7 @@ return (
                         murs: formMurs || undefined,
                         pignon: formPignon || undefined,
                         carport_pans: formCarportPans || undefined,
+                        carport_faitage: formCarportFaitage || undefined,
                         appuis: formAppuis || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
@@ -10080,6 +10170,27 @@ return (
                       {opt.label}
                     </button>
                   ))}
+                </div>
+              </div>
+              {/* Carport 2 pans : le faitage n est pas au milieu */}
+              <div style={{ marginBottom: 18, display: ((typeEffectif === "carport") && (formCarportPans === "2")) ? undefined : "none" }}>
+                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Position du faitage <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(depuis la facade avant)</span></label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { val: "25", label: "25 %" },
+                    { val: "33", label: "33 %" },
+                    { val: "40", label: "40 %" },
+                    { val: "50", label: "50 %" }
+                  ].map(opt => (
+                    <button key={opt.val} type="button" onClick={() => setFormCarportFaitage(opt.val)}
+                      style={{ background: formCarportFaitage === opt.val ? (themeMode === "light" ? "rgba(184,134,11,0.12)" : "rgba(240,192,64,0.09)") : (themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.02)"), border: formCarportFaitage === opt.val ? (themeMode === "light" ? "1px solid rgba(156,112,0,0.55)" : "1px solid rgba(240,192,64,0.5)") : (themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.09)")), borderRadius: 10, padding: "11px 8px", cursor: "pointer", color: formCarportFaitage === opt.val ? (themeMode === "light" ? "#9c7000" : "#f0c040") : (themeMode === "light" ? "#3a3e50" : cl("#d0d2dc", "#3a3e50")), textAlign: "center", fontSize: 12, fontWeight: 500, transition: "all 0.15s" }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: 8, color: cl("#7a7d92", "#5f6374"), fontSize: 11, lineHeight: 1.5 }}>
+                  50 pour cent donne un toit symetrique. En dessous, le pan avant est plus court
+                  et son egout remonte : la pente reste la meme des deux cotes.
                 </div>
               </div>
               {/* Type de murs */}
