@@ -924,10 +924,12 @@ function buildScene3D(scene, params, opts) {
   // avant = cote des z negatifs, arriere = z positifs, gauche = x negatifs, droite = x positifs.
   const mskDeb = String((params && params.debord_cotes) || "1111");
   const okDeb = (i) => (mskDeb.charAt(i) === "1");
-  const depAv = okDeb(0) ? debord : 0;   // cote des z negatifs
-  const depAr = okDeb(1) ? debord : 0;   // cote des z positifs
-  const depGa = okDeb(2) ? debord : 0;   // pignon x negatif
-  const depDr = okDeb(3) ? debord : 0;   // pignon x positif
+  // ORIENTATION : la FACADE est le pignon qui porte la porte, soit x positif.
+  // On se place dehors face a elle : la gauche est alors le gouttereau z positif.
+  const depAv = okDeb(0) ? debord : 0;   // facade, pignon x positif (la porte)
+  const depAr = okDeb(1) ? debord : 0;   // pignon oppose, x negatif
+  const depGa = okDeb(2) ? debord : 0;   // gouttereau de gauche, z positif
+  const depDr = okDeb(3) ? debord : 0;   // gouttereau de droite, z negatif
   // DELARDEMENT DES PANNES (m). Une panne d aplomb ne touche le chevron que par l arete AVAL
   // de son dessus : on y coupe un plat parallele au rampant pour que le chevron porte a plat.
   // Saisi en MILLIMETRES dans le formulaire, 15 par defaut (usinage courant de charpentier).
@@ -1932,8 +1934,8 @@ function buildScene3D(scene, params, opts) {
     const yFait = Ht + hf;                                  // hauteur du faitage
     // Debords de RIVE asymetriques : pas de depasse au pignon de CONTACT d'un volume accole
     const smf = (opts && opts.sansMurFace) || "";
-    const debG = smf === "pignon_gauche" ? 0 : depGa;   // rive x = -L/2
-    const debD = smf === "pignon_droit" ? 0 : depDr;    // rive x = +L/2
+    const debG = smf === "pignon_gauche" ? 0 : depAr;   // rive x = -L/2 : pignon arriere
+    const debD = smf === "pignon_droit" ? 0 : depAv;    // rive x = +L/2 : pignon de facade
     const debLX = debG + debD;                            // allongement total en X
     const debCX = (debD - debG) / 2;                      // recentrage X des pieces filantes
     const rivG = smf === "pignon_gauche" ? 0 : 0.3;       // petit debord de rive de base, sauf cote contact
@@ -2274,7 +2276,7 @@ setPiece("Chevron");
       const dv = (dPerpChevron - chH/2) / cosA;    // decalage VERTICAL du dessous (perp -> vertical)
       const dvH = chH / cosA;                       // epaisseur verticale du chevron
       const yLigne = (z) => Ht + hf - z * tanA;     // rampant de base (z >= 0)
-      let debZ = ((signZ === 1) ? depAr : depAv);   // z positif = arriere, z negatif = avant
+      let debZ = ((signZ === 1) ? depGa : depDr);   // z positif = gauche, z negatif = droite
       const decsCh = (opts && opts.decoupesDebord) || null;
       if (decsCh) {
         const faceCh = signZ === 1 ? "gouttereau_avant" : "gouttereau_arriere";
@@ -2336,7 +2338,7 @@ setPiece("Chevron");
     // La depasse d egout se regle PAN PAR PAN : le pan z positif suit la case
     // Arriere, le pan z negatif la case Avant. Hauteur et centre du pan en dependent,
     // ils sont donc calcules dans construirePan et non une fois pour les deux.
-    const extBasDe = (sgn) => (((sgn === 1) ? depAr : depAv) / cosA);
+    const extBasDe = (sgn) => (((sgn === 1) ? depGa : depDr) / cosA);
     const panW = L + dpLX;                        // la couverture couvre les queues de panne
     const tradRoofMat = makeRoofMaterial(couv, panW, pl + ext + (debord / cosA));
     const cXpan = dpCX;
@@ -2627,8 +2629,8 @@ setPiece("Chevron");
     // pente, la bissectrice est donc verticale et une coupe d aplomb en z = zFait fait
     // un onglet parfait. La depasse de toiture saisie s ajoute a chaque egout.
     // Le grand pan est du cote sG : c est l arriere quand sG vaut 1, l avant sinon.
-    const extG = Math.max(0.10, (sG > 0) ? depAr : depAv);
-    const extP = Math.max(0.10, (sG > 0) ? depAv : depAr);
+    const extG = Math.max(0.10, (sG > 0) ? depGa : depDr);
+    const extP = Math.max(0.10, (sG > 0) ? depDr : depGa);
     const sousG = (z) => yG(z) + LEVEE - (chH / 2) / cosP;
     const dessG = (z) => yG(z) + LEVEE + (chH / 2) / cosP;
     const sousPt = (z) => yP(z) + LEVEE - (chH / 2) / cosP;
@@ -2724,10 +2726,10 @@ setPiece("Chevron");
     const xMoise = liB / 2 + enB / 2;
     // Une depasse par cote : avant et arriere sur les grands pans (z), gauche et
     // droite sur les croupes (x).
-    const extAv = Math.max(0.10, depAv), extAr = Math.max(0.10, depAr);
-    const extGa = Math.max(0.10, depGa), extDr = Math.max(0.10, depDr);
-    const extZ = (sz) => ((sz > 0) ? extAr : extAv);
-    const extX = (sx) => ((sx > 0) ? extDr : extGa);
+    const extZp = Math.max(0.10, depGa), extZm = Math.max(0.10, depDr);   // gouttereaux
+    const extXp = Math.max(0.10, depAv), extXm = Math.max(0.10, depAr);   // croupes
+    const extZ = (sz) => ((sz > 0) ? extZp : extZm);
+    const extX = (sx) => ((sx > 0) ? extXp : extXm);
 
     drawDalleBeton(L, lg, 0.3);
 
@@ -2892,12 +2894,12 @@ setPiece("Chevron");
     const mat4 = makeRoofMaterial(couv4, L, plC);
     const epLiteau = 0.03;
     // Elle coiffe les abouts de 10 cm, cote par cote.
-    const dAv = extAv + 0.10, dAr = extAr + 0.10, dGa = extGa + 0.10, dDr = extDr + 0.10;
-    const yAv4 = Ht + LEVEE_DESSUS + epLiteau - dAv * tanC;
-    const yAr4 = Ht + LEVEE_DESSUS + epLiteau - dAr * tanC;
+    const dZp = extZp + 0.10, dZm = extZm + 0.10, dXp = extXp + 0.10, dXm = extXm + 0.10;
+    const yAv4 = Ht + LEVEE_DESSUS + epLiteau - dZm * tanC;
+    const yAr4 = Ht + LEVEE_DESSUS + epLiteau - dZp * tanC;
     const yF4 = yApex + LEVEE_DESSUS + epLiteau;
-    const xE1 = -L / 2 - dGa, xE2 = L / 2 + dDr;
-    const zAv4 = -(lg / 2 + dAv), zAr4 = lg / 2 + dAr;
+    const xE1 = -L / 2 - dXm, xE2 = L / 2 + dXp;
+    const zAv4 = -(lg / 2 + dZm), zAr4 = lg / 2 + dZp;
     // Le faitage ne deborde pas : la croupe de la couverture doit plonger des le VRAI
     // bout de faitage, sinon le grand pan se prolonge a plat avant de descendre et on
     // voit un replat au droit de l aretier.
@@ -3068,8 +3070,8 @@ setPiece("Chevron");
     // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
-    const extAv = Math.max(0.10, depAv);
-    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + depAr;
+    const extAv = Math.max(0.10, depDr);   // egout bas, z negatif
+    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + depGa;
     const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
     const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosM;
     const contCh = [
@@ -10382,8 +10384,9 @@ return (
                       })}
                     </div>
                     <div style={{ marginTop: 6, color: cl("#7a7d92", "#5f6374"), fontSize: 10, lineHeight: 1.5 }}>
-                      Avant et arriere = les deux longs cotes, gauche et droite = les deux pignons.
-                      Decoche le cote adosse a un mur.
+                      Avant = la facade, le pignon ou se trouve la porte. Gauche et droite
+                      se lisent en se tenant dehors, face a cette facade. Decoche le cote
+                      adosse a un mur.
                     </div>
                   </div>
                 ) : null}
