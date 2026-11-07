@@ -924,10 +924,10 @@ function buildScene3D(scene, params, opts) {
   // avant = cote des z negatifs, arriere = z positifs, gauche = x negatifs, droite = x positifs.
   const mskDeb = String((params && params.debord_cotes) || "1111");
   const okDeb = (i) => (mskDeb.charAt(i) === "1");
-  const debAv = okDeb(0) ? debord : 0;
-  const debAr = okDeb(1) ? debord : 0;
-  const debG = okDeb(2) ? debord : 0;
-  const debD = okDeb(3) ? debord : 0;
+  const depAv = okDeb(0) ? debord : 0;   // cote des z negatifs
+  const depAr = okDeb(1) ? debord : 0;   // cote des z positifs
+  const depGa = okDeb(2) ? debord : 0;   // pignon x negatif
+  const depDr = okDeb(3) ? debord : 0;   // pignon x positif
   // DELARDEMENT DES PANNES (m). Une panne d aplomb ne touche le chevron que par l arete AVAL
   // de son dessus : on y coupe un plat parallele au rampant pour que le chevron porte a plat.
   // Saisi en MILLIMETRES dans le formulaire, 15 par defaut (usinage courant de charpentier).
@@ -1932,8 +1932,8 @@ function buildScene3D(scene, params, opts) {
     const yFait = Ht + hf;                                  // hauteur du faitage
     // Debords de RIVE asymetriques : pas de depasse au pignon de CONTACT d'un volume accole
     const smf = (opts && opts.sansMurFace) || "";
-    const debG = smf === "pignon_gauche" ? 0 : debord;   // rive x = -L/2
-    const debD = smf === "pignon_droit" ? 0 : debord;    // rive x = +L/2
+    const debG = smf === "pignon_gauche" ? 0 : depGa;   // rive x = -L/2
+    const debD = smf === "pignon_droit" ? 0 : depDr;    // rive x = +L/2
     const debLX = debG + debD;                            // allongement total en X
     const debCX = (debD - debG) / 2;                      // recentrage X des pieces filantes
     const rivG = smf === "pignon_gauche" ? 0 : 0.3;       // petit debord de rive de base, sauf cote contact
@@ -2274,7 +2274,7 @@ setPiece("Chevron");
       const dv = (dPerpChevron - chH/2) / cosA;    // decalage VERTICAL du dessous (perp -> vertical)
       const dvH = chH / cosA;                       // epaisseur verticale du chevron
       const yLigne = (z) => Ht + hf - z * tanA;     // rampant de base (z >= 0)
-      let debZ = debord;
+      let debZ = ((signZ === 1) ? depAr : depAv);   // z positif = arriere, z negatif = avant
       const decsCh = (opts && opts.decoupesDebord) || null;
       if (decsCh) {
         const faceCh = signZ === 1 ? "gouttereau_avant" : "gouttereau_arriere";
@@ -2333,18 +2333,20 @@ setPiece("Chevron");
     const couv = getCouverture(opts && opts.couverture);
     const dPerpCouv = dPerpChevron + chH / 2 + 0.01;
     const ext = dPerpCouv * Math.tan(ang);
-    const extBas = debord / cosA;                 // prolongement du rampant = depasse en egout
-    const plCouv = pl + ext + extBas;
+    // La depasse d egout se regle PAN PAR PAN : le pan z positif suit la case
+    // Arriere, le pan z negatif la case Avant. Hauteur et centre du pan en dependent,
+    // ils sont donc calcules dans construirePan et non une fois pour les deux.
+    const extBasDe = (sgn) => (((sgn === 1) ? depAr : depAv) / cosA);
     const panW = L + dpLX;                        // la couverture couvre les queues de panne
-    const panH = plCouv;
-    const tradRoofMat = makeRoofMaterial(couv, panW, panH);
+    const tradRoofMat = makeRoofMaterial(couv, panW, pl + ext + (debord / cosA));
     const cXpan = dpCX;
-    // centre du pan : centre rampant + dPerp perpendiculaire + ext/2 vers le haut + extBas/2 vers le bas
-    const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
-    const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
     // Pan sur mesure : encoche triangulaire le long des noues au droit d'une aile en penetration
     const construirePan = (signZ) => {
       const faceP = signZ === 1 ? "gouttereau_avant" : "gouttereau_arriere";
+      const extBas = extBasDe(signZ);
+      const panH = pl + ext + extBas;
+      const yR = Ht + hf/2 + dPerpCouv * cosA + (ext/2) * sinA - (extBas/2) * sinA;
+      const zR = lg/4 + dPerpCouv * sinA - (ext/2) * cosA + (extBas/2) * cosA;
       const notches = [];
       const decsP = (opts && opts.decoupesDebord) || null;
       if (decsP) { for (const dd of decsP) { if (dd.face === faceP && typeof dd.xApex === "number") notches.push(dd); } }
@@ -2625,8 +2627,8 @@ setPiece("Chevron");
     // pente, la bissectrice est donc verticale et une coupe d aplomb en z = zFait fait
     // un onglet parfait. La depasse de toiture saisie s ajoute a chaque egout.
     // Le grand pan est du cote sG : c est l arriere quand sG vaut 1, l avant sinon.
-    const extG = Math.max(0.10, (sG > 0) ? debAr : debAv);
-    const extP = Math.max(0.10, (sG > 0) ? debAv : debAr);
+    const extG = Math.max(0.10, (sG > 0) ? depAr : depAv);
+    const extP = Math.max(0.10, (sG > 0) ? depAv : depAr);
     const sousG = (z) => yG(z) + LEVEE - (chH / 2) / cosP;
     const dessG = (z) => yG(z) + LEVEE + (chH / 2) / cosP;
     const sousPt = (z) => yP(z) + LEVEE - (chH / 2) / cosP;
@@ -2722,8 +2724,8 @@ setPiece("Chevron");
     const xMoise = liB / 2 + enB / 2;
     // Une depasse par cote : avant et arriere sur les grands pans (z), gauche et
     // droite sur les croupes (x).
-    const extAv = Math.max(0.10, debAv), extAr = Math.max(0.10, debAr);
-    const extGa = Math.max(0.10, debG), extDr = Math.max(0.10, debD);
+    const extAv = Math.max(0.10, depAv), extAr = Math.max(0.10, depAr);
+    const extGa = Math.max(0.10, depGa), extDr = Math.max(0.10, depDr);
     const extZ = (sz) => ((sz > 0) ? extAr : extAv);
     const extX = (sx) => ((sx > 0) ? extDr : extGa);
 
@@ -3066,8 +3068,8 @@ setPiece("Chevron");
     // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + 2 * dp) / espM));
-    const extAv = Math.max(0.10, debAv);
-    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + debAr;
+    const extAv = Math.max(0.10, depAv);
+    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + depAr;
     const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
     const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosM;
     const contCh = [
