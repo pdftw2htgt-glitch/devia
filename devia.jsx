@@ -294,6 +294,8 @@ function metreTexteDepuisParams(p) {
       pente: Number(p.pente) || 35,
       couverture: p.couverture || "tuile_terre",
       debord: p.debord || 0,
+      carport_pans: p.carport_pans || undefined,
+      carport_faitage: p.carport_faitage || undefined,
       murs: p.murs,
       pignon: p.pignon,
       appuis: p.appuis,
@@ -409,6 +411,8 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       dS: dS || 0,
       solaire: Boolean(parsed && parsed._solaire),
       sk: sk || 0.45,
+      carport_pans: (src && src.carport_pans) || (parsed && parsed._carportPans) || undefined,
+      carport_faitage: (src && src.carport_faitage) || (parsed && parsed._carportFaitage) || undefined,
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
       pignon: (src && src.pignon) || (parsed && parsed._pignon) || undefined,
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
@@ -9145,6 +9149,7 @@ return out;
       const ouvrages3D = structures.map((s, i) => ({
         longueur: s.longueur, largeur: s.largeur, hauteur: s.hauteur, pente: s.pente,
         couverture: s.couverture, essence: s.essence, finition: s.finition || undefined, murs: s.murs, pignon: s.pignon || undefined, appuis: s.appuis || undefined, remede: s.remede || undefined, debord: s.debord || undefined,
+        carport_pans: s.carport_pans || undefined, carport_faitage: s.carport_faitage || undefined,
         pos: s.pos || undefined,
         pose: s.pose || undefined,
         faitageCardinal: s.faitageCardinal || undefined,
@@ -9154,6 +9159,8 @@ return out;
       if (formDelardement === "") { fusion._delardement = undefined; } else { fusion._delardement = parseFloat(formDelardement); }
       if (formDebordPanne === "") { fusion._debordPanne = undefined; } else { fusion._debordPanne = parseFloat(formDebordPanne); }
       if (formFinitionMur) fusion._finitionMur = formFinitionMur;
+      if (formCarportPans) fusion._carportPans = formCarportPans;
+      if (formCarportFaitage) fusion._carportFaitage = formCarportFaitage;
       if (zoneInfo) { fusion._sk = zoneInfo.sk; fusion._dS = zoneInfo.dS; }
       setResult(fusion);
       setView3DParams({
@@ -9163,6 +9170,8 @@ return out;
         pente: p1.pente || structures[0].pente || 35,
         type_projet: p1.type_projet || "autre",
         couverture: p1.couverture || structures[0].couverture || "tuile_terre",
+        carport_pans: (structures[0] && structures[0].carport_pans) || undefined,
+        carport_faitage: (structures[0] && structures[0].carport_faitage) || undefined,
         ouvrages: ouvrages3D,
         finition_mur: formFinitionMur || undefined,
         delardement: formDelardement === "" ? undefined : parseFloat(formDelardement),
@@ -9253,6 +9262,8 @@ if (files && files.length > 0) {
 }
 const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
 
+  if (finalParams.carport_pans) parsed._carportPans = finalParams.carport_pans;
+  if (finalParams.carport_faitage) parsed._carportFaitage = finalParams.carport_faitage;
   if (finalParams.murs) parsed._murs = finalParams.murs;
   if (finalParams.finition_mur) parsed._finitionMur = finalParams.finition_mur;
   if (finalParams.pignon) parsed._pignon = finalParams.pignon;
@@ -9277,6 +9288,8 @@ const { parsed, data } = await callDeviaIA(systemPrompt, userContent);
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
+        carport_pans: finalParams.carport_pans || undefined,
+        carport_faitage: finalParams.carport_faitage || undefined,
         murs: finalParams.murs || undefined,
         finition_mur: finalParams.finition_mur || undefined,
         pignon: finalParams.pignon || undefined,
@@ -9373,6 +9386,8 @@ const loadProjectDetails = (project) => {
         pente: p.pente || 35,
         type_projet: p.type_projet || "autre",
         couverture: p.couverture || "tuile_terre",
+        carport_pans: project.devis_data._carportPans || undefined,
+        carport_faitage: project.devis_data._carportFaitage || undefined,
         murs: project.devis_data._murs || undefined,
         finition_mur: project.devis_data._finitionMur || undefined,
         pignon: project.devis_data._pignon || undefined,
