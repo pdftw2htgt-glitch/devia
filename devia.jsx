@@ -2500,7 +2500,8 @@ setPiece("Chevron");
     const matC = makeRoofMaterial(couvC, L, plC);
     const yE = Ht + LEVEE_DESSUS, yF = yApex + LEVEE_DESSUS;
     // Sommets explicites : une PlaneGeometry tournee a la main sortait a plat.
-    const xA = -L / 2 - dp, xB = L / 2 + dp;
+    // Jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe.
+    const xA = -L / 2 - dp - chH / 2, xB = L / 2 + dp + chH / 2;
     [1, -1].forEach((sz) => {
       const zE = sz * (lg / 2 + dp * 0);
       const som = [
@@ -2836,7 +2837,9 @@ setPiece("Empannon de croupe");
     const zAv = -lg / 2 - debEgout, zAr = lg / 2 + debEgout;
     const yAvT = Hbas + LEVEE_DESSUS + epLiteau - debEgout * tanM;
     const yArT = Hhaut + LEVEE_DESSUS + epLiteau + debEgout * tanM;
-    const xA = -L / 2 - dp, xB = L / 2 + dp;
+    // Elle va jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe :
+    // sinon la derniere demi-largeur de chevron reste a decouvert de chaque cote.
+    const xA = -L / 2 - dp - chB / 2, xB = L / 2 + dp + chB / 2;
     const somM = [
       xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
       xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
