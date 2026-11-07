@@ -2783,9 +2783,24 @@ setPiece("Chevron");
     });
 
     setPiece("Aretier");
-    const yAB = Ht + LEVEE_DESSUS - arrS / 2, yAH = yApex + LEVEE_DESSUS - arrS / 2;
-    [[-1, xG], [1, xD]].forEach((b) => {
-      [1, -1].forEach((sz) => { addBeam(b[0] * L / 2, yAB, sz * lg / 2, b[1], yAH, 0, arrS, woodMat); });
+    // Une poutre carree inclinee presente une demi-DIAGONALE, pas une demi-hauteur :
+    // calee a arrS/2 sous le plan des chevrons, ses aretes ressortaient a travers la
+    // couverture. On la descend de (cos + sin) / 2 fois sa section.
+    [[-1, xG, reculAv], [1, xD, reculAr]].forEach((b) => {
+      const angA = Math.atan(hf / Math.sqrt(b[2] * b[2] + (lg / 2) * (lg / 2)));
+      // Le roulis de la poutre ajoute encore un peu de hauteur au coin le plus haut :
+      // mesure au banc, il faut 10 pour cent de section de plus pour qu il reste dessous.
+      const kA = (Math.cos(angA) + Math.sin(angA)) / 2 + 0.10;
+      const yAB = Ht + LEVEE_DESSUS - arrS * kA, yAH = yApex + LEVEE_DESSUS - arrS * kA;
+      [1, -1].forEach((sz) => {
+        // About haut recule d une demi-section le long de l axe : sinon l angle de la
+        // poutre depasse le bout de faitage et ressort par la croupe.
+        const dx = b[1] - b[0] * L / 2, dy = yAH - yAB, dz = -sz * lg / 2;
+        const ln = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+        const ret = arrS * 0.7;
+        addBeam(b[0] * L / 2, yAB, sz * lg / 2,
+          b[1] - dx / ln * ret, yAH - dy / ln * ret, -dz / ln * ret, arrS, woodMat);
+      });
     });
 
     const esp4 = getCouverture(opts && opts.couverture).espChevron;
@@ -2798,20 +2813,31 @@ setPiece("Chevron");
       const zEg = sz * (lg / 2 + extEg);
       const cont = [[zEg, sousCh(zEg)], [0, sousCh(0)], [0, dessCh(0)], [zEg, dessCh(zEg)]];
       const lgc = Math.abs(zEg) / cosC;
+      // Rentres d une demi-largeur : le flanc du chevron de rive affleure le bout de
+      // faitage, il ne passe pas sous la croupe qui descend deja.
+      const xC1 = xG + chB / 2, xC2 = xD - chB / 2;
       for (let i = 0; i <= nbCh4; i++) {
-        const x = xG + (i / nbCh4) * Lf;
+        const x = xC1 + (i / nbCh4) * (xC2 - xC1);
         addProfilZY(x, chB, cont, lgc, chH, "Chevron");
       }
     });
     setPiece("Empannon");
     const yCB = Ht + LEVEE, yCH = yApex + LEVEE;
+    // Meme precaution que pour l aretier : l about haut est recule le long de l axe,
+    // sinon l angle de la piece ressort au travers de la croupe.
+    const addEmpannon = (x1, y1, z1, x2, y2, z2, sct) => {
+      const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+      const ln = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+      const r = (sct * 0.7) / ln;
+      addBeam(x1, y1, z1, x2 - dx * r, y2 - dy * r, z2 - dz * r, sct, woodMat);
+    };
     [1, -1].forEach((sz) => {
       [[xG, -L / 2, reculAv], [xD, L / 2, reculAr]].forEach((b) => {
         const nbE = Math.max(1, Math.floor(b[2] / esp4));
         for (let i = 1; i <= nbE; i++) {
           const f = i / (nbE + 1);
           const xb = b[1] + (b[0] - b[1]) * f;
-          addBeam(xb, yCB - extEg * tanC, sz * (lg / 2 + extEg), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9, woodMat);
+          addEmpannon(xb, yCB - extEg * tanC, sz * (lg / 2 + extEg), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9);
         }
       });
     });
@@ -2826,7 +2852,7 @@ setPiece("Chevron");
         const zb = -lg / 2 + fz * lg;
         const sz = (zb >= 0) ? 1 : -1;
         const fa = 1 - Math.abs(zb) / (lg / 2);
-        addBeam(b[2] + b[0] * extEg, yCB - extEg * tanCr, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85, woodMat);
+        addEmpannon(b[2] + b[0] * extEg, yCB - extEg * tanCr, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85);
       }
     });
 
@@ -2834,12 +2860,15 @@ setPiece("Chevron");
     const couv4 = getCouverture(opts && opts.couverture);
     const mat4 = makeRoofMaterial(couv4, L, plC);
     const epLiteau = 0.03;
-    const debT = extEg + 0.04;
+    const debT = extEg + 0.10;   // elle coiffe les abouts, coupes perpendiculaires au rampant
     const yE4 = Ht + LEVEE_DESSUS + epLiteau - debT * tanC;
     const yF4 = yApex + LEVEE_DESSUS + epLiteau;
     const xE1 = -L / 2 - debT, xE2 = L / 2 + debT;
     const zE = lg / 2 + debT;
-    const xF1 = xG - debT, xF2 = xD + debT;
+    // Le faitage ne deborde pas : la croupe de la couverture doit plonger des le VRAI
+    // bout de faitage, sinon le grand pan se prolonge a plat avant de descendre et on
+    // voit un replat au droit de l aretier.
+    const xF1 = xG, xF2 = xD;
     const pan4 = (v) => {
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(v), 3));
