@@ -2346,9 +2346,14 @@ setPiece("Chevron");
     // Arriere, le pan z negatif la case Avant. Hauteur et centre du pan en dependent,
     // ils sont donc calcules dans construirePan et non une fois pour les deux.
     const extBasDe = (sgn) => (((sgn === 1) ? depGa : depDr) / cosA);
-    const panW = L + dpLX;                        // la couverture couvre les queues de panne
+    // Avec queue de panne, le chevron de rive vient au nu du bout de panne : la
+    // couverture l affleure deja. SANS queue de panne, ce chevron est a cheval sur le
+    // nu du mur et il faut encore une demi-largeur pour le coiffer jusqu au bord.
+    const sailG = (dpG > 0.001) ? 0 : chB / 2;
+    const sailD = (dpD > 0.001) ? 0 : chB / 2;
+    const panW = L + dpLX + sailG + sailD;        // la couverture couvre les queues de panne
     const tradRoofMat = makeRoofMaterial(couv, panW, pl + ext + (debord / cosA));
-    const cXpan = dpCX;
+    const cXpan = dpCX + (sailD - sailG) / 2;
     // Pan sur mesure : encoche triangulaire le long des noues au droit d'une aile en penetration
     const construirePan = (signZ) => {
       const faceP = signZ === 1 ? "gouttereau_avant" : "gouttereau_arriere";
