@@ -2701,15 +2701,10 @@ setPiece("Chevron");
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    // Un poteau aux quatre angles (ils portent la ceinture de sablieres et le pied
-    // des aretiers) et un sous chaque ferme.
-    const xs = [];
-    [-L / 2, xG, xD, L / 2].forEach((x) => {
-      let deja = false;
-      xs.forEach((q) => { if (Math.abs(q - x) < 0.25) deja = true; });
-      if (deja === false) xs.push(x);
-    });
-    xs.sort((a, b) => a - b);
+    // QUATRE poteaux, un par angle, et rien entre les deux : un poteau au milieu d un
+    // long cote couperait l entree en deux et generait la seconde voiture. La ceinture
+    // de sablieres franchit donc toute la longueur, et les fermes se posent dessus.
+    const xs = [-L / 2, L / 2];
     const contPoteau = (z0, sInt) => {
       const zi = z0 - sInt * potB / 2, zo = z0 + sInt * potB / 2;
       const zc1 = z0 - sInt * pw / 2, zc2 = z0 + sInt * pw / 2;
@@ -2816,19 +2811,22 @@ setPiece("Chevron");
         for (let i = 1; i <= nbE; i++) {
           const f = i / (nbE + 1);
           const xb = b[1] + (b[0] - b[1]) * f;
-          addBeam(xb, yCB, sz * (lg / 2), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9, woodMat);
+          addBeam(xb, yCB - extEg * tanC, sz * (lg / 2 + extEg), xb, Ht + hf * f + LEVEE, sz * (lg / 2) * (1 - f), chH * 0.9, woodMat);
         }
       });
     });
     setPiece("Empannon de croupe");
-    [[-1, xG, -L / 2], [1, xD, L / 2]].forEach((b) => {
+    // La croupe a sa pente propre des que son recul n est plus la demi-largeur : la
+    // depasse descend donc le long de CETTE pente-la, pas de celle des grands pans.
+    [[-1, xG, -L / 2, reculAv], [1, xD, L / 2, reculAr]].forEach((b) => {
+      const tanCr = hf / Math.max(0.3, b[3]);
       const nbEc = Math.max(2, Math.floor(lg / esp4));
       for (let i = 1; i <= nbEc; i++) {
         const fz = i / (nbEc + 1);
         const zb = -lg / 2 + fz * lg;
         const sz = (zb >= 0) ? 1 : -1;
         const fa = 1 - Math.abs(zb) / (lg / 2);
-        addBeam(b[2], yCB, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85, woodMat);
+        addBeam(b[2] + b[0] * extEg, yCB - extEg * tanCr, zb, b[2] + (b[1] - b[2]) * fa, Ht + hf * fa + LEVEE, sz * (lg / 2) * (1 - fa), chH * 0.85, woodMat);
       }
     });
 
