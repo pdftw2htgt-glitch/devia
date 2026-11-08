@@ -160,7 +160,7 @@ const EC5_LARGEUR_MINI = {
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:100, "Empannon de croupe":100,
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
-  "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0,
+  "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0, "Poteau MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
   "Lien de faitage":0, Lien:0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
 };
@@ -354,7 +354,8 @@ function recalerQuantitesDevis(parsed, agg) {
       ["lien", ["Lien"]],
       ["empannon", ["Empannon", "Empannon de croupe"]], ["chevron", ["Chevron"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
-      ["solive", ["Solive", "Solive balcon"]], ["poteau", ["Poteau"]],
+      ["solive", ["Solive", "Solive balcon"]],
+      ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
     ];
     let nbRecales = 0;
     (parsed.postes || []).forEach((po) => {
@@ -439,7 +440,8 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       ["contrefiche", ["Contrefiche"]], ["poincon", ["Poincon"]],
       ["chevron", ["Chevron"]], ["empannon", ["Empannon", "Empannon de croupe"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
-      ["solive", ["Solive", "Solive balcon"]], ["poteau", ["Poteau"]],
+      ["solive", ["Solive", "Solive balcon"]],
+      ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
     ];
     const strip = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     (parsed.postes || []).forEach((p) => {
@@ -1149,26 +1151,31 @@ function buildScene3D(scene, params, opts) {
     }
 
     // Un pan : longueur len le long de "x" ou "z", position fixe posFixe, ouvertures [{c,w,y0,y1}]
-    const panOssature = (len, axe, posFixe, ouvertures) => {
+    // Un PANNEAU : longueur len, assis a yBas sur hPan de haut, centre a cOff le long
+    // de l axe. rives = false quand un poteau d angle remplace les montants de rive.
+    const panOssature = (len, axe, posFixe, ouvertures, cOff0, yBas0, hPan0, sansRive0) => {
+      const cOff = cOff0 || 0, yBas = yBas0 || 0;
+      const hPan = (hPan0 === undefined) ? Hb : hPan0;
+      const sansR = sansRive0 || 0;   // 0 aucun, 1 about debut, 2 about fin, 3 les deux
       const ouv = (ouvertures || []).filter(o => o.c - o.w/2 > -len/2 + 0.2 && o.c + o.w/2 < len/2 - 0.2).sort((a,b) => a.c - b.c);
 
       const montant = (cx, y0, y1, piece) => {
         const h = y1 - y0; if (h < 0.03) return;
         setPiece(piece || "Montant MOB");
-        if (axe === "x") addBox(mB, h, mH, cx, y0 + h/2, posFixe, woodMat);
-        else addBox(mH, h, mB, posFixe, y0 + h/2, cx, woodMat);
+        if (axe === "x") addBox(mB, h, mH, cx + cOff, yBas + y0 + h/2, posFixe, woodMat);
+        else addBox(mH, h, mB, posFixe, yBas + y0 + h/2, cx + cOff, woodMat);
       };
       const traverse = (c0, c1, y, piece) => {
         const lT = c1 - c0; if (lT < 0.03) return;
         setPiece(piece);
         const cm = (c0 + c1) / 2;
-        if (axe === "x") addBox(lT, mB, mH, cm, y + mB/2, posFixe, woodMat);
-        else addBox(mH, mB, lT, posFixe, y + mB/2, cm, woodMat);
+        if (axe === "x") addBox(lT, mB, mH, cm + cOff, yBas + y + mB/2, posFixe, woodMat);
+        else addBox(mH, mB, lT, posFixe, yBas + y + mB/2, cm + cOff, woodMat);
       };
 
       // Lisses basse et haute (toute la longueur)
       traverse(-len/2, len/2, 0, "Lisse MOB");
-      traverse(-len/2, len/2, Hb - mB, "Lisse MOB");
+      traverse(-len/2, len/2, hPan - mB, "Lisse MOB");
 
       const inBaie = (cx) => ouv.find(o => cx > o.c - o.w/2 - mB && cx < o.c + o.w/2 + mB);
 
@@ -1178,12 +1185,15 @@ function buildScene3D(scene, params, opts) {
       for (let i = 0; i <= nbTravees; i++) {
         const cx = -len/2 + mB/2 + (i / nbTravees) * (len - mB);
         montantXs.push(cx);
+        // Le poteau d angle remplace le montant d about : sans quoi le meme bois compterait deux fois.
+        if ((i === 0) && ((sansR === 1) || (sansR === 3))) continue;
+        if ((i === nbTravees) && ((sansR === 2) || (sansR === 3))) continue;
         const b = inBaie(cx);
         if (!b) {
-          montant(cx, mB, Hb - mB);
+          montant(cx, mB, hPan - mB);
         } else {
           if (b.y0 > mB + 0.08) montant(cx, mB, b.y0 - mB, "Potelet MOB");
-          if (b.y1 < Hb - mB - 0.08) montant(cx, b.y1 + mB, Hb - mB, "Potelet MOB");
+          if (b.y1 < hPan - mB - 0.08) montant(cx, b.y1 + mB, hPan - mB, "Potelet MOB");
         }
       }
 
@@ -1192,17 +1202,17 @@ function buildScene3D(scene, params, opts) {
         const c0 = montantXs[i] + mB/2, c1 = montantXs[i + 1] - mB/2;
         const cMid = (c0 + c1) / 2;
         if (c1 - c0 > 0.08 && !inBaie(cMid)) {
-          traverse(c0, c1, Hb/2, "Entretoise MOB");
+          traverse(c0, c1, hPan/2, "Entretoise MOB");
         }
       }
 
       // Encadrement des baies : montants DOUBLES + linteau + traverse d'allege
       ouv.forEach(o => {
         const bG = o.c - o.w/2, bD = o.c + o.w/2;
-        montant(bG - mB/2, mB, Hb - mB);
-        montant(bG - mB * 1.5, mB, Hb - mB);
-        montant(bD + mB/2, mB, Hb - mB);
-        montant(bD + mB * 1.5, mB, Hb - mB);
+        montant(bG - mB/2, mB, hPan - mB);
+        montant(bG - mB * 1.5, mB, hPan - mB);
+        montant(bD + mB/2, mB, hPan - mB);
+        montant(bD + mB * 1.5, mB, hPan - mB);
         traverse(bG - mB, bD + mB, o.y1, "Linteau MOB");
         if (o.y0 > mB + 0.08) traverse(bG - mB, bD + mB, o.y0 - mB, "Traverse allege MOB");
       });
@@ -1226,31 +1236,123 @@ function buildScene3D(scene, params, opts) {
           uvA.needsUpdate = true;
         }
         const m = new THREE.Mesh(g, osbMat);
-        if (axe === "x") m.position.set(cm, ym, posFixe + dOsb);
-        else m.position.set(posFixe + dOsb, ym, cm);
+        if (axe === "x") m.position.set(cm + cOff, yBas + ym, posFixe + dOsb);
+        else m.position.set(posFixe + dOsb, yBas + ym, cm + cOff);
         m.castShadow = modeReal;
         scene.add(m);
       };
       let cursor = -len/2;
       ouv.forEach(o => {
         const x0 = o.c - o.w/2, x1 = o.c + o.w/2;
-        if (x0 > cursor) osbSeg(cursor, x0, 0, Hb);
+        if (x0 > cursor) osbSeg(cursor, x0, 0, hPan);
         if (o.y0 > 0.05) osbSeg(x0, x1, 0, o.y0);
-        if (o.y1 < Hb - 0.05) osbSeg(x0, x1, o.y1, Hb);
+        if (o.y1 < hPan - 0.05) osbSeg(x0, x1, o.y1, hPan);
         cursor = x1;
       });
-      if (cursor < len/2) osbSeg(cursor, len/2, 0, Hb);
+      if (cursor < len/2) osbSeg(cursor, len/2, 0, hPan);
+    };
+
+    // ===== DECOUPE EN PANNEAUX PREFABRIQUES =====
+    // Un panneau d ossature se fabrique a plat en atelier puis se transporte : au dela de
+    // 3 m de haut par 10 m de long il ne passe plus (gabarit routier, table de montage,
+    // levage). Un mur plus grand se livre donc en PLUSIEURS panneaux, juxtaposes en
+    // longueur et SUPERPOSES en hauteur, chacun avec ses propres lisses basse et haute.
+    // C est ce qui ferme le contreventement : la lisse haute d un panneau sert d assise
+    // a la lisse basse du panneau du dessus.
+    const MOB_L_MAX = 10.0, MOB_H_MAX = 3.0;
+    // Place les joints de panneaux : decoupe reguliere, puis chaque joint qui tomberait
+    // DANS une baie est pousse sur le bord de cette baie. Un joint au milieu d une fenetre
+    // la couperait en deux demi-baies impossibles a fabriquer. Si l ecart pousse un
+    // panneau au dela du gabarit, on ajoute un panneau et on recommence.
+    const joints = (total, maxi, interdits) => {
+      let n = Math.max(1, Math.ceil((total - 0.001) / maxi));
+      for (let essai = 0; essai < 8; essai++) {
+        const c = [0];
+        for (let k = 1; k < n; k++) {
+          let x = total * k / n;
+          (interdits || []).forEach(z => {
+            if (x > z[0] && x < z[1]) {
+              const vise = ((x - z[0]) < (z[1] - x)) ? z[0] : z[1];
+              if (vise > 0.3 && vise < (total - 0.3)) x = vise;
+            }
+          });
+          c.push(x);
+        }
+        c.push(total);
+        c.sort((u, v) => u - v);
+        let bon = true;
+        for (let k = 0; k < c.length - 1; k++) {
+          if ((c[k+1] - c[k]) > (maxi + 0.001)) bon = false;
+          if ((c[k+1] - c[k]) < 0.25) bon = false;
+        }
+        if (bon === true) return c;
+        n = n + 1;
+      }
+      const reg = [];
+      const nf = Math.max(1, Math.ceil((total - 0.001) / maxi));
+      for (let k = 0; k <= nf; k++) reg.push(total * k / nf);
+      return reg;
+    };
+    const murPanneaux = (lenTot, axe, posFixe, ouvertures, rives) => {
+      const ouv = ouvertures || [];
+      // Joints verticaux (le long du mur) et horizontaux (superposition), baies evitees.
+      const cL = joints(lenTot, MOB_L_MAX, ouv.map(o =>
+        [o.c + lenTot/2 - o.w/2 - 0.30, o.c + lenTot/2 + o.w/2 + 0.30]));
+      const cH = joints(Hb, MOB_H_MAX, ouv.map(o => [o.y0 + 0.05, o.y1 + 0.10]));
+      const nbL = cL.length - 1, nbH = cH.length - 1;
+      for (let i = 0; i < nbL; i++) {
+        const lSeg = cL[i+1] - cL[i];
+        const cOff = cL[i] + lSeg/2 - lenTot/2;
+        for (let j = 0; j < nbH; j++) {
+          const yB = cH[j], hSeg = cH[j+1] - cH[j];
+          // On ne garde dans ce panneau que les baies qui y tombent, en coordonnees locales.
+          const ouvLoc = [];
+          ouv.forEach(o => {
+            const cx = o.c - cOff;
+            if ((cx - o.w/2) < (-lSeg/2 - 0.001)) return;
+            if ((cx + o.w/2) > (lSeg/2 + 0.001)) return;
+            const d0 = o.y0 - yB, d1 = o.y1 - yB;
+            if (d1 <= 0.08 || d0 >= (hSeg - 0.08)) return;
+            ouvLoc.push({ c: cx, w: o.w, y0: Math.max(0, d0), y1: Math.min(hSeg, d1) });
+          });
+          // Seul l about qui touche un angle disparait : les joints entre panneaux gardent
+          // leurs deux montants, un par panneau, comme sur une fabrication reelle.
+          let sansR = 0;
+          if (rives === false) {
+            if (nbL === 1) sansR = 3;
+            else if (i === 0) sansR = 1;
+            else if (i === (nbL - 1)) sansR = 2;
+          }
+          panOssature(lSeg, axe, posFixe, ouvLoc, cOff, yB, hSeg, sansR);
+        }
+      }
+      if (nbL > 1 || nbH > 1) console.log("[DEVIA] Mur MOB " + axe + " de " +
+        Math.round(lenTot*100)/100 + " m x " + Math.round(Hb*100)/100 + " m -> " +
+        (nbL*nbH) + " panneaux (" + nbL + " en longueur x " + nbH + " superposes), joints a " +
+        cL.map(v => Math.round(v*100)/100).join("/") + " et " +
+        cH.map(v => Math.round(v*100)/100).join("/"));
     };
 
     // Positions des baies : identiques aux murs beton
     const y0F = 1.0, y1F = Math.min(2.0, Hb - 0.3);
     const hPorte = Math.min(2.1, Hb - 0.2);
     // Gouttereaux (pleine longueur) : avant 2 fenetres, arriere 1
-    panOssature(Lb, "x", lgb/2, [{ c: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { c: Lb/4, w: 1.2, y0: y0F, y1: y1F }]);
-    panOssature(Lb, "x", -lgb/2, [{ c: 0, w: 1.2, y0: y0F, y1: y1F }]);
+    murPanneaux(Lb, "x", lgb/2, [{ c: -Lb/4, w: 1.2, y0: y0F, y1: y1F }, { c: Lb/4, w: 1.2, y0: y0F, y1: y1F }], false);
+    murPanneaux(Lb, "x", -lgb/2, [{ c: 0, w: 1.2, y0: y0F, y1: y1F }], false);
     // Pignons : jusqu'a la face interieure des gouttereaux (coins joints), porte au pignon avant
-    panOssature(lgb - mH, "z", Lb/2 - mH/2, [{ c: 0, w: 0.9, y0: 0, y1: hPorte }]);
-    panOssature(lgb - mH, "z", -(Lb/2 - mH/2), []);
+    murPanneaux(lgb - mH, "z", Lb/2 - mH/2, [{ c: 0, w: 0.9, y0: 0, y1: hPorte }], true);
+    murPanneaux(lgb - mH, "z", -(Lb/2 - mH/2), [], true);
+
+    // ===== POTEAUX D ANGLE =====
+    // Les quatre angles reprennent la descente de charge et bloquent les deux murs entre
+    // eux. Un poteau pleine hauteur y remplace les montants de rive des gouttereaux (sans
+    // quoi le meme bois serait compte deux fois) et donne au pignon sa butee de clouage.
+    setPiece("Poteau MOB");
+    [1, -1].forEach(sx => {
+      [1, -1].forEach(sz => {
+        addBox(mH, Hb, mH, sx * (Lb/2 - mH/2), Hb/2, sz * (lgb/2), woodMat);
+      });
+    });
   };
 
   // Pignon maconne : le triangle entre le haut des murs et les rampants.
