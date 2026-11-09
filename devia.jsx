@@ -3243,6 +3243,20 @@ setPiece("Chevron");
     const ang = Math.atan(denivele / lg);
     const longueurChevron = lg / Math.cos(ang);
     const yCentre = Hbas + denivele/2;
+    // ===== DEPASSE DE TOITURE =====
+    // Les 0.30 / 0.40 d origine etaient des debords de principe, les memes partout.
+    // Ils deviennent le minimum, et chaque cote suit sa case : une rive decochee
+    // est coupee a l aplomb. z positif = sabliere HAUTE, z negatif = sabliere BASSE.
+    const dpMp = okDeb(0) ? Math.max(0.15, depAv) : 0;   // pignon x positif = la facade
+    const dpMm = okDeb(1) ? Math.max(0.15, depAr) : 0;   // pignon x negatif
+    const lgFilM = L + dpMp + dpMm;      // longueur des pieces filantes
+    const cxFilM = (dpMp - dpMm) / 2;    // leur centre
+    const dHautM = depGa / Math.cos(ang);  // rallonge de rampant en haut (z+)
+    const dBasM  = depDr / Math.cos(ang);  // et en bas (z-)
+    const lgRampM = longueurChevron + dHautM + dBasM;
+    // Glissement du milieu du rampant vers le haut quand les deux debords different.
+    const dRampM = (dHautM - dBasM) / 2;
+    const dyRampM = dRampM * Math.sin(ang), dzRampM = dRampM * Math.cos(ang);
 
     // ===== CHOIX COUVERTURE (bac acier / tuiles) =====
     const couv = getCouverture(opts && opts.couverture);
@@ -3312,8 +3326,8 @@ setPiece("Chevron");
     // par les chevrons sur la moitie de leur hauteur. Elles s arretent maintenant a ce plan.
     const SOUS_CHEVRON_MP = 0.03;
     const [sbB, sbH] = sec("Sabliere", 0.16, 0.16);
-    addBox(L + 0.3, sbH, sbB, 0, Hbas + SOUS_CHEVRON_MP - sbH / 2, -lg/2, woodMat);
-    addBox(L + 0.3, sbH, sbB, 0, Hhaut + SOUS_CHEVRON_MP - sbH / 2, lg/2, woodMat);
+    addBox(lgFilM, sbH, sbB, cxFilM, Hbas + SOUS_CHEVRON_MP - sbH / 2, -lg/2, woodMat);
+    addBox(lgFilM, sbH, sbB, cxFilM, Hhaut + SOUS_CHEVRON_MP - sbH / 2, lg/2, woodMat);
 
     setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (4, bien reparties entre sablieres) =====
@@ -3325,7 +3339,7 @@ setPiece("Chevron");
       const y = Hbas + t * denivele;
       const [pnB, pnH] = sec("Panne", 0.14, 0.14);
       const yPanneMP = y + (pnB / 2) * Math.tan(ang) + SOUS_CHEVRON_MP - pnH / 2;
-      addBox(L + 0.3, pnH, pnB, 0, yPanneMP, z, woodMat);
+      addBox(lgFilM, pnH, pnB, cxFilM, yPanneMP, z, woodMat);
       pannePositions.push({ y, z, t });
     }
 
@@ -3336,19 +3350,20 @@ setPiece("Chevron");
     for (let i = 0; i <= nbChevrons; i++) {
       const x = -L/2 + (i / nbChevrons) * L;
       const [chB, chH] = sec("Chevron", 0.10, 0.14);
-      addBox(chB, chH, longueurChevron + 0.2, x, yCentre + 0.07, 0, woodMat, [-ang, 0, 0]);
+      addBox(chB, chH, lgRampM + 0.2, x, yCentre + 0.07 + dyRampM, dzRampM, woodMat, [-ang, 0, 0]);
     }
 
 setPiece("Liteau");
     // ===== LITEAUX (perpendiculaires aux chevrons, ~tous les 0.35m) =====
     // Petites planchettes paralleles aux sablieres, sur toute la longueur
     const espLiteau = couv.espLiteau;
-    const nbLiteaux = Math.max(4, Math.floor(longueurChevron / espLiteau));
+    const nbLiteaux = Math.max(4, Math.floor(lgRampM / espLiteau));
+    const zLitBas = -lg/2 - depDr, zLitHaut = lg/2 + depGa;
     for (let i = 0; i <= nbLiteaux; i++) {
       const t = i / nbLiteaux;
-      const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele + 0.15;  // au-dessus des chevrons
-      addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
+      const z = zLitBas + t * (zLitHaut - zLitBas);
+      const y = Hbas + ((z + lg/2) / lg) * denivele + 0.15;  // au-dessus des chevrons
+      addBox(lgFilM + 0.1, 0.025, 0.04, cxFilM, y, z, woodMat);
     }
 
     // ===== AISSELIERS (jambes de force obliques aux pignons) =====
@@ -3379,9 +3394,9 @@ setPiece("Liteau");
     });
 
     // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
-    const rg = new THREE.PlaneGeometry(L + 0.4, longueurChevron + 0.3);
+    const rg = new THREE.PlaneGeometry(lgFilM + 0.1, lgRampM + 0.3);
     const roof = new THREE.Mesh(rg, monopenteRoofMat);
-    roof.position.set(0, yCentre + 0.20, 0);  // plus haut a cause des liteaux
+    roof.position.set(cxFilM, yCentre + 0.20 + dyRampM, dzRampM);  // plus haut a cause des liteaux
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
 
@@ -3431,6 +3446,13 @@ setPiece("Liteau");
   const drawHangar = () => {
     // Debord de panne au pignon, commun a toutes les pieces filantes du hangar.
     const dpH0 = Math.max(debordPanne, 0.4);
+    // ===== DEPASSE DE TOITURE PAR PIGNON =====
+    // Une rive NON cochee est coupee a l aplomb, comme en trad : sinon la queue de panne
+    // de 40 cm ferait un debord sur les quatre cotes quoi qu on decoche.
+    const dpHp = okDeb(0) ? Math.max(dpH0, depAv) : 0;   // pignon x positif = la facade
+    const dpHm = okDeb(1) ? Math.max(dpH0, depAr) : 0;   // pignon x negatif
+    const lgFilH = L + dpHp + dpHm;        // longueur des pieces filantes
+    const cxFilH = (dpHp - dpHm) / 2;      // et leur centre, decale si une seule rive deborde
     // ===== DALLE BETON (apparente) =====
     drawDalleBeton(L, lg, 0.3);
 
@@ -3468,8 +3490,8 @@ setPiece("Poteau");
 setPiece("Sabliere");
     // ===== SABLIERES (longues poutres sur les poteaux) =====
     const [sbB, sbH] = sec("Sabliere", 0.20, 0.20);
-    addBox(L + 2 * dpH0, sbH, sbB, 0, Ht, lg/2, woodMat);
-    addBox(L + 2 * dpH0, sbH, sbB, 0, Ht, -lg/2, woodMat);
+    addBox(lgFilH, sbH, sbB, cxFilH, Ht, lg/2, woodMat);
+    addBox(lgFilH, sbH, sbB, cxFilH, Ht, -lg/2, woodMat);
 
 setPiece("Ferme");
     // ===== FERMES COMPLETES (tous les ~3m) =====
@@ -3526,7 +3548,7 @@ setPiece("Panne faitiere");
     // addBox prend (dimX, dimY, dimZ) : la LARGEUR passait en hauteur, la faitiere etait
     // couchee. Le metre et l IFC enregistraient la meme erreur (section 300x200 au lieu
     // de 200x300). Hauteur = pfh, epaisseur = pfw, comme toutes les autres pieces.
-    addBox(L + 2 * dpH0, pfh, pfw, 0, ySousFaitiereH + pfh / 2, 0, woodMat);
+    addBox(lgFilH, pfh, pfw, cxFilH, ySousFaitiereH + pfh / 2, 0, woodMat);
 
     // ===== PANNES D APLOMB (droites, calees par echantignoles - pattern trad) =====
     setPiece("Panne");
@@ -3542,8 +3564,8 @@ setPiece("Panne faitiere");
       const zRefH = (lg/2) * (1 - t) + (arHH/2) * sinAH;
       const yPH = yRefH + (pw/2) * tanAH + eEchH + ph/2;
       pannesInfoH.push({ zRefH, yRefH });
-      addPanneDelardee(L + 2 * dpH0, ph, pw, 0, yPH, zRefH, tanAH, 1, delardement, woodMat);
-      addPanneDelardee(L + 2 * dpH0, ph, pw, 0, yPH, -zRefH, tanAH, -1, delardement, woodMat);
+      addPanneDelardee(lgFilH, ph, pw, cxFilH, yPH, zRefH, tanAH, 1, delardement, woodMat);
+      addPanneDelardee(lgFilH, ph, pw, cxFilH, yPH, -zRefH, tanAH, -1, delardement, woodMat);
     }
 
 setPiece("Echantignole");
@@ -3620,7 +3642,9 @@ setPiece("Echantignole");
       const dv = (dPerpChevH - chH/2) / cosAH;
       const dvH = chH / cosAH;
       const yLigneH = (z) => Ht + hf - z * tanAH;
-      const zE = lg/2;
+      // Le chevron depasse de la sabliere du cote demande : la ligne de rampant se
+      // prolonge telle quelle, l about reste d aplomb.
+      const zE = lg/2 + ((signZ === 1) ? depGa : depDr);
       const yB0 = yLigneH(0) + dv,  yH0 = yB0 + dvH;
       const yBE = yLigneH(zE) + dv, yHE = yBE + dvH;
       const x1 = x - chB/2, x2 = x + chB/2;
@@ -3661,18 +3685,22 @@ setPiece("Echantignole");
     // Toit prolonge jusqu au faitage (meme compensation que les chevrons A2)
     const ralT = dPerp * tanAH;
     const plToit = pl + ralT;
-    const hangarRoofMat = makeRoofMaterial(couv, L, plToit);
-    const rg = new THREE.PlaneGeometry(L + 2 * dpH0, plToit);
     const dY = dPerp * Math.cos(ang) + (ralT/2) * sinAH;
     const dZ = dPerp * Math.sin(ang) - (ralT/2) * cosAH;
-    const r1 = new THREE.Mesh(rg, hangarRoofMat);
-    r1.position.set(0, Ht + hf/2 + dY, lg/4 + dZ);
-    r1.rotation.x = ang - Math.PI/2;
-    scene.add(r1);
-    const r2 = new THREE.Mesh(rg, hangarRoofMat);
-    r2.position.set(0, Ht + hf/2 + dY, -lg/4 - dZ);
-    r2.rotation.x = -(ang - Math.PI/2);
-    scene.add(r2);
+    // Les deux pans peuvent avoir des debords d egout differents : chacun a donc sa
+    // propre longueur de rampant, et glisse vers le bas de la moitie de sa rallonge.
+    const posePanH = (sgn, depEgout) => {
+      const extB = depEgout / cosAH;
+      const plP = plToit + extB;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(lgFilH, plP),
+        makeRoofMaterial(couv, lgFilH, plP));
+      m.position.set(cxFilH, Ht + hf/2 + dY - (extB/2) * sinAH,
+        sgn * (lg/4 + dZ + (extB/2) * cosAH));
+      m.rotation.x = sgn * (ang - Math.PI/2);
+      scene.add(m);
+    };
+    posePanH(1, depGa);
+    posePanH(-1, depDr);
 
     // ===== PANNEAUX SOLAIRES (pan Z+, portrait, marges strictes - le surplus n est pas pose) =====
     if (params.solaire && SOLAIRE_KWC[params.solaire]) {
@@ -4147,6 +4175,16 @@ setPiece("Echantignole");
     const ang = Math.atan(denivele / lg);
     const longueurRampant = lg / Math.cos(ang);  // longueur du pan incline
     const yCentre = Hbas + denivele/2;
+    // ===== DEPASSE DE TOITURE =====
+    // L appentis est adosse : le cote z positif EST le mur de la maison, il ne peut pas
+    // deborder. depGa est donc volontairement ignore ici, seuls les deux pignons et
+    // l egout bas sont pilotables. Les 0.15 / 0.30 d origine deviennent le minimum.
+    const dpAp = okDeb(0) ? Math.max(0.15, depAv) : 0;   // pignon x positif = la facade
+    const dpAm = okDeb(1) ? Math.max(0.15, depAr) : 0;   // pignon x negatif
+    const lgFilA = L + dpAp + dpAm;      // longueur des pieces filantes
+    const cxFilA = (dpAp - dpAm) / 2;    // leur centre
+    const extBasA = okDeb(3) ? Math.max(0.15, depDr / Math.cos(ang)) : 0;  // egout bas, z-
+    const supBasA = extBasA - 0.15;      // ce qui s ajoute au debord de principe deja la
 
     // ===== REGLES METIER ADAPTATIVES =====
     // 1) Couverture -> couleur + espacement chevrons + espacement liteaux
@@ -4193,13 +4231,13 @@ setPiece("Poteau");
 setPiece("Sabliere");
     // ===== SABLIERE (basse avant, sur les poteaux) =====
     const [sbB, sbH] = sec("Sabliere", secSabliere, secSabliere);
-    addBox(L + 0.3, sbH, sbB, 0, Hbas, -lg/2, woodMat);
+    addBox(lgFilA, sbH, sbB, cxFilA, Hbas, -lg/2, woodMat);
 
 setPiece("Muraillere");
     // ===== MURAILLERE (panne fixee au mur d'adossement, recoit les abouts hauts des chevrons) =====
     const [muB, muH] = sec("Muraillere", secSabliere, secSabliere);
     const zMuraillere = lg/2 - muB/2 - 0.01; // plaquee contre le nu interieur du mur
-    addBox(L + 0.3, muH, muB, 0, Hhaut - muH/2, zMuraillere, woodMat);
+    addBox(lgFilA, muH, muB, cxFilA, Hhaut - muH/2, zMuraillere, woodMat);
 
 setPiece("Panne");
     // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
@@ -4209,7 +4247,7 @@ setPiece("Panne");
       const z = -lg/2 + t * lg;
       const y = Hbas + t * denivele;
       const [pnB, pnH] = sec("Panne", secPanne, secPanne);
-      addBox(L + 0.3, pnH, pnB, 0, y, z, woodMat);
+      addBox(lgFilA, pnH, pnB, cxFilA, y, z, woodMat);
       pannePositions.push({ y, z });
     }
 
@@ -4222,7 +4260,7 @@ setPiece("Chevron");
       chevronXs.push(x);
       const [chB, chH] = sec("Chevron", secChevron, secChevron);
       // Le chevron va du debord avant jusqu'a la muraillere (about hors du mur)
-      const rampantUtile = longueurRampant - (muB + 0.01) / Math.cos(ang) + 0.15; // -epaisseur muraillere, +debord avant
+      const rampantUtile = longueurRampant - (muB + 0.01) / Math.cos(ang) + extBasA; // -epaisseur muraillere, +depasse basse
       const decalRampant = -((longueurRampant + 0.2) - rampantUtile) / 2; // recentre vers l'avant (bas de pente)
       const dyC = decalRampant * Math.sin(ang);
       const dzC = decalRampant * Math.cos(ang);
@@ -4231,12 +4269,13 @@ setPiece("Chevron");
 
 setPiece("Liteau");
     // ===== LITEAUX (perpendiculaires aux chevrons, espacement adaptatif) =====
-    const nbLiteaux = Math.max(4, Math.floor(longueurRampant / espLiteau));
+    const zLitBasA = -lg/2 - (okDeb(3) ? depDr : 0);
+    const nbLiteaux = Math.max(4, Math.floor((longueurRampant + supBasA) / espLiteau));
     for (let i = 0; i <= nbLiteaux; i++) {
       const t = i / nbLiteaux;
-      const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele + secChevron + 0.07;
-      addBox(L + 0.4, 0.025, 0.04, 0, y, z, woodMat);
+      const z = zLitBasA + t * (lg/2 - zLitBasA);
+      const y = Hbas + ((z + lg/2) / lg) * denivele + secChevron + 0.07;
+      addBox(lgFilA + 0.1, 0.025, 0.04, cxFilA, y, z, woodMat);
     }
 
 setPiece("Echantignole");
@@ -4251,9 +4290,10 @@ setPiece("Echantignole");
     });
 
     // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
-    const rg = new THREE.PlaneGeometry(L + 0.4, longueurRampant + 0.3);
+    const rg = new THREE.PlaneGeometry(lgFilA + 0.1, longueurRampant + 0.3 + supBasA);
     const roof = new THREE.Mesh(rg, appentisRoofMat);
-    roof.position.set(0, yCentre + secChevron + 0.12, 0);
+    roof.position.set(cxFilA, yCentre + secChevron + 0.12 - (supBasA/2) * Math.sin(ang),
+      -(supBasA/2) * Math.cos(ang));
     roof.rotation.x = Math.PI/2 - ang;
     scene.add(roof);
   };
