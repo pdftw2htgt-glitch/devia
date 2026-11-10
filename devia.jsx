@@ -158,7 +158,7 @@ function motifMurCanvas(motif, couleur) {
 const EC5_LARGEUR_MINI = {
   Chevron:100, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:100, "Empannon de croupe":100,
-  Solive:60, "Solive balcon":60, "Lisse de rive":0, "Sommier balcon":0, "Poutre de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, "Solive balcon":60, "Lisse de rive":0, "Sommier balcon":0, "Poutre de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, Lambourde:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0, "Poteau MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
@@ -359,6 +359,7 @@ function recalerQuantitesDevis(parsed, agg) {
       ["lien", ["Lien"]],
       ["empannon", ["Empannon", "Empannon de croupe"]], ["chevron", ["Chevron"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
+      ["lambourde", ["Lambourde"]], ["moise", ["Porteuse"]],
       ["solive", ["Solive", "Solive balcon"]],
       ["sommier", ["Sommier balcon"]], ["poutre de rive", ["Poutre de rive"]],
       ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
@@ -446,6 +447,7 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       ["contrefiche", ["Contrefiche"]], ["poincon", ["Poincon"]],
       ["chevron", ["Chevron"]], ["empannon", ["Empannon", "Empannon de croupe"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
+      ["lambourde", ["Lambourde"]], ["moise", ["Porteuse"]],
       ["solive", ["Solive", "Solive balcon"]],
       ["sommier", ["Sommier balcon"]], ["poutre de rive", ["Poutre de rive"]],
       ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
@@ -3761,85 +3763,198 @@ setPiece("Echantignole");
   // APPENTIS (toit 1 pan accole a un mur arriere haut)
   // ============================================================
   const drawTerrasse = () => {
-    // Terrasse bois : basse sur plots (Ht <= 0.4m) ou surelevee sur poteaux
-    const hStruct = Math.max(Ht, 0.25); // hauteur du dessus de solives
-    const surPlots = hStruct <= 0.4;
-    const epLame = 0.028;               // lame 28x145
-    const lgLame = 0.145;
-    const jeuLame = 0.005;              // jeu entre lames
-    const [soB, soH] = sec("Solive", 0.08, 0.20);
-    const [poB, poH] = sec("Porteuse", 0.10, 0.24);
-    const yDessusSolive = hStruct - epLame;      // sous-face des lames
-    const ySolive = yDessusSolive - soH / 2;     // centre solives
-    const yPorteuse = yDessusSolive - soH - poH / 2; // centre porteuses (sous solives)
+    // ===== DEUX TERRASSES EN UNE, SELON params.appuis =====
+    // "dalle"    : dalle beton, CADRE de lambourdes de 45 coupe a l onglet dans les
+    //              angles, lambourdes intermediaires aboutees dedans, lames vissees.
+    // "ossature" : plots beton -> poteaux bois -> poutres MOISEES boulonnees de part et
+    //              d autre du poteau -> solives en travers suspendues dans des sabots,
+    //              dessus affleurant -> lames.
+    const modeT = ((params && params.appuis) === "dalle") ? "dalle" : "ossature";
+    const epLame = 0.028, lgLame = 0.145, jeuLame = 0.005;
+    // Entraxe des supports de lame : c est la charge PONCTUELLE qui commande (2 kN sur
+    // 50x50, EN 1991-1-1), pas la charge repartie. Meme regle que le balcon.
+    const ENTRAXE_LAME = 0.45;
+    const LONGUEUR_MAX_POUTRE = 5.0;             // longueur de debit en bois massif
+    const hStruct = Math.max(Ht, 0.25);          // dessus des lames
+    const yDessousLame = hStruct - epLame;       // tout le bois s arrete la
 
-    // ===== APPUIS =====
-    if (surPlots) {
-      // Plots beton (non structurels bois) : petits cubes gris sous les porteuses
+    // Charges d une terrasse : les memes qu un balcon (EN 1991-1-1 cat. A).
+    const qELUt = 1.35 * EC5_BALCON_G + 1.5 * EC5_BALCON_Q;
+    const qSLSt = EC5_BALCON_G + EC5_BALCON_Q;
+    const fmdT = 24 * 0.9 / 1.3, EmT = 11000 * 1000;
+    const porteeAdm = (b, h, wE, wS, cap) => Math.min(
+      Math.sqrt(8 * ((b * h * h / 6) * fmdT * 1000) / wE),
+      Math.pow((384 * EmT * (b * h * h * h / 12)) / (5 * wS * 300), 1 / 3), cap);
+
+    // ===== PRISME VERTICAL A PARTIR D UN CONTOUR EN PLAN =====
+    // Une coupe a l onglet est une coupe DANS LE PLAN, pas dans l elevation : on dessine
+    // donc la piece par son contour vu de dessus, puis on l extrude vers le haut.
+    const addPlanPrisme = (coins, yBas, h, mat) => {
+      let aire = 0;
+      for (let k = 0; k < coins.length; k++) {
+        const q = coins[(k + 1) % coins.length];
+        aire += coins[k][0] * q[1] - q[0] * coins[k][1];
+      }
+      const ord = (aire > 0) ? coins.slice().reverse() : coins;
+      const sh = new THREE.Shape();
+      sh.moveTo(ord[0][0], ord[0][1]);
+      for (let k = 1; k < ord.length; k++) sh.lineTo(ord[k][0], ord[k][1]);
+      sh.closePath();
+      const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false });
+      g.rotateX(Math.PI / 2);
+      g.translate(0, yBas + h, 0);
+      const mesh = new THREE.Mesh(g, mat || woodMat);
+      mesh.castShadow = true;
+      scene.add(mesh);
+    };
+    // Un cadre de 4 pieces coupees a l onglet : rectangle exterieur, rectangle interieur,
+    // et chaque angle se partage a 45 degres. On consigne chaque piece a sa longueur de
+    // debit, c est-a-dire mesuree sur sa face LA PLUS LONGUE.
+    const poseCadreOnglet = (demiX, demiZ, larg, yBas, h, mat) => {
+      const xi = demiX - larg, zi = demiZ - larg;
+      const faces = [
+        [[-demiX, demiZ], [demiX, demiZ], [xi, zi], [-xi, zi]],
+        [[-demiX, -demiZ], [-xi, -zi], [xi, -zi], [demiX, -demiZ]],
+        [[demiX, demiZ], [demiX, -demiZ], [xi, -zi], [xi, zi]],
+        [[-demiX, demiZ], [-xi, zi], [-xi, -zi], [-demiX, -demiZ]],
+      ];
+      faces.forEach((c, k) => {
+        addPlanPrisme(c, yBas, h, mat);
+        // Longueur de debit = la face LA PLUS LONGUE, c est-a-dire l exterieure.
+        // Et chaque piece est consignee a SON centre, pas a l origine : sans ca les
+        // quatre se superposent au milieu dans l export IFC.
+        const selonX = (k < 2);
+        const lgDebit = selonX ? (2 * demiX) : (2 * demiZ);
+        const cz = selonX ? ((k === 0) ? 1 : -1) * (demiZ - larg / 2) : 0;
+        const cx = selonX ? 0 : ((k === 2) ? 1 : -1) * (demiX - larg / 2);
+        if (selonX === true) logPiece(lgDebit, h, larg, { pos: [cx, yBas + h / 2, cz], rot: null, quat: null });
+        else logPiece(larg, h, lgDebit, { pos: [cx, yBas + h / 2, cz], rot: null, quat: null });
+      });
+    };
+
+    if (modeT === "dalle") {
+      // ===== DALLE BETON =====
+      const epDalle = 0.15;
+      const yHautDalle = yDessousLame - 0.045;        // 45 mm de lambourde entre les deux
+      addBox(L + 0.1, epDalle, lg + 0.1, 0, yHautDalle - epDalle / 2, 0, dalleMat);
+
+      // ===== LAMBOURDES 45 SUR LA DALLE =====
+      // 45 mm, c est la lambourde elle-meme : c est elle qui ventile la sous-face des
+      // lames. Le cadre peripherique est coupe a l onglet, les intermediaires s aboutent.
+      setPiece("Lambourde");
+      const lamH = 0.045, lamB = 0.07;
+      poseCadreOnglet(L / 2, lg / 2, lamB, yHautDalle, lamH, woodMat);
+      // Intermediaires dans le sens lg : perpendiculaires aux lames, donc c est leur
+      // ecartement SELON X qui fixe la portee de la lame.
+      const nbTravLam = Math.max(1, Math.ceil((L - lamB) / ENTRAXE_LAME));
+      const lgLamb = lg - 2 * lamB;
+      for (let k = 1; k < nbTravLam; k++) {
+        const x = -L / 2 + lamB / 2 + (k / nbTravLam) * (L - lamB);
+        addBox(lamB, lamH, lgLamb, x, yHautDalle + lamH / 2, 0, woodMat);
+      }
+      console.log("[DEVIA] Terrasse sur dalle : lambourdes 45x70 a " +
+        ((L - lamB) / nbTravLam).toFixed(3) + " m, cadre a l onglet, " +
+        (nbTravLam - 1) + " intermediaires");
+    } else {
+      // ===== OSSATURE BOIS COMPLETE =====
+      const [soB, soH] = sec("Solive", 0.08, 0.20);
+      const [moB, moH] = sec("Porteuse", 0.10, 0.24);
+      const [potB] = sec("Poteau", 0.12, 0.12);
+      // 1) Files de moises : c est la SOLIVE qui fixe leur ecartement.
+      const porteeSol = porteeAdm(soB, soH, qELUt * ENTRAXE_LAME, qSLSt * ENTRAXE_LAME, LONGUEUR_MAX_POUTRE);
+      const nbTravZ = Math.max(1, Math.ceil(lg / porteeSol));
+      const nbFiles = nbTravZ + 1;
+      const ecartFiles = lg / nbTravZ;
+      // 2) Poteaux sous les moises : c est la MOISE qui fixe leur entraxe. Elle est
+      //    double, donc chaque moitie ne reprend que la moitie de la bande.
+      const wMoiELU = qELUt * ecartFiles / 2, wMoiSLS = qSLSt * ecartFiles / 2;
+      const porteeMoi = porteeAdm(moB, moH, wMoiELU, wMoiSLS, LONGUEUR_MAX_POUTRE);
+      let nbTravX = Math.max(1, Math.ceil(L / porteeMoi));
+      while ((((L - potB) / nbTravX + potB / 2) > (LONGUEUR_MAX_POUTRE + 0.001)) && (nbTravX < 40)) {
+        nbTravX = nbTravX + 1;
+      }
+      const nbPotX = nbTravX + 1;
+      const xPotT = (i) => (-L / 2 + potB / 2 + (i / nbTravX) * (L - potB));
+      const zFile = (j) => (-lg / 2 + (j / nbTravZ) * lg);
+      const yHautBois = yDessousLame;                  // moises et solives affleurent
+      const yBasMoise = yHautBois - moH;
+      // 3) Plots beton sous chaque poteau
       setPiece("Plot");
       const plotMat = new THREE.MeshStandardMaterial({ color: 0x9a9aa0, roughness: 0.9, metalness: 0.0 });
-      const nbPlotsX = Math.max(2, Math.ceil(L / 1.2) + 1);
-      const nbFilesPlots = Math.max(2, Math.ceil(lg / 2.0) + 1);
-      for (let j = 0; j < nbFilesPlots; j++) {
-        const z = -lg/2 + (j / (nbFilesPlots - 1)) * lg;
-        for (let i = 0; i < nbPlotsX; i++) {
-          const x = -L/2 + (i / (nbPlotsX - 1)) * L;
-          const hPlot = Math.max(0.05, yPorteuse - poH / 2);
-          addBox(0.2, hPlot, 0.2, x, hPlot / 2, z, plotMat);
-        }
-      }
-    } else {
-      // Poteaux bois
-      setPiece("Poteau");
-      const [potB] = sec("Poteau", 0.12, 0.12);
-      const nbPotX = Math.max(2, Math.ceil(L / 2.0) + 1);
-      const nbFiles = Math.max(2, Math.ceil(lg / 2.0) + 1);
-      const hPot = yPorteuse - poH / 2;
+      const hPlot = Math.min(0.2, Math.max(0.08, yBasMoise * 0.25));
       for (let j = 0; j < nbFiles; j++) {
-        const z = -lg/2 + (j / (nbFiles - 1)) * lg;
         for (let i = 0; i < nbPotX; i++) {
-          const x = -L/2 + (i / (nbPotX - 1)) * L;
-          addBox(potB, hPot, potB, x, hPot / 2, z);
+          addBox(0.25, hPlot, 0.25, xPotT(i), hPlot / 2, zFile(j), plotMat);
+          // addBox ne consigne que le bois et le beton : une piece dessinee avec son
+          // propre materiau sort du metre en silence. On la consigne a la main.
+          logPiece(0.25, hPlot, 0.25, { pos: [xPotT(i), hPlot / 2, zFile(j)], rot: null, quat: null }, "Plot", "beton");
         }
       }
+      // 4) Poteaux bois, du plot jusqu au nu superieur : la moise les enserre.
+      setPiece("Poteau");
+      const hPotT = yHautBois - hPlot;
+      for (let j = 0; j < nbFiles; j++) {
+        for (let i = 0; i < nbPotX; i++) {
+          addBox(potB, hPotT, potB, xPotT(i), hPlot + hPotT / 2, zFile(j));
+        }
+      }
+      // 5) MOISES : deux poutres boulonnees de part et d autre du poteau, debitees en
+      //    troncons qui aboutent SUR un poteau et jamais au-dela de la longueur de debit.
+      setPiece("Porteuse");
+      for (let j = 0; j < nbFiles; j++) {
+        for (const sg of [-1, 1]) {
+          const zM = zFile(j) + sg * (potB / 2 + moB / 2);
+          for (let k = 0; k < nbTravX; k++) {
+            const x0 = (k === 0) ? (-L / 2) : xPotT(k);
+            const x1 = (k === (nbTravX - 1)) ? (L / 2) : xPotT(k + 1);
+            addBox(x1 - x0, moH, moB, (x0 + x1) / 2, yBasMoise + moH / 2, zM, woodMat);
+          }
+        }
+      }
+      // 6) SOLIVES en travers, suspendues entre deux files, dessus affleurant.
+      setPiece("Solive");
+      const nbTravSol = Math.max(1, Math.ceil((L - soB) / ENTRAXE_LAME));
+      const xSol = (i) => (-L / 2 + soB / 2 + (i / nbTravSol) * (L - soB));
+      const ySolT = yHautBois - soH / 2;
+      for (let j = 0; j < nbTravZ; j++) {
+        const z0 = zFile(j) + potB / 2 + moB, z1 = zFile(j + 1) - potB / 2 - moB;
+        for (let i = 0; i <= nbTravSol; i++) {
+          addBox(soB, soH, z1 - z0, xSol(i), ySolT, (z0 + z1) / 2, woodMat);
+        }
+      }
+      // 7) SABOTS : deux par solive, sur la face de la moise qui la recoit.
+      setPiece("Sabot");
+      const sabotMat = new THREE.MeshStandardMaterial({ color: 0x9aa0ab, roughness: 0.55, metalness: 0.75 });
+      for (let j = 0; j < nbTravZ; j++) {
+        const z0 = zFile(j) + potB / 2 + moB, z1 = zFile(j + 1) - potB / 2 - moB;
+        for (let i = 0; i <= nbTravSol; i++) {
+          for (const zS of [z0 + 0.03, z1 - 0.03]) {
+            addBox(soB + 0.008, soH * 0.75, 0.06, xSol(i), ySolT - soH * 0.1, zS, sabotMat);
+            logPiece(soB + 0.008, soH * 0.75, 0.06, { pos: [xSol(i), ySolT - soH * 0.1, zS], rot: null, quat: null }, "Sabot", "acier");
+          }
+        }
+      }
+      console.log("[DEVIA] Terrasse ossature : " + (nbFiles * nbPotX) + " plots et poteaux, " +
+        nbFiles + " files de moises a " + ecartFiles.toFixed(2) + " m, poteaux a " +
+        ((L - potB) / nbTravX).toFixed(2) + " m, solives a " +
+        ((L - soB) / nbTravSol).toFixed(3) + " m");
     }
 
-    // ===== PORTEUSES (dans le sens L, sur les files d'appuis) =====
-    setPiece("Porteuse");
-    const nbFilesP = Math.max(2, Math.ceil(lg / 2.0) + 1);
-    for (let j = 0; j < nbFilesP; j++) {
-      const z = -lg/2 + (j / (nbFilesP - 1)) * lg;
-      addBox(poB, poH, L, 0, yPorteuse, z, woodMat, [0, Math.PI / 2, 0]);
-    }
-
-    // ===== SOLIVES (dans le sens lg, entraxe 0.5m) =====
-    setPiece("Solive");
-    const nbSolives = Math.max(2, Math.round(L / 0.5) + 1);
-    for (let i = 0; i < nbSolives; i++) {
-      const x = -L/2 + (i / (nbSolives - 1)) * L;
-      addBox(soB, soH, lg, x, ySolive, 0, woodMat);
-    }
-
-    // ===== LAMES DE TERRASSE (dans le sens L, perpendiculaires aux solives) =====
+    // ===== LAMES DE TERRASSE (sens L, en travers des supports) =====
     setPiece("Lame de terrasse");
     const pas = lgLame + jeuLame;
     const nbLames = Math.floor(lg / pas);
     for (let k = 0; k < nbLames; k++) {
-      const z = -lg/2 + lgLame / 2 + k * pas;
-      addBox(lgLame, epLame, L, 0, hStruct - epLame / 2, z, woodMat, [0, Math.PI / 2, 0]);
+      const z = -lg / 2 + lgLame / 2 + k * pas;
+      addBox(L, epLame, lgLame, 0, hStruct - epLame / 2, z, woodMat);
     }
 
-    // ===== PLANCHES DE RIVE (bandeau peripherique, cache la structure) =====
+    // ===== BANDEAU DE RIVE, A L ONGLET DANS LES ANGLES =====
+    // Coupe a 45 dans les quatre angles : aucun bout de fil n apparait sur la tranche.
     setPiece("Planche de rive");
     const epRive = 0.022;
-    const hRive = soH + epLame + 0.02; // couvre solive + lame + petit debord
-    const yRive = hStruct - hRive / 2;
-    // 2 rives dans le sens L (devant/derriere)
-    addBox(L + 2 * epRive, hRive, epRive, 0, yRive, lg/2 + epRive/2, woodMat);
-    addBox(L + 2 * epRive, hRive, epRive, 0, yRive, -lg/2 - epRive/2, woodMat);
-    // 2 rives dans le sens lg (gauche/droite)
-    addBox(epRive, hRive, lg, L/2 + epRive/2, yRive, 0, woodMat);
-    addBox(epRive, hRive, lg, -L/2 - epRive/2, yRive, 0, woodMat);
+    const hRive = (modeT === "dalle") ? (0.045 + epLame + 0.02) : (sec("Porteuse", 0.10, 0.24)[1] + epLame + 0.02);
+    poseCadreOnglet(L / 2 + epRive, lg / 2 + epRive, epRive, hStruct - hRive, hRive, woodMat);
   };
 
   const drawSasLiaison = () => {
@@ -6305,6 +6420,7 @@ function agregerMetre(metre, densiteBois) {
   const map = {};
   metre.forEach((p) => {
     if (p.matiere === "beton") return; // la maconnerie n est pas du bois : hors metre et hors EC5
+    if (p.matiere === "acier") return; // sabots et quincaillerie : comptes a la piece, pas au m3
     if (p.matiere === "couverture") return; // la couverture est chiffree au m2, pas au volume de bois
     // cle = nom + section (pour distinguer p.ex. chevrons de sections differentes)
     const secKey = p.section[0] + "x" + p.section[1];
@@ -6690,6 +6806,7 @@ function Viewer3D({ params, onMetre }) {
       const parNom = {};
       metreVue.forEach((p) => {
         if (p.matiere === "beton") return;
+        if (p.matiere === "acier") return;
         const nomP = p.nom || "Piece";
         if (parNom[nomP] === undefined) parNom[nomP] = [];
         parNom[nomP].push(p);
