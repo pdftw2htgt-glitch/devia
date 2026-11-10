@@ -3912,6 +3912,36 @@ setPiece("Echantignole");
     const ySolive = hPlancher - soH / 2;             // solives : dessus a hPlancher (affleurant)
     const hPot = hPlancher - ppH;                    // tete de poteau sous la muraillere
     const zMur = lg / 2 - ppB / 2;                   // murailleres en rive
+    // Le poteau est plus large que la muraillere (150 contre 120) : centre sur le meme
+    // axe, son nu EXTERIEUR sortait de 15 mm. On le cale sur le nu du batiment.
+    const zPot = lg / 2 - potB / 2;
+    const lgSolive = lg - 2 * ppB;                  // s arretent contre les murailleres
+
+    // ===== PORTEE DE LA MURAILLERE, ET LONGUEUR MAXI DE DEBIT =====
+    // Avant : entraxe des poteaux a 3 m en dur, et la muraillere sortait en UNE piece de
+    // la longueur du batiment - 10 m de bois massif, ca ne se livre pas. Desormais c est
+    // la portee calculee qui commande, plafonnee par la longueur de debit, et chaque
+    // about de muraillere tombe SUR un poteau.
+    const LONGUEUR_MAX_POUTRE = 5.0;                // bois massif courant
+    const gPlanch = EC5_PLANCHER_REV + EC5_POIDS_CHARPENTE;
+    const qELUp = 1.35 * gPlanch + 1.5 * EC5_PLANCHER_Q;   // kN/m2
+    const qSLSp = gPlanch + EC5_PLANCHER_Q;                // kN/m2
+    const bandeMur = lgSolive / 2;                  // elle reprend une demi-portee de solive
+    const wMurELU = qELUp * bandeMur, wMurSLS = qSLSp * bandeMur;
+    const Wmur = ppB * ppH * ppH / 6, Imur = ppB * ppH * ppH * ppH / 12;
+    const fmdP = 24 * 0.9 / 1.3, EmP = 11000 * 1000;
+    const porteeMur = Math.min(
+      Math.sqrt(8 * (Wmur * fmdP * 1000) / wMurELU),             // flexion ELU
+      Math.pow((384 * EmP * Imur) / (5 * wMurSLS * 300), 1 / 3), // fleche <= L/300
+      LONGUEUR_MAX_POUTRE);
+    let nbTravP = Math.max(1, Math.ceil(L / porteeMur));
+    // Les travees de rive sont un demi-poteau plus longues : c est sur elles qu on verifie.
+    while ((((L - potB) / nbTravP + potB / 2) > (LONGUEUR_MAX_POUTRE + 0.001)) && (nbTravP < 40)) {
+      nbTravP = nbTravP + 1;
+    }
+    const nbPotX = nbTravP + 1;
+    const xPot = (i) => (-L/2 + potB/2 + (i / nbTravP) * (L - potB));
+    const entraxePot = (L - potB) / nbTravP;
 
     // ===== POTEAUX (2 files laterales sous les murailleres, entraxe max 3m) =====
     // Uniquement si le plancher est autoporte : sur murs porteurs (sous-sol maconne),
@@ -3919,13 +3949,31 @@ setPiece("Echantignole");
     const appuisEtage = ((params && params.appuis) === "murs") ? "murs" : "poteaux";
     if (appuisEtage === "poteaux") {
       setPiece("Poteau");
-      const ENTRAXE_MAX_POTEAUX = 3.0;
-      const nbPotX = Math.max(2, Math.ceil(L / ENTRAXE_MAX_POTEAUX) + 1);
-      for (const zf of [-zMur, zMur]) {
+      for (const zf of [-zPot, zPot]) {
         for (let i = 0; i < nbPotX; i++) {
-          const x = -L/2 + potB/2 + (i / (nbPotX - 1)) * (L - potB);
-          addBox(potB, hPot, potB, x, hPot / 2, zf);
+          addBox(potB, hPot, potB, xPot(i), hPot / 2, zf);
         }
+      }
+      // ===== LIENS DE CONTREVENTEMENT =====
+      // Deux files de poteaux et des poutres posees dessus, sans aucune triangulation :
+      // dans le sens de la longueur le portique est un mecanisme, rien ne l empeche de se
+      // coucher. Un lien a la tete de chaque poteau ferme le triangle. En travers, ce sont
+      // les solives et le panneau de plancher colle-visse qui font diaphragme.
+      setPiece("Lien");
+      const lienSec = Math.min(sec("Lien", 0.10, 0.10)[0], potB - 0.02);
+      const LIEN = Math.min(1.0, entraxePot / 2 - 0.15, hPot * 0.45);
+      if (LIEN > 0.25) {
+        for (const zf of [-zPot, zPot]) {
+          for (let i = 0; i < nbPotX; i++) {
+            for (const sg of [-1, 1]) {
+              const auBord = ((i === 0) && (sg === -1)) || ((i === nbPotX - 1) && (sg === 1));
+              if (auBord === true) continue;
+              addBeam(xPot(i), hPot - LIEN, zf, xPot(i) + sg * LIEN, hPot, zf, lienSec, woodMat);
+            }
+          }
+        }
+        console.log("[DEVIA] Etage : " + (nbPotX * 2) + " poteaux a " + entraxePot.toFixed(2) +
+          " m, liens de " + Math.round(LIEN * 100) + " cm a chaque tete");
       }
     } else {
       console.log("[DEVIA] Plancher sur murs porteurs : aucun poteau bois chiffre");
@@ -3946,13 +3994,20 @@ setPiece("Echantignole");
     }
 
     // ===== 2 MURAILLERES (sens L, en rive, sur les tetes de poteaux) =====
+    // Debitee en troncons qui aboutent SUR un poteau, jamais plus longs que le debit.
     setPiece("Muraillere");
-    addBox(L, ppH, ppB, 0, yMur, zMur, woodMat);
-    addBox(L, ppH, ppB, 0, yMur, -zMur, woodMat);
+    for (const zf of [zMur, -zMur]) {
+      for (let k = 0; k < nbTravP; k++) {
+        const x0 = (k === 0) ? (-L/2) : xPot(k);
+        const x1 = (k === (nbTravP - 1)) ? (L/2) : xPot(k + 1);
+        addBox(x1 - x0, ppH, ppB, (x0 + x1) / 2, yMur, zf, woodMat);
+      }
+    }
+    console.log("[DEVIA] Etage : muraillere, portee admissible " + porteeMur.toFixed(2) +
+      " m -> " + nbTravP + " troncons");
 
     // ===== SOLIVES (sens lg, ENTRE les murailleres, dessus affleurant) =====
     setPiece("Solive");
-    const lgSolive = lg - 2 * ppB;                   // s'arretent contre les murailleres
     const remedeP = (params && params.remede) || "";
     const entraxeSol = remedeP === "dense" ? 0.4 : 0.5;
     const nbSolives = Math.max(2, Math.round(L / entraxeSol) + 1);
@@ -3963,11 +4018,9 @@ setPiece("Echantignole");
       addBox(L, pbH, pbB, 0, ySolive - soH / 2 - pbH / 2, 0, woodMat);
       if (appuisEtage === "poteaux") {
         setPiece("Poteau");
-        const nbPotC = Math.max(2, Math.ceil(L / 3.0) + 1);
         const hPotC = ySolive - soH / 2 - pbH;
-        for (let i = 0; i < nbPotC; i++) {
-          const x = -L/2 + potB/2 + (i / (nbPotC - 1)) * (L - potB);
-          addBox(potB, hPotC, potB, x, hPotC / 2, 0);
+        for (let i = 0; i < nbPotX; i++) {
+          addBox(potB, hPotC, potB, xPot(i), hPotC / 2, 0);
         }
       }
       setPiece("Solive");
