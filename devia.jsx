@@ -3962,13 +3962,50 @@ setPiece("Echantignole");
       setPiece("Lien");
       const lienSec = Math.min(sec("Lien", 0.10, 0.10)[0], potB - 0.02);
       const LIEN = Math.min(1.0, entraxePot / 2 - 0.15, hPot * 0.45);
+      // ===== UN LIEN TAILLE, PAS UNE BARRE POSEE EN BIAIS =====
+      // addBeam coupe les deux abouts D EQUERRE sur l axe de la piece : le pied passait
+      // au travers du poteau et la tete ne touchait la muraillere que par une arete.
+      // Un lien se taille sur les pieces qu il rejoint : PIED D APLOMB contre le poteau,
+      // TETE A L HORIZONTALE sous la muraillere. A 45 degres, chacune de ces coupes
+      // mesure la section x racine de 2, et les deux faces longues restent paralleles.
+      // Pied et tete mordent de 20 mm dans la piece d en face : sans ce recouvrement,
+      // deux faces coplanaires se disputent la profondeur et se dessinent par plaques.
+      const MORS_LIEN = 0.02;
+      const addLienTaille = (xP, zf, sg) => {
+        const xF = xP + sg * (potB / 2 - MORS_LIEN);   // pied, dans la face du poteau
+        const yT = hPot + MORS_LIEN;                   // tete, sous la muraillere
+        const run = LIEN - potB / 2;                   // course reelle a 45 degres
+        const yF = yT - run;
+        const d = lienSec * Math.SQRT2;                // hauteur des coupes
+        const pts = [[xF, yF], [xF + sg * run, yT], [xF + sg * (run + d), yT], [xF, yF - d]];
+        // Winding trigo impose, sinon ExtrudeGeometry sort les normales a l envers.
+        let aire = 0;
+        for (let k = 0; k < pts.length; k++) {
+          const q = pts[(k + 1) % pts.length];
+          aire += pts[k][0] * q[1] - q[0] * pts[k][1];
+        }
+        const ordre = (aire < 0) ? pts.slice().reverse() : pts;
+        const sh = new THREE.Shape();
+        sh.moveTo(ordre[0][0], ordre[0][1]);
+        for (let k = 1; k < ordre.length; k++) sh.lineTo(ordre[k][0], ordre[k][1]);
+        sh.closePath();
+        const g = new THREE.ExtrudeGeometry(sh, { depth: lienSec, bevelEnabled: false });
+        const mesh = new THREE.Mesh(g, woodMat);
+        mesh.position.set(0, 0, zf - lienSec / 2);
+        mesh.castShadow = true;
+        scene.add(mesh);
+        // Debit : longueur hors tout mesuree SUR l axe du lien, coupes comprises.
+        const debit = run * Math.SQRT2 + 2 * lienSec;
+        const cx = (xF + xF + sg * (run + d)) / 2, cy = (yT + yF - d) / 2;
+        logPiece(lienSec, lienSec, debit, { pos: [cx, cy, zf], rot: [0, 0, sg * Math.PI / 4], quat: null });
+      };
       if (LIEN > 0.25) {
         for (const zf of [-zPot, zPot]) {
           for (let i = 0; i < nbPotX; i++) {
             for (const sg of [-1, 1]) {
               const auBord = ((i === 0) && (sg === -1)) || ((i === nbPotX - 1) && (sg === 1));
               if (auBord === true) continue;
-              addBeam(xPot(i), hPot - LIEN, zf, xPot(i) + sg * LIEN, hPot, zf, lienSec, woodMat);
+              addLienTaille(xPot(i), zf, sg);
             }
           }
         }
