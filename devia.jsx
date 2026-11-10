@@ -158,7 +158,7 @@ function motifMurCanvas(motif, couleur) {
 const EC5_LARGEUR_MINI = {
   Chevron:100, Panne:75, Sabliere:75, Arbaletrier:75, "Panne faitiere":75,
   Ferme:75, Poteau:100, Entrait:60, Aretier:75, Empannon:100, "Empannon de croupe":100,
-  Solive:60, "Solive balcon":60, "Lisse de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
+  Solive:60, "Solive balcon":60, "Lisse de rive":0, "Sommier balcon":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0, "Poteau MOB":0,
   "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
@@ -181,6 +181,11 @@ const EC5_G_TO_KN = 0.0098;       // kg/m2 -> kN/m2
 // --- CHARGES DE PLANCHER (decisions Mathis, a valider prof) ---
 const EC5_PLANCHER_REV = 60 * 0.0098;   // 60 kg/m2 : panneau 22, parquet, isolant, plafond
 const EC5_PLANCHER_Q = 150 * 0.0098;    // 150 kg/m2 : exploitation habitation, categorie A
+// BALCON : EN 1991-1-1 tableau 6.2, cat. A -> 3.5 kN/m2 en France, pas les 1.5 d un plancher
+// courant. G = le seul platelage. Ce sont les charges que le bloc console utilise depuis
+// le 24/07/2026 ; les solives, elles, recevaient encore les charges de TOITURE, neige comprise.
+const EC5_BALCON_G = 0.5;               // kN/m2 : lames + lambourdes
+const EC5_BALCON_Q = 3.5;               // kN/m2 : exploitation balcon, categorie A
 
 // Coefficient de forme mu1 selon la pente (formulaire RDM TCB p8)
 function ec5Mu1(pente) {
@@ -526,6 +531,7 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       ? entraxe4Pans
       : entraxeFermesOptimal(L_BAT_SEC, (params && params.couverture), sk, (params && params.pente), (params && params.dS), (params && params.solaire), (params && Number(params.altitude)) || 0));
   const PORTEE_MAX = 8;
+  const typeOuvrage0 = (params && (params.type_projet || params.type)) || "";
   const result = {};
   // Hypotheses du calcul, remontees a l ecran : sans elles on ne sait pas sur quelle
   // portee la panne a ete dimensionnee, donc on ne peut pas relire le resultat.
@@ -632,6 +638,9 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     }
     const clampable = (g.nom === "Panne" || g.nom === "Panne faitiere" || g.nom === "Sabliere") === false;
     if (clampable) { porteeCalc = Math.min(porteeCalc, PORTEE_MAX); }
+    // Le sommier reprend la solive a MI porte-a-faux : le moment maxi n est plus celui
+    // d une console de lg mais celui de l about, soit une console de lg/2. M divise par 4.
+    if (typeOuvrage0 === "balcon" && g.nom === "Solive balcon") { porteeCalc = porteeCalc / 2; }
     const entraxe = (g.nom === "Chevron" || g.nom === "Empannon" || g.nom === "Empannon de croupe") ? 0.6
                   : (g.nom === "Panne" || g.nom === "Panne faitiere") ? 1.5
                   : (g.nom === "Entrait" || g.nom === "Arbaletrier") ? ENTRAXE_FERMES
@@ -644,14 +653,18 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
     const typeOuvrage = (params && (params.type_projet || params.type)) || "";
     const piecesPlancher = ["Solive", "Poutre porteuse", "Muraillere"];
     const estPlancher = typeOuvrage === "etage" && piecesPlancher.indexOf(g.nom) >= 0;
+    // Un balcon porte des gens, pas de la neige : sans ca une solive de balcon etait
+    // dimensionnee a Chamonix pour 3.85 de sk (mesure : 220x80 -> 220x100).
+    const piecesBalcon = ["Solive balcon", "Muraillere", "Lisse de rive"];
+    const estBalcon = typeOuvrage === "balcon" && piecesBalcon.indexOf(g.nom) >= 0;
     const charge = {
       portee: porteeCalc, entraxe,
-      G: estPlancher ? (EC5_PLANCHER_REV + EC5_POIDS_CHARPENTE) : ch.G,
-      Q: estPlancher ? EC5_PLANCHER_Q : ch.Q,
-      S: estPlancher ? 0 : ch.S,
+      G: estBalcon ? EC5_BALCON_G : (estPlancher ? (EC5_PLANCHER_REV + EC5_POIDS_CHARPENTE) : ch.G),
+      Q: estBalcon ? EC5_BALCON_Q : (estPlancher ? EC5_PLANCHER_Q : ch.Q),
+      S: (estPlancher || estBalcon) ? 0 : ch.S,
       classeService: 2,
-      typeBatiment: estPlancher ? "plancher" : (((params && params.type_projet) === "hangar") ? "agricole" : "courant"),
-      dureeVariable: estPlancher ? "moyen" : "court",
+      typeBatiment: (estPlancher || estBalcon) ? "plancher" : (((params && params.type_projet) === "hangar") ? "agricole" : "courant"),
+      dureeVariable: (estPlancher || estBalcon) ? "moyen" : "court",
       altitude: (params && Number(params.altitude)) || 0,
       console: g.nom === "Solive balcon",
     };
@@ -4024,7 +4037,50 @@ setPiece("Echantignole");
       addBox(soB, soH, lg, x, ySolive, muB + lg / 2, woodMat);
     }
 
-    // ===== LISSE DE RIVE (en bout de consoles) =====
+    // ===== SOMMIER A MI PORTE-A-FAUX =====
+    // AVANT : la console passait sous UNE solive. Deux solives sur trois etaient des
+    // porte-a-faux dans le vide, et rien ne ramenait leur charge aux consoles - sauf la
+    // lisse de rive, qui n est pas une piece structurelle. Un sommier filant reprend
+    // desormais TOUTES les solives a mi porte-a-faux, et c est SA portee qui fixe
+    // l entraxe des consoles : un calcul, plus un pas sur les indices de solives.
+    setPiece("Sommier balcon");
+    const zSommier = muB + lg / 2;
+    // Charges EN 1991-1-1 cat. A, les memes que le bloc console depuis le 24/07/2026.
+    const qELUb = 1.35 * EC5_BALCON_G + 1.5 * EC5_BALCON_Q;   // kN/m2
+    const qSLSb = EC5_BALCON_G + EC5_BALCON_Q;                // kN/m2
+    // Appui a mi porte-a-faux avec about egal : la reaction au mur tombe a zero et le
+    // sommier reprend la totalite, soit q x lg par metre lineaire.
+    const wSomELU = qELUb * lg, wSomSLS = qSLSb * lg;         // kN/m
+    const fmdB = 24 * 0.9 / 1.3;        // MPa, C24, meme base que le bloc console
+    const EmB = 11000 * 1000;           // E0,mean C24 en kN/m2
+    const ENTRAXE_CONSOLE_MAX = 3.5;    // au dela, console et sommier deviennent hors d echelle
+    const GAMME_SOM = [[0.10,0.20],[0.12,0.24],[0.14,0.26],[0.16,0.28],[0.18,0.30],[0.20,0.32]];
+    // Portee admissible du sommier : flexion ELU, puis fleche <= L/300, puis plafond.
+    const porteeSom = (b, h) => {
+      const W = b * h * h / 6, I = b * h * h * h / 12;
+      const eFlex = Math.sqrt(8 * (W * fmdB * 1000) / wSomELU);
+      const eFlec = Math.pow((384 * EmB * I) / (5 * wSomSLS * 300), 1 / 3);
+      return Math.min(eFlex, eFlec, ENTRAXE_CONSOLE_MAX);
+    };
+    const nbCons = (b, h) => Math.max(2, Math.ceil(L / porteeSom(b, h)) + 1);
+    const gros = GAMME_SOM[GAMME_SOM.length - 1];
+    const nbConsoles = nbCons(gros[0], gros[1]);   // le moins de consoles atteignable
+    let somB = gros[0], somH = gros[1];
+    for (const bh of GAMME_SOM) {                  // puis la plus petite section qui y arrive
+      if (nbCons(bh[0], bh[1]) <= nbConsoles) { somB = bh[0]; somH = bh[1]; break; }
+    }
+    const entraxeConsole = L / Math.max(1, nbConsoles - 1);
+    const yDessusSom = ySolive - soH / 2;          // les solives reposent dessus
+    addBox(L, somH, somB, 0, yDessusSom - somH / 2, zSommier, woodMat);
+    console.log("[DEVIA] Balcon " + L.toFixed(2) + " x " + lg.toFixed(2) + " m : sommier " +
+      Math.round(somB*1000) + "x" + Math.round(somH*1000) + " charge " + wSomELU.toFixed(2) +
+      " kN/m, portee admissible " + porteeSom(somB, somH).toFixed(2) + " m -> " + nbConsoles +
+      " consoles a " + entraxeConsole.toFixed(2) + " m");
+
+    // ===== LISSE DE RIVE (en bout de solives) =====
+    // Depuis le sommier elle ne porte plus rien : toutes les solives sont reprises a
+    // mi porte-a-faux, l about de 1.25 m se tient seul. C est une piece de finition et
+    // de fixation du garde-corps, d ou son mini EC5 a zero - et c est assume.
     setPiece("Lisse de rive");
     addBox(L, soH, 0.06, 0, ySolive, muB + lg + 0.03, woodMat);
 
@@ -4039,27 +4095,26 @@ setPiece("Echantignole");
     //   C24 : fc0d = 21 x 0.9 / 1.3 = 14.5 MPa ; kc = table EC5 du cours (ec5GetKc)
     // - section retenue : premiere de la gamme qui passe, plancher esthetique 10x10
     setPiece("Console balcon");
-    const brasLg = lg / 2;                                // appui a mi porte-a-faux
+    const brasLg = zSommier;                              // le bras va jusque sous le sommier
     const hMont = brasLg;                                 // triangle a 45 vrai
-    const entraxeSol = (L - soB) / (nbSolives - 1);
-    const stepConsole = Math.max(1, Math.round(1.5 / Math.max(entraxeSol, 0.1)));
-    const qELUc = 1.35 * 0.5 + 1.5 * 3.5;                 // kN/m2
-    const Vc = qELUc * (stepConsole * entraxeSol) * lg;   // kN repris par console
+    // La console reprend la reaction du sommier sur sa travee, pas la charge d une solive.
+    const Vc = wSomELU * entraxeConsole;                  // kN repris par console
     const Nc = Vc * Math.SQRT2;                           // kN compression jambe a 45
     const lJambe = brasLg * Math.SQRT2;                   // m
     let cSec = 0.15;
-    for (const b of [0.08, 0.10, 0.12, 0.15]) {
+    for (const b of [0.08, 0.10, 0.12, 0.15, 0.18, 0.20]) {
       const lambda = (lJambe * Math.sqrt(12)) / b;        // elancement
       const kc = ec5GetKc("C24", lambda);
       const sigma = (Nc * 1e-3) / (b * b);                // MPa
       if (sigma <= kc * 14.5) { cSec = b; break; }
     }
     cSec = Math.max(cSec, 0.10);                          // plancher esthetique 10x10
-    const yBras = ySolive - soH / 2 - cSec / 2;           // bras plaque sous les solives
+    const yBras = yDessusSom - somH - cSec / 2;           // bras plaque sous le sommier
     const yTeteMont = yBras - cSec / 2;                   // tete du montant sous le bras
-    for (let i = 0; i < nbSolives; i++) {
-      if (i % stepConsole !== 0 && i !== nbSolives - 1) continue;
-      const x = -L/2 + soB/2 + (i / (nbSolives - 1)) * (L - soB);
+    // Repartition REGULIERE : l ancienne version posait un pas sur l indice des solives,
+    // donc le reste de la division atterrissait en bout (0.49 m sur un balcon de 5 m).
+    for (let i = 0; i < nbConsoles; i++) {
+      const x = -L/2 + cSec/2 + (i / Math.max(1, nbConsoles - 1)) * (L - cSec);
       // 1. Bras horizontal sous la solive, du mur vers l exterieur
       addBox(cSec, cSec, brasLg, x, yBras, brasLg / 2, woodMat);
       // 2. Montant vertical plaque sur la face du mur, sous le bras
