@@ -1650,6 +1650,38 @@ function buildScene3D(scene, params, opts) {
     else if (mat === dalleMat) logPiece(sx, sy, sz, { pos: [px, py, pz], rot: rot || null, quat: null }, "Dalle beton", "beton");
   };
 
+  // ===== CALEPINAGE DES LAMES =====
+  // Une largeur n est jamais un multiple exact du pas des lames. En posant
+  // floor(largeur / pas) il restait un VIDE au bord - 105 mm sur une terrasse de 4 m.
+  // Un charpentier ne laisse pas ce trou : il reprend d abord sur le JEU entre lames,
+  // qui a de la tolerance (3 a 8 mm pour un nominal de 5), et seulement si ca ne suffit
+  // pas il REFEND la derniere lame. On fait les deux, dans cet ordre.
+  // Rend la liste des lames en coordonnee locale : c = axe depuis le bord de depart.
+  const calepinerLames = (largeurTotale, lgL, jeuNom) => {
+    const n = Math.max(1, Math.round((largeurTotale + jeuNom) / (lgL + jeuNom)));
+    const jeuReel = (n > 1) ? ((largeurTotale - n * lgL) / (n - 1)) : 0;
+    const out = [];
+    if ((n > 1) && (jeuReel >= 0.003) && (jeuReel <= 0.008)) {
+      for (let k = 0; k < n; k++) out.push({ c: lgL / 2 + k * (lgL + jeuReel), w: lgL });
+      return { lames: out, jeu: jeuReel, refendue: 0 };
+    }
+    const pas = lgL + jeuNom;
+    const nPlein = Math.max(1, Math.floor((largeurTotale + jeuNom) / pas));
+    // Les lames pleines occupent nPlein x pas EN COMPTANT le jeu qui suit la derniere :
+    // c est de la que part la refendue, et ce qui reste jusqu au bord est sa largeur.
+    const reste = largeurTotale - nPlein * pas;
+    if (reste >= 0.012) {
+      for (let k = 0; k < nPlein; k++) out.push({ c: lgL / 2 + k * pas, w: lgL });
+      out.push({ c: nPlein * pas + reste / 2, w: reste });
+      return { lames: out, jeu: jeuNom, refendue: reste };
+    }
+    // Reste trop mince pour faire une lame : on le repartit dans les jeux. Aucun trou,
+    // et aucune chute ridicule de 8 mm a poser.
+    const jeuElargi = (nPlein > 1) ? ((largeurTotale - nPlein * lgL) / (nPlein - 1)) : 0;
+    for (let k = 0; k < nPlein; k++) out.push({ c: lgL / 2 + k * (lgL + jeuElargi), w: lgL });
+    return { lames: out, jeu: jeuElargi, refendue: 0 };
+  };
+
   // ===== PANNE DELARDEE =====
   // Section de la panne dans le plan (y, z), relative a son centre, une fois delardee.
   // tanP = tangente de la pente ; del = profondeur du plat a l arete aval (m).
@@ -3942,12 +3974,13 @@ setPiece("Echantignole");
 
     // ===== LAMES DE TERRASSE (sens L, en travers des supports) =====
     setPiece("Lame de terrasse");
-    const pas = lgLame + jeuLame;
-    const nbLames = Math.floor(lg / pas);
-    for (let k = 0; k < nbLames; k++) {
-      const z = -lg / 2 + lgLame / 2 + k * pas;
-      addBox(L, epLame, lgLame, 0, hStruct - epLame / 2, z, woodMat);
-    }
+    const calepT = calepinerLames(lg, lgLame, jeuLame);
+    calepT.lames.forEach((la) => {
+      addBox(L, epLame, la.w, 0, hStruct - epLame / 2, -lg / 2 + la.c, woodMat);
+    });
+    console.log("[DEVIA] Terrasse : " + calepT.lames.length + " lames sur " + lg.toFixed(2) +
+      " m, jeu " + Math.round(calepT.jeu * 1000) + " mm" +
+      ((calepT.refendue > 0) ? (", derniere refendue a " + Math.round(calepT.refendue * 1000) + " mm") : ""));
 
     // ===== BANDEAU DE RIVE, A L ONGLET DANS LES ANGLES =====
     // Coupe a 45 dans les quatre angles : aucun bout de fil n apparait sur la tranche.
@@ -4356,13 +4389,14 @@ setPiece("Echantignole");
     // Elles filent du mur vers l exterieur : perpendiculaires aux poutres, donc portees
     // par elles. C est ce qui permet de supprimer les solives.
     setPiece("Lame de terrasse");
-    const pas = lgLame + jeuLame;
     const lgLameZ = muB + lg;
-    const nbLames = Math.floor(L / pas);
-    for (let k = 0; k < nbLames; k++) {
-      const x = -L/2 + lgLame / 2 + k * pas;
-      addBox(lgLame, epLame, lgLameZ, x, hBalcon - epLame / 2, lgLameZ / 2, woodMat);
-    }
+    const calepB = calepinerLames(L, lgLame, jeuLame);
+    calepB.lames.forEach((la) => {
+      addBox(la.w, epLame, lgLameZ, -L/2 + la.c, hBalcon - epLame / 2, lgLameZ / 2, woodMat);
+    });
+    console.log("[DEVIA] Balcon : " + calepB.lames.length + " lames sur " + L.toFixed(2) +
+      " m, jeu " + Math.round(calepB.jeu * 1000) + " mm" +
+      ((calepB.refendue > 0) ? (", derniere refendue a " + Math.round(calepB.refendue * 1000) + " mm") : ""));
 
 
     // ===== GARDE-CORPS (NF P01-012 : h 1m, barreaudage <= 11cm) =====
