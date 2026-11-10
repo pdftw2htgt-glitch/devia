@@ -7587,6 +7587,9 @@ const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune
 const [formZoneVent, setFormZoneVent] = useState(""); // "" = selon la commune, sinon 1..4 imposee a la main
 const [sismiqueOfficiel, setSismiqueOfficiel] = useState(""); // zone sismique renvoyee par Georisques
 const [formAppuis, setFormAppuis] = useState("poteaux");
+// La terrasse partage le parametre "appuis" avec l etage, mais pas ses valeurs :
+// un etat separe evite qu un select se retrouve sur une option qui n existe pas chez lui.
+const [formTerrasseAppui, setFormTerrasseAppui] = useState("ossature");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
@@ -10283,7 +10286,8 @@ const loadProjectDetails = (project) => {
       carport_faitage: formCarportFaitage || undefined,
       carport_croupe: formCarportCroupe || undefined,
       debord_cotes: formDebordCotes || undefined,
-      appuis: formAppuis || undefined,
+      appuis: (((formType === "custom" ? formSousType : formType) === "terrasse")
+        ? formTerrasseAppui : formAppuis) || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
@@ -10608,7 +10612,8 @@ return (
                         carport_faitage: formCarportFaitage || undefined,
                         carport_croupe: formCarportCroupe || undefined,
                         debord_cotes: formDebordCotes || undefined,
-                        appuis: formAppuis || undefined,
+                        appuis: (((formType === "custom" ? formSousType : formType) === "terrasse")
+                          ? formTerrasseAppui : formAppuis) || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
@@ -10702,6 +10707,20 @@ return (
                         </div>
                       );
                     })()}
+                {typeEffectif === "terrasse" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>La terrasse repose sur</label>
+                    <select value={formTerrasseAppui} onChange={e => setFormTerrasseAppui(e.target.value)} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
+                      <option value="ossature">une ossature bois complete (plots, poteaux, moises, solives)</option>
+                      <option value="dalle">une dalle beton existante (lambourdes de 45 et lames)</option>
+                    </select>
+                    <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                      {formTerrasseAppui === "dalle"
+                        ? "Lambourdes de 45 mm posees a plat sur le beton, cadre coupe a l onglet dans les angles. La dalle n est pas chiffree en bois."
+                        : "Plots beton, poteaux, poutres moisees boulonnees de part et d autre du poteau, solives en travers dans des sabots. Les entraxes sont calcules."}
+                    </div>
+                  </div>
+                ) : null}
                 {typeEffectif === "etage" ? (
                   <div style={{ marginTop: 10 }}>
                     <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Le plancher porte sur</label>
