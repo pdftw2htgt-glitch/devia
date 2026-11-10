@@ -4028,10 +4028,10 @@ setPiece("Echantignole");
       addBox(L + 1.2, hBalcon + 1.2, 0.2, 0, (hBalcon + 1.2) / 2, -0.1, betonMat);
     }
 
-    // ===== MURAILLERE (fixee contre le mur, support arriere des solives) =====
-    setPiece("Muraillere");
+    // ===== MURAILLERE =====
+    // Sa section fixe la largeur d appui contre le mur, mais elle est DESSINEE plus bas,
+    // dans la serie des poutres filantes, pour rester exactement a leur niveau.
     const [muB, muH] = sec("Muraillere", 0.10, 0.24);
-    addBox(L, muH, muB, 0, hBalcon - epLame - muH / 2, muB / 2, woodMat);
 
     // ===== POUTRES FILANTES, ET PLUS DE SOLIVES =====
     // Schema arrete avec Mathis le 10/11. Plus aucune solive : des poutres filent la
@@ -4059,7 +4059,8 @@ setPiece("Echantignole");
     const fmdB = 24 * 0.9 / 1.3;        // MPa, C24, meme base que le bloc console
     const EmB = 11000 * 1000;           // E0,mean C24 en kN/m2
     const ENTRAXE_CONSOLE_MAX = 3.5;    // au dela, console et poutres deviennent hors d echelle
-    const GAMME_POU = [[0.08,0.18],[0.10,0.20],[0.12,0.24],[0.14,0.26],[0.16,0.28],[0.18,0.30],[0.20,0.32]];
+    const GAMME_POU = [[0.06,0.12],[0.06,0.16],[0.06,0.18],[0.08,0.16],[0.08,0.18],
+      [0.10,0.20],[0.12,0.24],[0.14,0.26],[0.16,0.28],[0.18,0.30],[0.20,0.32]];
     // Portee admissible d une poutre : flexion ELU, puis fleche <= L/300.
     const porteePou = (b, h, wE, wS) => {
       const W = b * h * h / 6, I = b * h * h * h / 12;
@@ -4084,16 +4085,24 @@ setPiece("Echantignole");
     // Toutes les poutres sont alignees PAR LE DESSUS : le platelage reste plan et c est
     // en dessous qu elles descendent, la ou le bras de console vient les chercher.
     const yHautPl = hBalcon - epLame;
-    const hPlusBas = Math.max(muH, pouH, rivH);
-    setPiece("Sommier balcon");
-    for (let k = 1; k < nbTravP; k++) {              // les intermediaires seulement
-      addBox(L, pouH, pouB, 0, yHautPl - pouH / 2, zMurP + k * entraxeP, woodMat);
+    // TOUTES les poutres ont la MEME hauteur : alignees par le dessus pour que le
+    // platelage reste plan, elles doivent l etre aussi par le dessous, sinon le bras de
+    // console ne vient au contact que de la plus profonde et les autres flottent. Seules
+    // les LARGEURS varient selon ce que chaque poutre reprend.
+    const hPou = Math.max(pouH, rivH);
+    const hPlusBas = hPou;
+    // Les poutres sont posees EN UNE SEULE SERIE, muraillere comprise : dans ce schema
+    // la muraillere EST la premiere poutre filante du platelage, rien de plus. Avant elle
+    // gardait sa hauteur de 240 alors que les autres faisaient 180 : elle descendait donc
+    // 60 mm plus bas, elle seule touchait le bras de console, et les six autres flottaient.
+    // La poutre de rive remplace l ancienne lisse 220x60, qui n etait pas structurelle
+    // alors que c est elle qui ferme le platelage. Ici elle est calculee.
+    for (let k = 0; k <= nbTravP; k++) {
+      const estMur = (k === 0), estRive = (k === nbTravP);
+      setPiece(estMur ? "Muraillere" : (estRive ? "Poutre de rive" : "Sommier balcon"));
+      const bK = estMur ? muB : (estRive ? rivB : pouB);
+      addBox(L, hPou, bK, 0, yHautPl - hPou / 2, zMurP + k * entraxeP, woodMat);
     }
-    // ===== POUTRE DE RIVE =====
-    // Elle remplace l ancienne lisse de rive 220x60, qui n etait pas une piece
-    // structurelle alors que c est elle qui ferme le platelage. Ici elle est calculee.
-    setPiece("Poutre de rive");
-    addBox(L, rivH, rivB, 0, yHautPl - rivH / 2, zRiveP, woodMat);
     console.log("[DEVIA] Balcon " + L.toFixed(2) + " x " + lg.toFixed(2) + " m : " + nbPoutres +
       " poutres a " + entraxeP.toFixed(3) + " m (lame 28 mm), intermediaires " +
       Math.round(pouB*1000) + "x" + Math.round(pouH*1000) + " a " + wIntELU.toFixed(2) +
