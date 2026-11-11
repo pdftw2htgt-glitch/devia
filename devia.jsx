@@ -187,6 +187,14 @@ const EC5_PLANCHER_Q = 150 * 0.0098;    // 150 kg/m2 : exploitation habitation, 
 const EC5_BALCON_G = 0.5;               // kN/m2 : lames + lambourdes
 const EC5_BALCON_Q = 3.5;               // kN/m2 : exploitation balcon, categorie A
 
+// Coefficient d EXPOSITION de la neige, EN 1991-1-3 par. 5.2. Il etait fige a 1.
+// Un site balaye par le vent garde moins de neige, un site abrite en garde plus.
+function ceNeige(expo) {
+  if (expo === "balaye") return 0.8;
+  if (expo === "abrite") return 1.2;
+  return 1.0;
+}
+
 // Coefficient de forme mu1 selon la pente (formulaire RDM TCB p8)
 function ec5Mu1(pente) {
   const a = pente || 35;
@@ -196,7 +204,7 @@ function ec5Mu1(pente) {
 }
 
 // Descente de charge G/Q/S (kN/m2). Neige conforme cours : s = mu1*(sk+dS)*cos(pente)
-function ec5DescenteCharge(couverture, sk, pente, dS) {
+function ec5DescenteCharge(couverture, sk, pente, dS, solaireArg, expoSite) {
   const poidsCouv = (EC5_COUV_POIDS[couverture] || 45) * EC5_G_TO_KN;
   let G = poidsCouv + EC5_POIDS_CHARPENTE;
   // Panneaux solaires en surimposition : +25 kg/m2 sur la zone equipee.
@@ -206,7 +214,7 @@ function ec5DescenteCharge(couverture, sk, pente, dS) {
   }
   const mu1 = ec5Mu1(pente);
   const skTot = (sk || 0.45) + (dS || 0); // sk brut + correction altitude (cours)
-  const sHoriz = mu1 * skTot;             // Ce = Ct = 1
+  const sHoriz = mu1 * skTot * ceNeige(expoSite);   // Ct = 1, Ce selon le site
   const S = sHoriz * Math.cos((pente || 35) * Math.PI / 180); // selon rampant
   const Q = EC5_Q_TOITURE;
   return { G, Q, S };
@@ -307,6 +315,8 @@ function metreTexteDepuisParams(p) {
       pignon: p.pignon,
       appuis: p.appuis,
       remede: p.remede,
+      site_expo: p.site_expo,
+      surface_dispo: p.surface_dispo,
       sk: (p.sk === undefined || p.sk === null) ? undefined : Number(p.sk),
       dS: (p.dS === undefined || p.dS === null) ? undefined : Number(p.dS),
       solaire: p.solaire,
@@ -429,6 +439,8 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       murs: (src && src.murs) || (parsed && parsed._murs) || undefined,
       pignon: (src && src.pignon) || (parsed && parsed._pignon) || undefined,
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
+      site_expo: (src && src.site_expo) || undefined,
+      surface_dispo: (src && src.surface_dispo) || undefined,
       remede: (src && src.remede) || (parsed && parsed._remede) || undefined,
       debord: (src && src.debord !== undefined && src.debord !== null) ? src.debord : ((parsed && parsed._debord) || 0),
       altitude: (src && src.altitude) || undefined,
@@ -486,7 +498,7 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
 // piece jusqu'a 13 m (reference stock fournisseur). Repli : 3,5 m historique.
 function entraxeFermesOptimal(L, couverture, sk, pente, dS, solaire, altitude) {
   try {
-    const ch = ec5DescenteCharge(couverture || "tuile_terre", sk || 0.45, pente || 35, dS || 0, solaire ? true : false);
+    const ch = ec5DescenteCharge(couverture || "tuile_terre", sk || 0.45, pente || 35, dS || 0, solaire ? true : false, arguments.length > 7 ? arguments[7] : undefined);
     for (let nInt = 1; nInt <= 10; nInt++) {
       const entraxe = L / nInt;
       if (entraxe > 13) continue;
@@ -504,7 +516,7 @@ function entraxeFermesOptimal(L, couverture, sk, pente, dS, solaire, altitude) {
 
 function calculerSectionsCharpente(metreAgrege, params, sk) {
   if (!metreAgrege || !metreAgrege.groupes) return {};
-  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire));
+  const ch = ec5DescenteCharge((params && params.couverture) || "tuile_terre", sk || 0.45, (params && params.pente) || 35, (params && params.dS) || 0, !!(params && params.solaire), (params && params.site_expo) || undefined);
   // entraxeFermesOptimal part de L/1 et retourne le PREMIER entraxe qui passe, donc le plus
   // grand : pour un batiment de 10 m elle repond 10 m. En hangar, les fermes sont dessinees
   // sur le rythme des poteaux, et les pannes doivent etre taillees pour CETTE portee-la,
@@ -7705,6 +7717,11 @@ const [formAppuis, setFormAppuis] = useState("poteaux");
 // La terrasse partage le parametre "appuis" avec l etage, mais pas ses valeurs :
 // un etat separe evite qu un select se retrouve sur une option qui n existe pas chez lui.
 const [formTerrasseAppui, setFormTerrasseAppui] = useState("ossature");
+// ===== ANALYSE DE TERRAIN =====
+const [formTerrainOuvert, setFormTerrainOuvert] = useState(false);
+const [formSiteExpo, setFormSiteExpo] = useState("normal");
+const [formSurfaceDispo, setFormSurfaceDispo] = useState("");
+const [formNotesTerrain, setFormNotesTerrain] = useState("");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
@@ -10403,6 +10420,8 @@ const loadProjectDetails = (project) => {
       debord_cotes: formDebordCotes || undefined,
       appuis: (((formType === "custom" ? formSousType : formType) === "terrasse")
         ? formTerrasseAppui : formAppuis) || undefined,
+      site_expo: formSiteExpo || undefined,
+      surface_dispo: formSurfaceDispo || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
@@ -10729,6 +10748,8 @@ return (
                         debord_cotes: formDebordCotes || undefined,
                         appuis: (((formType === "custom" ? formSousType : formType) === "terrasse")
                           ? formTerrasseAppui : formAppuis) || undefined,
+                        site_expo: formSiteExpo || undefined,
+                        surface_dispo: formSurfaceDispo || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
@@ -10932,6 +10953,82 @@ return (
                     </div>
                   );
                 })()}
+              </div>
+              {/* ===== ANALYSE DE TERRAIN ===== */}
+              <div style={{ marginBottom: 18 }}>
+                <button type="button" onClick={() => setFormTerrainOuvert(formTerrainOuvert === false)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                    background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"),
+                    color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"),
+                    fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  <span>Analyse de terrain</span>
+                  <span style={{ fontSize: 13 }}>{formTerrainOuvert ? "\u2212" : "+"}</span>
+                </button>
+                {formTerrainOuvert ? (
+                  <div style={{ marginTop: 10, padding: "12px", borderRadius: 8,
+                    background: cl("rgba(255,255,255,0.02)", "rgba(0,0,0,0.02)"),
+                    border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.08)") }}>
+
+                    {/* Ce que l app sait deja : rappel, pas re-saisie */}
+                    <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>Releve du site</div>
+                    <div style={{ fontSize: 11, lineHeight: 1.7, color: cl("#c8ccdd", "#3a3e50"), marginBottom: 14 }}>
+                      <div>Commune{" "}: {commune ? commune : "non renseignee"}</div>
+                      <div>Altitude{" "}: {altitude ? (altitude + " m") : "-"}</div>
+                      <div>Neige{" "}: zone {zoneInfo && zoneInfo.neige ? zoneInfo.neige : "-"}, sk{" "}
+                        {zoneInfo ? (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) : "-"} kN/m2</div>
+                      <div>Vent{" "}: zone {zoneInfo && zoneInfo.vent ? zoneInfo.vent : "-"}, qb{" "}
+                        {zoneInfo ? zoneInfo.qb : "-"} kN/m2</div>
+                      <div>Sismique{" "}: zone {sismiqueOfficiel ? sismiqueOfficiel : (zoneInfo && zoneInfo.sismique ? zoneInfo.sismique : "-")}</div>
+                    </div>
+
+                    {/* Environnement : c est le seul champ qui change le calcul */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Environnement du site</label>
+                    <select value={formSiteExpo} onChange={e => setFormSiteExpo(e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
+                      <option value="normal">Normal - ni degage ni protege</option>
+                      <option value="balaye">Balaye par le vent - plateau, crete, rien autour</option>
+                      <option value="abrite">Abrite - creux, entoure d arbres ou de batiments plus hauts</option>
+                    </select>
+                    <div style={{ color: formSiteExpo === "normal" ? cl("#9ca0b8", "#565a6c") : "#4ade80", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                      {formSiteExpo === "balaye"
+                        ? "Ce = 0,8 : le vent chasse la neige, la charge baisse de 20 pour cent."
+                        : (formSiteExpo === "abrite"
+                          ? "Ce = 1,2 : la neige s accumule, la charge monte de 20 pour cent."
+                          : "Ce = 1,0. Ce reglage agit directement sur la charge de neige (EN 1991-1-3 par. 5.2).")}
+                    </div>
+
+                    {/* Surface disponible */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Surface disponible</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input value={formSurfaceDispo} onChange={e => setFormSurfaceDispo(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 120 }} />
+                      <span style={{ color: "#545870", fontSize: 12 }}>m2</span>
+                    </div>
+                    {(() => {
+                      const sd = parseFloat(String(formSurfaceDispo || "").replace(",", "."));
+                      const lo = parseFloat(String(formLongueur || "").replace(",", "."));
+                      const la = parseFloat(String(formLargeur || "").replace(",", "."));
+                      if (isNaN(sd) || sd <= 0 || isNaN(lo) || isNaN(la)) return null;
+                      const emprise = lo * la;
+                      if (emprise <= sd) return (
+                        <div style={{ color: "#4ade80", fontSize: 10, marginTop: 5 }}>
+                          Emprise {Math.round(emprise * 10) / 10} m2, ca rentre.
+                        </div>
+                      );
+                      return (
+                        <div style={{ color: "#f87171", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                          Emprise {Math.round(emprise * 10) / 10} m2 pour {sd} m2 disponibles{" "}: l ouvrage ne rentre pas.
+                        </div>
+                      );
+                    })()}
+
+                    {/* Notes libres */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Notes de terrain</label>
+                    <textarea value={formNotesTerrain} onChange={e => setFormNotesTerrain(e.target.value)} rows={3}
+                      placeholder="Acces chantier, grue possible, pente du terrain, nature du sol..."
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
+                  </div>
+                ) : null}
               </div>
               {/* Depasse de toiture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
