@@ -317,6 +317,7 @@ function metreTexteDepuisParams(p) {
       remede: p.remede,
       site_expo: p.site_expo,
       surface_dispo: p.surface_dispo,
+      orientation: p.orientation,
       sk: (p.sk === undefined || p.sk === null) ? undefined : Number(p.sk),
       dS: (p.dS === undefined || p.dS === null) ? undefined : Number(p.dS),
       solaire: p.solaire,
@@ -441,6 +442,7 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       appuis: (src && src.appuis) || (parsed && parsed._appuis) || undefined,
       site_expo: (src && src.site_expo) || undefined,
       surface_dispo: (src && src.surface_dispo) || undefined,
+      orientation: (src && src.orientation) || undefined,
       remede: (src && src.remede) || (parsed && parsed._remede) || undefined,
       debord: (src && src.debord !== undefined && src.debord !== null) ? src.debord : ((parsed && parsed._debord) || 0),
       altitude: (src && src.altitude) || undefined,
@@ -7713,6 +7715,8 @@ const [formDebordCotes, setFormDebordCotes] = useState("1111"); // depasse de to
 const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..E imposee a la main
 const [formZoneVent, setFormZoneVent] = useState(""); // "" = selon la commune, sinon 1..4 imposee a la main
 const [sismiqueOfficiel, setSismiqueOfficiel] = useState(""); // zone sismique renvoyee par Georisques
+const [argilesNiveau, setArgilesNiveau] = useState("");   // retrait-gonflement des argiles (Georisques)
+const [radonClasse, setRadonClasse] = useState("");       // potentiel radon communal (Georisques)
 const [formAppuis, setFormAppuis] = useState("poteaux");
 // La terrasse partage le parametre "appuis" avec l etage, mais pas ses valeurs :
 // un etat separe evite qu un select se retrouve sur une option qui n existe pas chez lui.
@@ -7722,6 +7726,7 @@ const [formTerrainOuvert, setFormTerrainOuvert] = useState(false);
 const [formSiteExpo, setFormSiteExpo] = useState("normal");
 const [formSurfaceDispo, setFormSurfaceDispo] = useState("");
 const [formNotesTerrain, setFormNotesTerrain] = useState("");
+const [formOrientation, setFormOrientation] = useState("");
 const [formRemede, setFormRemede] = useState(""); // plancher trop porteur : "" / "porteuse" / "dense" // plancher : "poteaux" (autoporte) / "murs" (sur murs porteurs)
 const [formSolaire, setFormSolaire] = useState(""); // "" = aucun / "3" / "6" / "9" (kWc)
 const [formLongueur, setFormLongueur] = useState("");
@@ -9237,6 +9242,48 @@ return out;
     return () => { annule = true; };
   }, [addressData]);
 
+  // ARGILES ET RADON : la MEME API Georisques, le meme code INSEE, toujours sans cle.
+  // Le retrait-gonflement des argiles decide des fondations (plots, semelles, hors-gel),
+  // le radon concerne le vide sanitaire et la ventilation d un sous-sol.
+  // ATTENTION : le nom exact du champ qui porte le niveau n a pas pu etre verifie avant
+  // ecriture. On lit donc le PREMIER champ plausible present, et on trace la reponse
+  // brute une fois : si l affichage reste vide, la console dit quoi lire.
+  useEffect(() => {
+    const code = (addressData && addressData.citycode) || "";
+    if (code === "") { setArgilesNiveau(""); setRadonClasse(""); return; }
+    let annule = false;
+    const premier = (obj, cles) => {
+      if (obj === null || obj === undefined) return "";
+      for (const c of cles) {
+        const v = obj[c];
+        if (v !== undefined && v !== null && String(v) !== "") return String(v);
+      }
+      return "";
+    };
+    const interroger = async (route, cles, poser, libelle) => {
+      try {
+        const r = await fetch("https://georisques.gouv.fr/api/v1/" + route +
+          "?code_insee=" + encodeURIComponent(code));
+        if (r.ok === false) return;
+        const j = await r.json();
+        const d = (j && j.data && j.data[0]) ? j.data[0] : j;
+        const v = premier(d, cles);
+        if (annule === false) {
+          poser(v);
+          if (v === "") console.log("[DEVIA] " + libelle + " : champ non reconnu, reponse brute =", j);
+          else console.log("[DEVIA] " + libelle + " (Georisques) :", v);
+        }
+      } catch (e) {
+        console.warn("[DEVIA] Georisques injoignable pour " + libelle, e);
+      }
+    };
+    interroger("argiles", ["exposition", "niveau_alea", "alea", "codeExposition", "code_exposition", "niveau"],
+      setArgilesNiveau, "Retrait-gonflement des argiles");
+    interroger("radon", ["classe_potentiel", "classePotentiel", "potentiel", "classe"],
+      setRadonClasse, "Potentiel radon");
+    return () => { annule = true; };
+  }, [addressData]);
+
   // Auto-remplissage de l'altitude quand addressData est mis a jour
   useEffect(() => {
     if (!addressData || !addressData.lat || !addressData.lng) return;
@@ -10422,6 +10469,7 @@ const loadProjectDetails = (project) => {
         ? formTerrasseAppui : formAppuis) || undefined,
       site_expo: formSiteExpo || undefined,
       surface_dispo: formSurfaceDispo || undefined,
+      orientation: formOrientation || undefined,
       remede: formRemede || undefined,
       solaire: formSolaire || undefined,
       couverture: formCouverture || undefined,
@@ -10750,6 +10798,7 @@ return (
                           ? formTerrasseAppui : formAppuis) || undefined,
                         site_expo: formSiteExpo || undefined,
                         surface_dispo: formSurfaceDispo || undefined,
+                        orientation: formOrientation || undefined,
                         remede: formRemede || undefined,
                         longueur: parseFloat(formLongueur), largeur: parseFloat(formLargeur),
                         hauteur: formHauteur ? parseFloat(formHauteur) : undefined,
@@ -10980,7 +11029,14 @@ return (
                       <div>Vent{" "}: zone {zoneInfo && zoneInfo.vent ? zoneInfo.vent : "-"}, qb{" "}
                         {zoneInfo ? zoneInfo.qb : "-"} kN/m2</div>
                       <div>Sismique{" "}: zone {sismiqueOfficiel ? sismiqueOfficiel : (zoneInfo && zoneInfo.sismique ? zoneInfo.sismique : "-")}</div>
+                      <div>Argiles{" "}: {argilesNiveau ? argilesNiveau : (commune ? "non renvoye" : "-")}</div>
+                      <div>Radon{" "}: {radonClasse ? ("classe " + radonClasse) : (commune ? "non renvoye" : "-")}</div>
                     </div>
+                    {argilesNiveau ? (
+                      <div style={{ color: "#f59e0b", fontSize: 10, marginTop: -8, marginBottom: 14, lineHeight: 1.45 }}>
+                        Le retrait-gonflement conditionne les fondations{" "}: plots, semelles, profondeur hors-gel. DEVIA ne les calcule pas.
+                      </div>
+                    ) : null}
 
                     {/* Environnement : c est le seul champ qui change le calcul */}
                     <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Environnement du site</label>
@@ -11018,6 +11074,42 @@ return (
                       return (
                         <div style={{ color: "#f87171", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
                           Emprise {Math.round(emprise * 10) / 10} m2 pour {sd} m2 disponibles{" "}: l ouvrage ne rentre pas.
+                        </div>
+                      );
+                    })()}
+
+                    {/* Orientation du batiment */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Orientation de la facade</label>
+                    <select value={formOrientation} onChange={e => setFormOrientation(e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
+                      <option value="">Non renseignee</option>
+                      <option value="N">Nord</option>
+                      <option value="NE">Nord-Est</option>
+                      <option value="E">Est</option>
+                      <option value="SE">Sud-Est</option>
+                      <option value="S">Sud</option>
+                      <option value="SO">Sud-Ouest</option>
+                      <option value="O">Ouest</option>
+                      <option value="NO">Nord-Ouest</option>
+                    </select>
+                    {(() => {
+                      if (formOrientation === "") return null;
+                      const bon = ["S", "SE", "SO"].indexOf(formOrientation) >= 0;
+                      const moyen = ["E", "O"].indexOf(formOrientation) >= 0;
+                      if (formSolaire === "" || formSolaire === undefined) {
+                        return (
+                          <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginTop: 5 }}>
+                            Sert au reperage sur plan. Elle devient utile des que tu coches des panneaux solaires.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div style={{ color: bon ? "#4ade80" : (moyen ? "#f59e0b" : "#f87171"), fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                          {bon
+                            ? "Bonne exposition pour les panneaux solaires."
+                            : (moyen
+                              ? "Exposition moyenne pour les panneaux : rendement reduit."
+                              : "Mauvaise exposition : des panneaux au nord ne produiront quasiment rien.")}
                         </div>
                       );
                     })()}
