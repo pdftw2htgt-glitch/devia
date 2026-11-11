@@ -3423,9 +3423,16 @@ setPiece("Chevron");
     // L ENTRAIT EST MOISE : deux joues de part et d autre, qui serrent le poteau, le lien
     // et le talon d arbaletrier. C est ce qui lui permet de passer PLUS HAUT que la
     // sous-face d arbaletrier, entre la sabliere et la premiere panne intermediaire.
+    // ===== LA DALLE EST SOUS LE BOIS, PLUS AUTOUR =====
+    // drawDalleBeton coule une dalle de 140 mm dont le DESSUS est a +0,14 - elle est
+    // posee au dessus du plan de terrain, sinon elle serait invisible. Or les poteaux
+    // partaient de y = 0 : les quatre pieds etaient noyes de 140 mm dans le beton.
+    // Tout le bois demarre maintenant au nu superieur de la dalle, et la hauteur
+    // saisie devient la hauteur LIBRE sous l abri, mesuree depuis le sol fini.
+    const Y0C = 0.14;
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;
-    const Hhaut = Ht + denivele;
+    const Hbas = Ht + Y0C;
+    const Hhaut = Ht + Y0C + denivele;
     const angM = Math.atan(denivele / lg);
     const cosM = Math.cos(angM), sinM = Math.sin(angM), tanM = Math.tan(angM);
     const plM = lg / cosM;
@@ -3465,7 +3472,7 @@ setPiece("Chevron");
       const ySeat = yPanne(z0) - ph / 2;    // assise de la panne
       const yJoue = yPanne(z0) + ph / 2;    // la joue monte au ras du dessus de panne
       const pts = [
-        [zi, 0], [zo, 0],
+        [zi, Y0C], [zo, Y0C],
         [zo, yLigne(zo)], [zc2, yLigne(zc2)],
         [zc2, ySeat], [zc1, ySeat],
         [zc1, yJoue], [zi, yJoue],
@@ -3490,8 +3497,8 @@ setPiece("Chevron");
     const nbInt = Math.max(1, Math.ceil(L / 10));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
-    const hPotAv = yPanne(-lg / 2) + ph / 2;
-    const hPotAr = yPanne(lg / 2) + ph / 2;
+    const hPotAv = yPanne(-lg / 2) + ph / 2 - Y0C;   // longueur de DEBIT, depuis la dalle
+    const hPotAr = yPanne(lg / 2) + ph / 2 - Y0C;
     xs.forEach((x) => {
       addProfilZY(x, potB, contPoteau(-lg / 2, 1), hPotAv, potB, "Poteau");
       addProfilZY(x, potB, contPoteau(lg / 2, -1), hPotAr, potB, "Poteau");
@@ -3563,8 +3570,12 @@ setPiece("Chevron");
     // toiture saisie au formulaire vient s ajouter a l egout.
     const espM = getCouverture(opts && opts.couverture).espChevron;
     const nbCh = Math.max(2, Math.floor((L + dpG + dpD) / espM));
-    const extAv = Math.max(0.10, depDr);   // egout bas, z negatif
-    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2 + depGa;
+    // Sur une monopente la depasse n a de sens qu a l EGOUT, cote sabliere : c est la
+    // que l eau tombe. En tete, le chevron s arrete juste au dela de la faitiere, le
+    // temps de la couvrir. Avant, la depasse saisie s ajoutait AUSSI en tete - 390 mm
+    // de chevron et de couverture en porte-a-faux au dessus du poteau haut, pour rien.
+    const extAv = Math.max(0.10, debord);   // egout bas, z negatif : la seule depasse
+    const zChB = -lg / 2 - extAv, zChH = lg / 2 + pw / 2;
     const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosM;
     const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosM;
     const contCh = [
@@ -3576,13 +3587,35 @@ setPiece("Chevron");
       addProfilZY(x, chB, contCh, lgCh, chH, "Chevron");
     }
 
+setPiece("Liteau");
+    // ===== LITEAUX : ils manquaient completement sur le carport =====
+    // La couverture etait simplement remontee de 30 mm au dessus des chevrons pour ne
+    // pas scintiller avec eux, mais il n y avait AUCUN liteau - ni a l ecran, ni au
+    // devis. Sur un 6 x 5 c est une cinquantaine de metres lineaires de lattage oublies.
+    // Section selon le NF DTU 40.21 : elle depend de l ecartement des chevrons.
+    const secLitC = (espM <= 0.45) ? [0.027, 0.040]
+      : ((espM <= 0.60) ? [0.032, 0.050] : [0.040, 0.060]);
+    const epLitC = secLitC[0], lgLitC = secLitC[1];
+    const espLitC = getCouverture(opts && opts.couverture).espLiteau;
+    const lgLitX = L + dpG + dpD + chB;                 // il couvre jusqu au nu des chevrons de rive
+    const cxLitX = (dpD - dpG) / 2;
+    const zLitBas = zChB + lgLitC / 2, zLitHaut = zChH - lgLitC / 2;
+    const nbLitC = Math.max(2, Math.ceil((zLitHaut - zLitBas) / Math.max(0.05, espLitC * cosM)));
+    for (let i = 0; i <= nbLitC; i++) {
+      const z = zLitBas + (i / nbLitC) * (zLitHaut - zLitBas);
+      addBox(lgLitX, epLitC, lgLitC, cxLitX, dessCh(z) + epLitC / 2, z, woodMat);
+    }
+
     // ===== COUVERTURE (1 pan) : sommets explicites, une PlaneGeometry tournee sort a plat =====
     const couvM = getCouverture(opts && opts.couverture);
     const matM = makeRoofMaterial(couvM, L, plM);
     // Le plan de couverture etait EXACTEMENT au niveau du dessus des chevrons : les
     // deux surfaces se disputaient le meme pixel et les chevrons transparaissaient a
     // travers la texture. On le remonte de l epaisseur du liteau, comme en vrai.
-    const epLiteau = 0.03;
+    // Elle se pose maintenant SUR les liteaux. On la remonte de leur epaisseur, plus
+    // la demi-largeur du liteau fois la pente : un liteau est pose a plat, donc son
+    // arete aval remonte quand la pente augmente, et la couverture y replongeait.
+    const epLiteau = epLitC + (lgLitC / 2) * tanM + 0.008;
     // Elle depasse aussi l about des chevrons, sinon leurs 10 derniers centimetres
     // sortent de la couverture a l egout comme au faitage.
     const zAv = zChB - 0.04, zAr = zChH + 0.04;
