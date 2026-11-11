@@ -10725,7 +10725,222 @@ return (
                   <div style={{ color: "#545870", fontSize: 11, marginTop: 6 }}>Cree des groupes dans l'onglet Projets pour ranger tes devis.</div>
                 )}
               </div>
-              {/* Type de structure (menu deroulant) */}
+              {/* ===== ANALYSE DE TERRAIN ===== */}
+              <div style={{ marginBottom: 18 }}>
+                <button type="button" onClick={() => setFormTerrainOuvert(formTerrainOuvert === false)}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                    background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"),
+                    color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"),
+                    fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                  <span>Analyse de terrain</span>
+                  <span style={{ fontSize: 13 }}>{formTerrainOuvert ? "\u2212" : "+"}</span>
+                </button>
+                {/* Menu ferme : l essentiel reste lisible sans l ouvrir. */}
+                {formTerrainOuvert ? null : (
+                  <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.6, color: cl("#9ca0b8", "#565a6c") }}>
+                    {commune ? (
+                      <span>
+                        {commune}{altitude ? (", " + altitude + " m") : ""}
+                        {zoneInfo ? (" \u00b7 neige " + (zoneInfo.neige || "-") + " (" +
+                          (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + " kN/m2)") : ""}
+                        {zoneInfo ? (" \u00b7 vent " + (zoneInfo.vent || "-")) : ""}
+                        {(sismiqueOfficiel || (zoneInfo && zoneInfo.sismique)) ? (" \u00b7 sismique " +
+                          (sismiqueOfficiel ? sismiqueOfficiel : zoneInfo.sismique)) : ""}
+                        {formSiteExpo === "balaye" ? " \u00b7 site balaye" : (formSiteExpo === "abrite" ? " \u00b7 site abrite" : "")}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#f59e0b" }}>Aucune localisation : neige, vent et sismique sont supposes.</span>
+                    )}
+                  </div>
+                )}
+                {formTerrainOuvert ? (
+                  <div style={{ marginTop: 10, padding: "12px", borderRadius: 8,
+                    background: cl("rgba(255,255,255,0.02)", "rgba(0,0,0,0.02)"),
+                    border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.08)") }}>
+
+                    {/* Les vrais champs du site, deplaces ici depuis le bas du formulaire */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                      <div>
+                        <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Localisation</label>
+                        <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Tape une ville ou une adresse — la recherche se fait en direct" style={inputStyle} />
+                        {/* Liste de suggestions de communes (gestion homonymes) */}
+                        {communeSuggestions.length > 0 && (
+                          <div style={{ marginTop: 6, background: "#0e1118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
+                            {communeSuggestions.map((s, i) => (
+                              <button key={i} type="button"
+                                onClick={() => {
+                                  setCommuneChoisie(true);
+                                  // Adresse complete -> on garde la rue dans le champ ; commune -> "Ville CP"
+                                  const estVilleSug = (s.type === "municipality");
+                                  setCommune(estVilleSug ? (s.ville + (s.codePostal ? " " + s.codePostal : "")) : s.label);
+                                  setAddressData(s);
+                                  setCommuneSuggestions([]);
+                                }}
+                                style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", cursor: "pointer",
+                                  background: "transparent", border: "none", borderBottom: i < communeSuggestions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                                  color: cl("#d0d2dc", "#3a3e50"), fontSize: 13 }}
+                                onMouseEnter={e => e.currentTarget.style.background = "rgba(240,192,64,0.08)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                                <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.type === "municipality" ? (s.ville || s.label) : s.label}</span>
+                                <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11 }}>
+                                  {" — "}
+                                  {s.type === "municipality" ? (s.context || "") : ((s.codePostal ? s.codePostal + " " : "") + (s.ville || ""))}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
+                        <input value={altitude} onChange={e => { setAltitude(e.target.value); altitudeManuelle.current = true; }} type="number" placeholder="200" style={inputStyle} />
+                      </div>
+                    </div>
+                    {zoneInfo && zoneInfo.inconnue === true && addressData && rechercheAdresse === false && communeSuggestions.length === 0 ? (
+                      <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.45)", color: themeMode === "light" ? "#9b1c1c" : "#fca5a5", fontSize: 12, lineHeight: 1.5 }}>
+                        Commune non localisee : choisis-la dans la liste de suggestions pour que DEVIA
+                        trouve sa zone de neige, ou impose la zone ci-dessous.
+                      </div>
+                    ) : null}
+                    {(commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
+                      <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)", border: themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.08)", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, lineHeight: 1.5 }}>
+                        Aucune adresse trouvee pour le moment. Continue a taper le numero, la rue et la
+                        ville : la recherche se fait a chaque frappe.
+                      </div>
+                    ) : null}
+                    {zoneInfo && zoneInfo.depMixte ? (
+                      <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.45)", color: themeMode === "light" ? "#92400e" : "#fcd34d", fontSize: 12, lineHeight: 1.5 }}>
+                        Ce departement compte plusieurs zones de neige (<strong>{zoneInfo.depMixte}</strong>) et le
+                        decoupage par cantons n est pas detaille dans la source. DEVIA retient la
+                        <strong> plus forte</strong> par securite. Si tu sais que le chantier est en zone basse,
+                        impose-la ci-dessous : tu economiseras du bois.
+                      </div>
+                    ) : null}
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Zone de neige</label>
+                      <select value={formZoneNeige} onChange={e => setFormZoneNeige(e.target.value)}
+                        style={{ ...inputStyle, cursor: "pointer" }}>
+                        <option value="">Selon la commune (automatique)</option>
+                        <option value="A1">A1 - 0,45 kN/m2</option>
+                        <option value="A2">A2 - 0,45 kN/m2</option>
+                        <option value="B1">B1 - 0,55 kN/m2</option>
+                        <option value="B2">B2 - 0,55 kN/m2</option>
+                        <option value="C1">C1 - 0,65 kN/m2</option>
+                        <option value="C2">C2 - 0,65 kN/m2</option>
+                        <option value="D">D - 0,90 kN/m2</option>
+                        <option value="E">E - 1,40 kN/m2</option>
+                      </select>
+                    </div>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Zone de vent</label>
+                      <select value={formZoneVent} onChange={e => setFormZoneVent(e.target.value)}
+                        style={{ ...inputStyle, cursor: "pointer" }}>
+                        <option value="">Selon la commune (automatique)</option>
+                        <option value="1">1 - 22 m/s (interieur des terres)</option>
+                        <option value="2">2 - 24 m/s</option>
+                        <option value="3">3 - 26 m/s</option>
+                        <option value="4">4 - 28 m/s (littoral, Corse)</option>
+                      </select>
+                    </div>
+                    {zoneInfo && (addressData || formZoneNeige || formZoneVent) && (
+                      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                        <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk} kN/m2</Badge>
+                        <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
+                        <Badge color="#f97316">Sismique {zoneInfo.sismique} - {zoneInfo.ag}g</Badge>
+                        {zoneInfo.inconnue === true ? <Badge color="#ef4444">Commune non localisee - neige SUPPOSEE</Badge> : null}
+                        {zoneInfo.forcee === true ? <Badge color="#22c55e">Neige imposee a la main</Badge> : null}
+                        {zoneInfo.sismiqueOfficiel === true ? <Badge color="#22c55e">Sismique officiel (Georisques)</Badge> : null}
+                        {zoneInfo.sismiqueInconnu === true ? <Badge color="#ef4444">Sismique SUPPOSE</Badge> : null}
+                        {zoneInfo.ventInconnu === true ? <Badge color="#ef4444">Vent SUPPOSE - a verifier</Badge> : null}
+                        {zoneInfo.ventForce === true ? <Badge color="#22c55e">Vent impose a la main</Badge> : null}
+                      </div>
+                    )}
+
+                    {/* Environnement : c est le seul champ qui change le calcul */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Environnement du site</label>
+                    <select value={formSiteExpo} onChange={e => setFormSiteExpo(e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
+                      <option value="normal">Normal - ni degage ni protege</option>
+                      <option value="balaye">Balaye par le vent - plateau, crete, rien autour</option>
+                      <option value="abrite">Abrite - creux, entoure d arbres ou de batiments plus hauts</option>
+                    </select>
+                    <div style={{ color: formSiteExpo === "normal" ? cl("#9ca0b8", "#565a6c") : "#4ade80", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                      {formSiteExpo === "balaye"
+                        ? "Ce = 0,8 : le vent chasse la neige, la charge baisse de 20 pour cent."
+                        : (formSiteExpo === "abrite"
+                          ? "Ce = 1,2 : la neige s accumule, la charge monte de 20 pour cent."
+                          : "Ce = 1,0. Ce reglage agit directement sur la charge de neige (EN 1991-1-3 par. 5.2).")}
+                    </div>
+
+                    {/* Surface disponible */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Surface disponible</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input value={formSurfaceDispo} onChange={e => setFormSurfaceDispo(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 120 }} />
+                      <span style={{ color: "#545870", fontSize: 12 }}>m2</span>
+                    </div>
+                    {(() => {
+                      const sd = parseFloat(String(formSurfaceDispo || "").replace(",", "."));
+                      const lo = parseFloat(String(formLongueur || "").replace(",", "."));
+                      const la = parseFloat(String(formLargeur || "").replace(",", "."));
+                      if (isNaN(sd) || sd <= 0 || isNaN(lo) || isNaN(la)) return null;
+                      const emprise = lo * la;
+                      if (emprise <= sd) return (
+                        <div style={{ color: "#4ade80", fontSize: 10, marginTop: 5 }}>
+                          Emprise {Math.round(emprise * 10) / 10} m2, ca rentre.
+                        </div>
+                      );
+                      return (
+                        <div style={{ color: "#f87171", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                          Emprise {Math.round(emprise * 10) / 10} m2 pour {sd} m2 disponibles{" "}: l ouvrage ne rentre pas.
+                        </div>
+                      );
+                    })()}
+
+                    {/* Orientation du batiment */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Orientation de la facade</label>
+                    <select value={formOrientation} onChange={e => setFormOrientation(e.target.value)}
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
+                      <option value="">Non renseignee</option>
+                      <option value="N">Nord</option>
+                      <option value="NE">Nord-Est</option>
+                      <option value="E">Est</option>
+                      <option value="SE">Sud-Est</option>
+                      <option value="S">Sud</option>
+                      <option value="SO">Sud-Ouest</option>
+                      <option value="O">Ouest</option>
+                      <option value="NO">Nord-Ouest</option>
+                    </select>
+                    {(() => {
+                      if (formOrientation === "") return null;
+                      const bon = ["S", "SE", "SO"].indexOf(formOrientation) >= 0;
+                      const moyen = ["E", "O"].indexOf(formOrientation) >= 0;
+                      if (formSolaire === "" || formSolaire === undefined) {
+                        return (
+                          <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginTop: 5 }}>
+                            Sert au reperage sur plan. Elle devient utile des que tu coches des panneaux solaires.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div style={{ color: bon ? "#4ade80" : (moyen ? "#f59e0b" : "#f87171"), fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
+                          {bon
+                            ? "Bonne exposition pour les panneaux solaires."
+                            : (moyen
+                              ? "Exposition moyenne pour les panneaux : rendement reduit."
+                              : "Mauvaise exposition : des panneaux au nord ne produiront quasiment rien.")}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Notes libres */}
+                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Notes de terrain</label>
+                    <textarea value={formNotesTerrain} onChange={e => setFormNotesTerrain(e.target.value)} rows={3}
+                      placeholder="Acces chantier, grue possible, pente du terrain, nature du sol..."
+                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
+                  </div>
+                ) : null}
+              </div>              {/* Type de structure (menu deroulant) */}
               <div style={{ marginBottom: 18 }}>
                 <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 8, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   Type de structure <span style={{ color: "#f0c040" }}>*</span>
@@ -11003,125 +11218,7 @@ return (
                   );
                 })()}
               </div>
-              {/* ===== ANALYSE DE TERRAIN ===== */}
-              <div style={{ marginBottom: 18 }}>
-                <button type="button" onClick={() => setFormTerrainOuvert(formTerrainOuvert === false)}
-                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                    background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"),
-                    color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"),
-                    fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  <span>Analyse de terrain</span>
-                  <span style={{ fontSize: 13 }}>{formTerrainOuvert ? "\u2212" : "+"}</span>
-                </button>
-                {formTerrainOuvert ? (
-                  <div style={{ marginTop: 10, padding: "12px", borderRadius: 8,
-                    background: cl("rgba(255,255,255,0.02)", "rgba(0,0,0,0.02)"),
-                    border: cl("1px solid rgba(255,255,255,0.06)", "1px solid rgba(0,0,0,0.08)") }}>
 
-                    {/* Ce que l app sait deja : rappel, pas re-saisie */}
-                    <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginBottom: 6, letterSpacing: "0.04em", textTransform: "uppercase" }}>Releve du site</div>
-                    <div style={{ fontSize: 11, lineHeight: 1.7, color: cl("#c8ccdd", "#3a3e50"), marginBottom: 14 }}>
-                      <div>Commune{" "}: {commune ? commune : "non renseignee"}</div>
-                      <div>Altitude{" "}: {altitude ? (altitude + " m") : "-"}</div>
-                      <div>Neige{" "}: zone {zoneInfo && zoneInfo.neige ? zoneInfo.neige : "-"}, sk{" "}
-                        {zoneInfo ? (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) : "-"} kN/m2</div>
-                      <div>Vent{" "}: zone {zoneInfo && zoneInfo.vent ? zoneInfo.vent : "-"}, qb{" "}
-                        {zoneInfo ? zoneInfo.qb : "-"} kN/m2</div>
-                      <div>Sismique{" "}: zone {sismiqueOfficiel ? sismiqueOfficiel : (zoneInfo && zoneInfo.sismique ? zoneInfo.sismique : "-")}</div>
-                      <div>Argiles{" "}: {argilesNiveau ? argilesNiveau : (commune ? "non renvoye" : "-")}</div>
-                      <div>Radon{" "}: {radonClasse ? ("classe " + radonClasse) : (commune ? "non renvoye" : "-")}</div>
-                    </div>
-                    {argilesNiveau ? (
-                      <div style={{ color: "#f59e0b", fontSize: 10, marginTop: -8, marginBottom: 14, lineHeight: 1.45 }}>
-                        Le retrait-gonflement conditionne les fondations{" "}: plots, semelles, profondeur hors-gel. DEVIA ne les calcule pas.
-                      </div>
-                    ) : null}
-
-                    {/* Environnement : c est le seul champ qui change le calcul */}
-                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Environnement du site</label>
-                    <select value={formSiteExpo} onChange={e => setFormSiteExpo(e.target.value)}
-                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
-                      <option value="normal">Normal - ni degage ni protege</option>
-                      <option value="balaye">Balaye par le vent - plateau, crete, rien autour</option>
-                      <option value="abrite">Abrite - creux, entoure d arbres ou de batiments plus hauts</option>
-                    </select>
-                    <div style={{ color: formSiteExpo === "normal" ? cl("#9ca0b8", "#565a6c") : "#4ade80", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
-                      {formSiteExpo === "balaye"
-                        ? "Ce = 0,8 : le vent chasse la neige, la charge baisse de 20 pour cent."
-                        : (formSiteExpo === "abrite"
-                          ? "Ce = 1,2 : la neige s accumule, la charge monte de 20 pour cent."
-                          : "Ce = 1,0. Ce reglage agit directement sur la charge de neige (EN 1991-1-3 par. 5.2).")}
-                    </div>
-
-                    {/* Surface disponible */}
-                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Surface disponible</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <input value={formSurfaceDispo} onChange={e => setFormSurfaceDispo(e.target.value)} type="number" placeholder="0" style={{ ...inputStyle, maxWidth: 120 }} />
-                      <span style={{ color: "#545870", fontSize: 12 }}>m2</span>
-                    </div>
-                    {(() => {
-                      const sd = parseFloat(String(formSurfaceDispo || "").replace(",", "."));
-                      const lo = parseFloat(String(formLongueur || "").replace(",", "."));
-                      const la = parseFloat(String(formLargeur || "").replace(",", "."));
-                      if (isNaN(sd) || sd <= 0 || isNaN(lo) || isNaN(la)) return null;
-                      const emprise = lo * la;
-                      if (emprise <= sd) return (
-                        <div style={{ color: "#4ade80", fontSize: 10, marginTop: 5 }}>
-                          Emprise {Math.round(emprise * 10) / 10} m2, ca rentre.
-                        </div>
-                      );
-                      return (
-                        <div style={{ color: "#f87171", fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
-                          Emprise {Math.round(emprise * 10) / 10} m2 pour {sd} m2 disponibles{" "}: l ouvrage ne rentre pas.
-                        </div>
-                      );
-                    })()}
-
-                    {/* Orientation du batiment */}
-                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Orientation de la facade</label>
-                    <select value={formOrientation} onChange={e => setFormOrientation(e.target.value)}
-                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 13, cursor: "pointer" }}>
-                      <option value="">Non renseignee</option>
-                      <option value="N">Nord</option>
-                      <option value="NE">Nord-Est</option>
-                      <option value="E">Est</option>
-                      <option value="SE">Sud-Est</option>
-                      <option value="S">Sud</option>
-                      <option value="SO">Sud-Ouest</option>
-                      <option value="O">Ouest</option>
-                      <option value="NO">Nord-Ouest</option>
-                    </select>
-                    {(() => {
-                      if (formOrientation === "") return null;
-                      const bon = ["S", "SE", "SO"].indexOf(formOrientation) >= 0;
-                      const moyen = ["E", "O"].indexOf(formOrientation) >= 0;
-                      if (formSolaire === "" || formSolaire === undefined) {
-                        return (
-                          <div style={{ color: cl("#9ca0b8", "#565a6c"), fontSize: 10, marginTop: 5 }}>
-                            Sert au reperage sur plan. Elle devient utile des que tu coches des panneaux solaires.
-                          </div>
-                        );
-                      }
-                      return (
-                        <div style={{ color: bon ? "#4ade80" : (moyen ? "#f59e0b" : "#f87171"), fontSize: 10, marginTop: 5, lineHeight: 1.45 }}>
-                          {bon
-                            ? "Bonne exposition pour les panneaux solaires."
-                            : (moyen
-                              ? "Exposition moyenne pour les panneaux : rendement reduit."
-                              : "Mauvaise exposition : des panneaux au nord ne produiront quasiment rien.")}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Notes libres */}
-                    <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginTop: 14, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Notes de terrain</label>
-                    <textarea value={formNotesTerrain} onChange={e => setFormNotesTerrain(e.target.value)} rows={3}
-                      placeholder="Acces chantier, grue possible, pente du terrain, nature du sol..."
-                      style={{ width: "100%", padding: "9px 12px", borderRadius: 8, background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"), color: cl("#e8eaf2", "#1a1d2a"), fontSize: 12, resize: "vertical", fontFamily: "inherit" }} />
-                  </div>
-                ) : null}
-              </div>
               {/* Depasse de toiture */}
               <div style={{ marginBottom: 18, display: ["terrasse","etage","balcon","garde_corps"].includes(typeEffectif) ? "none" : undefined }}>
                 <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 10, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Depasse de toiture</label>
@@ -11361,102 +11458,7 @@ return (
                   placeholder="Details supplementaires : debord de toit, contraintes particulieres, finitions..."
                   rows={2} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Localisation</label>
-                  <input value={commune} onChange={e => setCommune(e.target.value)} placeholder="Tape une ville ou une adresse — la recherche se fait en direct" style={inputStyle} />
-                  {/* Liste de suggestions de communes (gestion homonymes) */}
-                  {communeSuggestions.length > 0 && (
-                    <div style={{ marginTop: 6, background: "#0e1118", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden" }}>
-                      {communeSuggestions.map((s, i) => (
-                        <button key={i} type="button"
-                          onClick={() => {
-                            setCommuneChoisie(true);
-                            // Adresse complete -> on garde la rue dans le champ ; commune -> "Ville CP"
-                            const estVilleSug = (s.type === "municipality");
-                            setCommune(estVilleSug ? (s.ville + (s.codePostal ? " " + s.codePostal : "")) : s.label);
-                            setAddressData(s);
-                            setCommuneSuggestions([]);
-                          }}
-                          style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", cursor: "pointer",
-                            background: "transparent", border: "none", borderBottom: i < communeSuggestions.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                            color: cl("#d0d2dc", "#3a3e50"), fontSize: 13 }}
-                          onMouseEnter={e => e.currentTarget.style.background = "rgba(240,192,64,0.08)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                          <span style={{ color: "#f0c040", fontWeight: 600 }}>{s.type === "municipality" ? (s.ville || s.label) : s.label}</span>
-                          <span style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 11 }}>
-                            {" — "}
-                            {s.type === "municipality" ? (s.context || "") : ((s.codePostal ? s.codePostal + " " : "") + (s.ville || ""))}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label style={{ display: "block", color: "#545870", fontSize: 13, marginBottom: 6 }}>Altitude (m)</label>
-                  <input value={altitude} onChange={e => { setAltitude(e.target.value); altitudeManuelle.current = true; }} type="number" placeholder="200" style={inputStyle} />
-                </div>
-              </div>
-              {zoneInfo && zoneInfo.inconnue === true && addressData && rechercheAdresse === false && communeSuggestions.length === 0 ? (
-                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.45)", color: themeMode === "light" ? "#9b1c1c" : "#fca5a5", fontSize: 12, lineHeight: 1.5 }}>
-                  Commune non localisee : choisis-la dans la liste de suggestions pour que DEVIA
-                  trouve sa zone de neige, ou impose la zone ci-dessous.
-                </div>
-              ) : null}
-              {(commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
-                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)", border: themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.08)", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, lineHeight: 1.5 }}>
-                  Aucune adresse trouvee pour le moment. Continue a taper le numero, la rue et la
-                  ville : la recherche se fait a chaque frappe.
-                </div>
-              ) : null}
-              {zoneInfo && zoneInfo.depMixte ? (
-                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.45)", color: themeMode === "light" ? "#92400e" : "#fcd34d", fontSize: 12, lineHeight: 1.5 }}>
-                  Ce departement compte plusieurs zones de neige (<strong>{zoneInfo.depMixte}</strong>) et le
-                  decoupage par cantons n est pas detaille dans la source. DEVIA retient la
-                  <strong> plus forte</strong> par securite. Si tu sais que le chantier est en zone basse,
-                  impose-la ci-dessous : tu economiseras du bois.
-                </div>
-              ) : null}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Zone de neige</label>
-                <select value={formZoneNeige} onChange={e => setFormZoneNeige(e.target.value)}
-                  style={{ ...inputStyle, cursor: "pointer" }}>
-                  <option value="">Selon la commune (automatique)</option>
-                  <option value="A1">A1 - 0,45 kN/m2</option>
-                  <option value="A2">A2 - 0,45 kN/m2</option>
-                  <option value="B1">B1 - 0,55 kN/m2</option>
-                  <option value="B2">B2 - 0,55 kN/m2</option>
-                  <option value="C1">C1 - 0,65 kN/m2</option>
-                  <option value="C2">C2 - 0,65 kN/m2</option>
-                  <option value="D">D - 0,90 kN/m2</option>
-                  <option value="E">E - 1,40 kN/m2</option>
-                </select>
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Zone de vent</label>
-                <select value={formZoneVent} onChange={e => setFormZoneVent(e.target.value)}
-                  style={{ ...inputStyle, cursor: "pointer" }}>
-                  <option value="">Selon la commune (automatique)</option>
-                  <option value="1">1 - 22 m/s (interieur des terres)</option>
-                  <option value="2">2 - 24 m/s</option>
-                  <option value="3">3 - 26 m/s</option>
-                  <option value="4">4 - 28 m/s (littoral, Corse)</option>
-                </select>
-              </div>
-              {zoneInfo && (addressData || formZoneNeige || formZoneVent) && (
-                <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                  <Badge color="#60a5fa">Neige {zoneInfo.neige} - {zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk} kN/m2</Badge>
-                  <Badge color="#a78bfa">Vent {zoneInfo.vent} - {zoneInfo.qb} kN/m2</Badge>
-                  <Badge color="#f97316">Sismique {zoneInfo.sismique} - {zoneInfo.ag}g</Badge>
-                  {zoneInfo.inconnue === true ? <Badge color="#ef4444">Commune non localisee - neige SUPPOSEE</Badge> : null}
-                  {zoneInfo.forcee === true ? <Badge color="#22c55e">Neige imposee a la main</Badge> : null}
-                  {zoneInfo.sismiqueOfficiel === true ? <Badge color="#22c55e">Sismique officiel (Georisques)</Badge> : null}
-                  {zoneInfo.sismiqueInconnu === true ? <Badge color="#ef4444">Sismique SUPPOSE</Badge> : null}
-                  {zoneInfo.ventInconnu === true ? <Badge color="#ef4444">Vent SUPPOSE - a verifier</Badge> : null}
-                  {zoneInfo.ventForce === true ? <Badge color="#22c55e">Vent impose a la main</Badge> : null}
-                </div>
-              )}
+
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, marginBottom: 8, fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>Documents <span style={{ color: "#545870", textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
                 <div onClick={() => fileInputRef.current && fileInputRef.current.click()}
