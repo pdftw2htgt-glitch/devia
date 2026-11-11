@@ -1657,10 +1657,17 @@ function buildScene3D(scene, params, opts) {
   // un barreau le pas remontait avec : 113 mm mesures sur une longueur de 1,10 m.
   // Ici on calepine TRAVEE PAR TRAVEE, entre deux montants, et l ecart est garanti par
   // construction. Ca evite aussi qu un barreau tombe pile sur un montant.
-  const ECART_BARREAU_MAX = 0.105;
+  const ECART_GC_CIBLE = 0.10;      // le vide qu on cherche entre deux lames
+  // 110 mm est la limite de la norme. On s arrete a 105 : 5 mm de marge pour que la
+  // pose reelle ne fasse jamais franchir la limite a un ouvrage calcule juste dessous.
+  const ECART_GC_MAX = 0.105;
   const calepinerBarreaux = (libre, secB) => {
-    const n = Math.max(1, Math.ceil((libre - ECART_BARREAU_MAX) / (secB + ECART_BARREAU_MAX)));
-    const e = (libre - n * secB) / (n + 1);
+    // On VISE 100 mm (arrondi au plus proche) au lieu de simplement rester sous le
+    // plafond : avec un ceil on tombait parfois a 67 mm, serre pour rien. Puis on
+    // verifie, et on ajoute une lame tant que le vide depasse les 110 reglementaires.
+    let n = Math.max(1, Math.round((libre - ECART_GC_CIBLE) / (secB + ECART_GC_CIBLE)));
+    let e = (libre - n * secB) / (n + 1);
+    while ((e > ECART_GC_MAX) && (n < 400)) { n = n + 1; e = (libre - n * secB) / (n + 1); }
     const out = [];
     for (let i = 1; i <= n; i++) out.push(i * e + (i - 0.5) * secB);
     return { c: out, ecart: e };
@@ -4436,15 +4443,16 @@ setPiece("Echantignole");
     // Sur les 3 cotes libres (avant + 2 lateraux), pas cote mur
     setPiece("Garde-corps");
     const hGC = 1.0;                                  // hauteur main courante
-    const mcSec = 0.06;                               // main courante 60x60
-    const barreauSec = 0.025;                         // barreaux 25x25
-    // Section et entraxe des montants calcules, comme sur le garde-corps autonome.
+    // Remplissage et lisses taillees dans la MEME lame que le platelage : les lisses
+    // haute et basse sont la meme planche, simplement couchee.
+    const lameB = 0.145, lameE = 0.028;
     const chxMB = choisirMontant(L, hGC);
     const montantSec = chxMB.sec;
     const zAvant = muB + lg + 0.06 - montantSec / 2;  // nu avant du balcon
-    const yMC = hBalcon + hGC - mcSec / 2;            // main courante
-    const yLB = hBalcon + 0.10;                       // lisse basse a 10cm du sol
-    const hBarreau = yMC - mcSec / 2 - (yLB + 0.02);  // entre lisse basse et main courante
+    const yMC = hBalcon + hGC - lameB / 2;            // lisse haute
+    const yLB = hBalcon + 0.02 + lameB / 2;           // lisse basse, 20 mm au-dessus du sol
+    const yBasL = hBalcon + 0.02 + lameB;             // dessus de la lisse basse
+    const hBarreau = (hBalcon + hGC - lameB) - yBasL;
 
     // --- Cote AVANT (le long de x) ---
     // Montants (angles + intermediaires tous les ~1.5m)
@@ -4453,14 +4461,14 @@ setPiece("Echantignole");
     for (let i = 0; i < nbMontantsAv; i++) {
       addBox(montantSec, hGC, montantSec, xMB(i), hBalcon + hGC / 2, zAvant);
     }
-    // Lisse haute (main courante) + lisse basse
-    addBox(L, mcSec, mcSec, 0, yMC, zAvant);
-    addBox(L, 0.04, 0.04, 0, yLB, zAvant);
-    // Barreaudage calepine travee par travee : l ecart est garanti sous 110 mm.
+    // Lisses haute et basse : la lame posee a plat
+    addBox(L, lameB, lameE, 0, yMC, zAvant);
+    addBox(L, lameB, lameE, 0, yLB, zAvant);
+    // Remplissage en lames verticales, calepine travee par travee
     for (let t = 0; t < nbMontantsAv - 1; t++) {
       const xa = xMB(t) + montantSec / 2, xb = xMB(t + 1) - montantSec / 2;
-      calepinerBarreaux(xb - xa, barreauSec).c.forEach((c) => {
-        addBox(barreauSec, hBarreau, barreauSec, xa + c, yLB + 0.02 + hBarreau / 2, zAvant);
+      calepinerBarreaux(xb - xa, lameB).c.forEach((c) => {
+        addBox(lameB, hBarreau, lameE, xa + c, yBasL + hBarreau / 2, zAvant);
       });
     }
 
@@ -4473,14 +4481,14 @@ setPiece("Echantignole");
       for (let i = 0; i < nbMontantsLat; i++) {
         addBox(montantSec, hGC, montantSec, xSide, hBalcon + hGC / 2, zML(i));
       }
-      // Lisse haute (main courante) + lisse basse
-      addBox(mcSec, mcSec, lgGC, xSide, yMC, lgGC / 2);
-      addBox(0.04, 0.04, lgGC, xSide, yLB, lgGC / 2);
-      // Barreaudage calepine travee par travee
+      // Lisses haute et basse : la lame posee a plat
+      addBox(lameE, lameB, lgGC, xSide, yMC, lgGC / 2);
+      addBox(lameE, lameB, lgGC, xSide, yLB, lgGC / 2);
+      // Remplissage en lames verticales, calepine travee par travee
       for (let t = 0; t < nbMontantsLat - 1; t++) {
         const za = zML(t) + montantSec / 2, zb = zML(t + 1) - montantSec / 2;
-        calepinerBarreaux(zb - za, barreauSec).c.forEach((c) => {
-          addBox(barreauSec, hBarreau, barreauSec, xSide, yLB + 0.02 + hBarreau / 2, za + c);
+        calepinerBarreaux(zb - za, lameB).c.forEach((c) => {
+          addBox(lameE, hBarreau, lameB, xSide, yBasL + hBarreau / 2, za + c);
         });
       }
     }
@@ -4488,51 +4496,52 @@ setPiece("Echantignole");
 
   const drawGardeCorps = () => {
     // Garde-corps autonome : ligne droite le long de X, pose au sol, h 1.00m (NF P01-012 habitation)
-    const hGC = 1.0;
-    const mcSec = 0.06;
-    const barreauSec = 0.025;
-    // Section et entraxe des montants sortent du calcul, plus d un 1,50 m en dur.
+    const hGC = 1.0;                      // hauteur de main courante AU-DESSUS du sol fini
+    const lameB = 0.145, lameE = 0.028;   // la lame de terrasse, reprise telle quelle
     const chxM = choisirMontant(L, hGC);
     const montantSec = chxM.sec;
 
     // ===== DALLE BETON =====
-    // Sans elle le garde-corps flottait dans le vide : on ne voyait pas sur quoi il est
-    // pose, ni de quel cote est le vide. Elle n est pas chiffree en bois.
+    // Elle etait posee de -0.15 a 0, donc ENTIEREMENT sous le niveau du sol : le terrain
+    // de la 3D est un plan opaque a y = 0, et il la masquait completement. Elle monte
+    // maintenant au-dessus du sol et le garde-corps se pose dessus.
+    const epDalleGC = 0.15;
     const lgDalle = Math.max(0.8, lg || 1.2);
-    addBox(L + 0.3, 0.15, lgDalle, 0, -0.075, -lgDalle / 2 + montantSec / 2, dalleMat);
+    addBox(L + 0.3, epDalleGC, lgDalle, 0, epDalleGC / 2, -lgDalle / 2 + montantSec / 2, dalleMat);
+    const y0 = epDalleGC;                 // niveau du sol fini
 
     // Montants : angles + intermediaires a l entraxe calcule
     setPiece("Montant garde-corps");
     const nbMontants = chxM.nb;
     const xM = (i) => (-L/2 + montantSec/2 + (i / (nbMontants - 1)) * (L - montantSec));
     for (let i = 0; i < nbMontants; i++) {
-      addBox(montantSec, hGC, montantSec, xM(i), hGC / 2, 0, woodMat);
+      addBox(montantSec, hGC, montantSec, xM(i), y0 + hGC / 2, 0, woodMat);
     }
 
-    // Lisse haute (main courante)
+    // ===== LISSES HAUTE ET BASSE : LA MEME LAME, POSEE A PLAT =====
+    // Meme section que le remplissage, juste couchee : la planche montre sa face de
+    // 145 et ne fait que 28 d epaisseur, comme les lames verticales entre elles.
     setPiece("Main courante");
-    addBox(L, mcSec, mcSec, 0, hGC - mcSec / 2, 0, woodMat);
-
-    // Lisse basse a 10 cm : elle ferme la zone basse, celle qu un enfant escalade.
+    addBox(L, lameB, lameE, 0, y0 + hGC - lameB / 2, 0, woodMat);
     setPiece("Lisse basse");
-    addBox(L, 0.04, 0.04, 0, 0.10, 0, woodMat);
+    addBox(L, lameB, lameE, 0, y0 + 0.02 + lameB / 2, 0, woodMat);
 
-    // Barreaudage vertical, calepine travee par travee
+    // ===== REMPLISSAGE EN LAMES VERTICALES =====
     setPiece("Barreaudage");
-    const yMC = hGC - mcSec / 2;
-    const hBarreau = yMC - mcSec / 2 - 0.12;
+    const yBasL = y0 + 0.02 + lameB;                  // dessus de la lisse basse
+    const hLame = (y0 + hGC - lameB) - yBasL;         // jusqu a la sous-face de la haute
     let ecartPire = 0;
     for (let t = 0; t < nbMontants - 1; t++) {
       const xa = xM(t) + montantSec / 2, xb = xM(t + 1) - montantSec / 2;
-      const cal = calepinerBarreaux(xb - xa, barreauSec);
+      const cal = calepinerBarreaux(xb - xa, lameB);
       ecartPire = Math.max(ecartPire, cal.ecart);
-      cal.c.forEach((c) => addBox(barreauSec, hBarreau, barreauSec, xa + c, 0.12 + hBarreau / 2, 0, woodMat));
+      cal.c.forEach((c) => addBox(lameB, hLame, lameE, xa + c, yBasL + hLame / 2, 0, woodMat));
     }
     console.log("[DEVIA] Garde-corps " + L.toFixed(2) + " m : montants " +
       Math.round(montantSec * 1000) + "x" + Math.round(montantSec * 1000) + " a " +
-      ((L - montantSec) / (nbMontants - 1)).toFixed(2) + " m (portee admissible " +
-      chxM.portee.toFixed(2) + " m sous " + QH_GARDE_CORPS + " kN/m), vide entre barreaux " +
-      Math.round(ecartPire * 1000) + " mm sur 110 maxi");
+      ((L - montantSec) / (nbMontants - 1)).toFixed(2) + " m, lames " +
+      Math.round(lameB * 1000) + "x" + Math.round(lameE * 1000) + ", vide " +
+      Math.round(ecartPire * 1000) + " mm (cible 100, maxi 110)");
   };
 
   const drawAppentis = () => {
