@@ -161,7 +161,7 @@ const EC5_LARGEUR_MINI = {
   Solive:60, "Solive balcon":60, "Lisse de rive":0, "Sommier balcon":0, "Poutre de rive":0, "Garde-corps":0, Porteuse:80, "Poutre porteuse":100, Muraillere:100, "Panneau plancher":0, "Lame de terrasse":0, Plot:0, Lambourde:0, "Planche de rive":0,
   "Lisse MOB":0, "Montant MOB":0, "Entretoise MOB":0, "Panneau OSB":0, Sabot:0,
   "Potelet MOB":0, "Linteau MOB":0, "Traverse allege MOB":0, "Poteau MOB":0,
-  "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, Barreaudage:0,
+  "Montant garde-corps":0, "Main courante":0, "Lisse basse":0, "Lisse haute":0, Barreaudage:0,
   "Lien de faitage":0, Lien:0, Liteau:0, Echantignole:0, "Console balcon":0, Defaut:60,
 };
 const EC5_RATIO_MAX = 3;
@@ -360,6 +360,7 @@ function recalerQuantitesDevis(parsed, agg) {
       ["empannon", ["Empannon", "Empannon de croupe"]], ["chevron", ["Chevron"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
       ["lambourde", ["Lambourde"]], ["moise", ["Porteuse"]],
+      ["tablette", ["Main courante"]], ["lisse haute", ["Lisse haute"]],
       ["solive", ["Solive", "Solive balcon"]],
       ["sommier", ["Sommier balcon"]], ["poutre de rive", ["Poutre de rive"]],
       ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
@@ -448,6 +449,7 @@ function harmoniserSectionsDevis(parsed, sk, dS, src) {
       ["chevron", ["Chevron"]], ["empannon", ["Empannon", "Empannon de croupe"]],
       ["aretier", ["Aretier"]], ["panne", ["Panne"]],
       ["lambourde", ["Lambourde"]], ["moise", ["Porteuse"]],
+      ["tablette", ["Main courante"]], ["lisse haute", ["Lisse haute"]],
       ["solive", ["Solive", "Solive balcon"]],
       ["sommier", ["Sommier balcon"]], ["poutre de rive", ["Poutre de rive"]],
       ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
@@ -4446,31 +4448,38 @@ setPiece("Echantignole");
     // Remplissage et lisses taillees dans la MEME lame que le platelage : les lisses
     // haute et basse sont la meme planche, simplement couchee.
     const lameB = 0.145, lameE = 0.028;
+    const tabL = 0.20, tabE = 0.035;                  // tablette a plat sur le dessus
     const chxMB = choisirMontant(L, hGC);
     const montantSec = chxMB.sec;
     const zAvant = muB + lg + 0.06 - montantSec / 2;  // nu avant du balcon
-    const yMC = hBalcon + hGC - lameB / 2;            // lisse haute
-    const yLB = hBalcon + 0.02 + lameB / 2;           // lisse basse, 20 mm au-dessus du sol
-    const yBasL = hBalcon + 0.02 + lameB;             // dessus de la lisse basse
-    const hBarreau = (hBalcon + hGC - lameB) - yBasL;
+    const yHautMont = hBalcon + hGC - tabE;           // dessus des montants, sous la tablette
+    const yMC = yHautMont - montantSec / 2;           // lisse haute, a la section des montants
+    const yLB = hBalcon + 0.02 + montantSec / 2;      // lisse basse, 20 mm au-dessus du sol
+    const yBasL = hBalcon + 0.02 + montantSec;        // dessus de la lisse basse
+    const hBarreau = (yHautMont - montantSec) - yBasL;
 
     // --- Cote AVANT (le long de x) ---
     // Montants (angles + intermediaires tous les ~1.5m)
     const nbMontantsAv = chxMB.nb;
     const xMB = (i) => (-L/2 + montantSec/2 + (i / (nbMontantsAv - 1)) * (L - montantSec));
+    setPiece("Montant garde-corps");
     for (let i = 0; i < nbMontantsAv; i++) {
-      addBox(montantSec, hGC, montantSec, xMB(i), hBalcon + hGC / 2, zAvant);
+      addBox(montantSec, yHautMont - hBalcon, montantSec, xMB(i), (hBalcon + yHautMont) / 2, zAvant);
     }
-    // Lisses haute et basse : la lame posee a plat
-    addBox(L, lameB, lameE, 0, yMC, zAvant);
-    addBox(L, lameB, lameE, 0, yLB, zAvant);
-    // Remplissage en lames verticales, calepine travee par travee
+    // Lisses ENTRE les poteaux, a leur section : le poteau reste continu de bas en haut.
     for (let t = 0; t < nbMontantsAv - 1; t++) {
       const xa = xMB(t) + montantSec / 2, xb = xMB(t + 1) - montantSec / 2;
+      setPiece("Lisse haute");
+      addBox(xb - xa, montantSec, montantSec, (xa + xb) / 2, yMC, zAvant);
+      setPiece("Lisse basse");
+      addBox(xb - xa, montantSec, montantSec, (xa + xb) / 2, yLB, zAvant);
+      setPiece("Barreaudage");
       calepinerBarreaux(xb - xa, lameB).c.forEach((c) => {
         addBox(lameB, hBarreau, lameE, xa + c, yBasL + hBarreau / 2, zAvant);
       });
     }
+    setPiece("Main courante");
+    addBox(L + 0.06, tabE, tabL, 0, hBalcon + hGC - tabE / 2, zAvant, woodMat);
 
     // --- Cotes LATERAUX (le long de z, du mur au nu avant) ---
     const lgGC = zAvant - montantSec / 2;             // du mur a l'avant
@@ -4478,26 +4487,31 @@ setPiece("Echantignole");
       // Montants intermediaires
       const nbMontantsLat = choisirMontant(lgGC, hGC).nb;
       const zML = (i) => (montantSec/2 + (i / (nbMontantsLat - 1)) * (lgGC - montantSec/2));
+      setPiece("Montant garde-corps");
       for (let i = 0; i < nbMontantsLat; i++) {
-        addBox(montantSec, hGC, montantSec, xSide, hBalcon + hGC / 2, zML(i));
+        addBox(montantSec, yHautMont - hBalcon, montantSec, xSide, (hBalcon + yHautMont) / 2, zML(i));
       }
-      // Lisses haute et basse : la lame posee a plat
-      addBox(lameE, lameB, lgGC, xSide, yMC, lgGC / 2);
-      addBox(lameE, lameB, lgGC, xSide, yLB, lgGC / 2);
-      // Remplissage en lames verticales, calepine travee par travee
       for (let t = 0; t < nbMontantsLat - 1; t++) {
         const za = zML(t) + montantSec / 2, zb = zML(t + 1) - montantSec / 2;
+        setPiece("Lisse haute");
+        addBox(montantSec, montantSec, zb - za, xSide, yMC, (za + zb) / 2);
+        setPiece("Lisse basse");
+        addBox(montantSec, montantSec, zb - za, xSide, yLB, (za + zb) / 2);
+        setPiece("Barreaudage");
         calepinerBarreaux(zb - za, lameB).c.forEach((c) => {
           addBox(lameE, hBarreau, lameB, xSide, yBasL + hBarreau / 2, za + c);
         });
       }
+      setPiece("Main courante");
+      addBox(tabL, tabE, lgGC, xSide, hBalcon + hGC - tabE / 2, lgGC / 2, woodMat);
     }
   };
 
   const drawGardeCorps = () => {
     // Garde-corps autonome : ligne droite le long de X, pose au sol, h 1.00m (NF P01-012 habitation)
-    const hGC = 1.0;                      // hauteur de main courante AU-DESSUS du sol fini
+    const hGC = 1.0;                      // DESSUS DE LA TABLETTE au-dessus du sol fini
     const lameB = 0.145, lameE = 0.028;   // la lame de terrasse, reprise telle quelle
+    const tabL = 0.20, tabE = 0.035;      // tablette : large et plate, on pose un verre dessus
     const chxM = choisirMontant(L, hGC);
     const montantSec = chxM.sec;
 
@@ -4510,33 +4524,41 @@ setPiece("Echantignole");
     addBox(L + 0.3, epDalleGC, lgDalle, 0, epDalleGC / 2, -lgDalle / 2 + montantSec / 2, dalleMat);
     const y0 = epDalleGC;                 // niveau du sol fini
 
-    // Montants : angles + intermediaires a l entraxe calcule
-    setPiece("Montant garde-corps");
+    // Montants : angles + intermediaires a l entraxe calcule. Ils montent jusque SOUS
+    // la tablette, qu ils portent avec les lisses hautes.
     const nbMontants = chxM.nb;
     const xM = (i) => (-L/2 + montantSec/2 + (i / (nbMontants - 1)) * (L - montantSec));
+    const yHautMont = y0 + hGC - tabE;
+    setPiece("Montant garde-corps");
     for (let i = 0; i < nbMontants; i++) {
-      addBox(montantSec, hGC, montantSec, xM(i), y0 + hGC / 2, 0, woodMat);
+      addBox(montantSec, yHautMont - y0, montantSec, xM(i), (y0 + yHautMont) / 2, 0, woodMat);
     }
 
-    // ===== LISSES HAUTE ET BASSE : LA MEME LAME, POSEE A PLAT =====
-    // Meme section que le remplissage, juste couchee : la planche montre sa face de
-    // 145 et ne fait que 28 d epaisseur, comme les lames verticales entre elles.
-    setPiece("Main courante");
-    addBox(L, lameB, lameE, 0, y0 + hGC - lameB / 2, 0, woodMat);
-    setPiece("Lisse basse");
-    addBox(L, lameB, lameE, 0, y0 + 0.02 + lameB / 2, 0, woodMat);
-
-    // ===== REMPLISSAGE EN LAMES VERTICALES =====
-    setPiece("Barreaudage");
-    const yBasL = y0 + 0.02 + lameB;                  // dessus de la lisse basse
-    const hLame = (y0 + hGC - lameB) - yBasL;         // jusqu a la sous-face de la haute
+    // ===== LISSES HAUTE ET BASSE, A LA SECTION DES MONTANTS =====
+    // Elles courent ENTRE les poteaux, pas au travers : un poteau de garde-corps est
+    // continu de la dalle a la tablette, c est lui qui encaisse l effort horizontal.
+    const yLH = yHautMont - montantSec / 2;
+    const yLB2 = y0 + 0.02 + montantSec / 2;
+    const yBasL = y0 + 0.02 + montantSec;             // dessus de la lisse basse
+    const hLame = (yHautMont - montantSec) - yBasL;   // jusqu a la sous-face de la haute
     let ecartPire = 0;
     for (let t = 0; t < nbMontants - 1; t++) {
       const xa = xM(t) + montantSec / 2, xb = xM(t + 1) - montantSec / 2;
+      setPiece("Lisse haute");
+      addBox(xb - xa, montantSec, montantSec, (xa + xb) / 2, yLH, 0, woodMat);
+      setPiece("Lisse basse");
+      addBox(xb - xa, montantSec, montantSec, (xa + xb) / 2, yLB2, 0, woodMat);
+      setPiece("Barreaudage");
       const cal = calepinerBarreaux(xb - xa, lameB);
       ecartPire = Math.max(ecartPire, cal.ecart);
       cal.c.forEach((c) => addBox(lameB, hLame, lameE, xa + c, yBasL + hLame / 2, 0, woodMat));
     }
+
+    // ===== TABLETTE =====
+    // A plat sur toute la longueur, debordante de chaque cote : c est la surface sur
+    // laquelle on pose un verre ou un coude, et c est elle qui donne la hauteur de 1,00 m.
+    setPiece("Main courante");
+    addBox(L + 0.06, tabE, tabL, 0, y0 + hGC - tabE / 2, 0, woodMat);
     console.log("[DEVIA] Garde-corps " + L.toFixed(2) + " m : montants " +
       Math.round(montantSec * 1000) + "x" + Math.round(montantSec * 1000) + " a " +
       ((L - montantSec) / (nbMontants - 1)).toFixed(2) + " m, lames " +
