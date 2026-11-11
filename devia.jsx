@@ -205,7 +205,15 @@ const BAN_HOTES = [
   "https://api-adresse.data.gouv.fr/search/",
 ];
 let banHote = 0;
+// Pendant une panne du service national, chaque requete met 2 a 4 secondes avant de
+// rendre son 504. A deux hotes et deux variantes, une frappe coutait une dizaine de
+// secondes de formulaire fige pour rien. On note donc l heure de la panne et on rend
+// la main tout de suite pendant 30 secondes, puis on retente. Le premier succes efface
+// la marque, donc la recherche repart d elle-meme des que le service revient.
+let banPanneJusqua = 0;
+const BAN_REPOS_PANNE = 30000;
 async function fetchBAN(params) {
+  if (Date.now() < banPanneJusqua) return null;
   // type=municipality n est pas documente sur la Geoplateforme. S il est refuse, on
   // relance la MEME requete sans lui : le tri cote DEVIA remet les communes devant.
   const variantes = (params.indexOf("type=") >= 0)
@@ -217,6 +225,7 @@ async function fetchBAN(params) {
       try {
         const r = await fetch(BAN_HOTES[i] + "?" + pr);
         if (r.ok === true) {
+          banPanneJusqua = 0;
           if ((i === banHote) === false) {
             banHote = i;
             console.log("[DEVIA] Geocodage bascule sur " + BAN_HOTES[i]);
@@ -231,6 +240,8 @@ async function fetchBAN(params) {
       }
     }
   }
+  banPanneJusqua = Date.now() + BAN_REPOS_PANNE;
+  console.warn("[DEVIA] Aucun service d adresse ne repond, nouvelle tentative dans 30 s");
   return null;
 }
 
@@ -11284,9 +11295,11 @@ return (
                     ) : null}
                     {geocodagePanne === true ? (
                       <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.45)", color: themeMode === "light" ? "#92400e" : "#fcd34d", fontSize: 12, lineHeight: 1.5 }}>
-                        Le service national d adresses ne repond pas en ce moment{" "}: la recherche est
-                        indisponible, ce n est pas ta saisie. Tu peux saisir la commune a la main et
-                        imposer l altitude et les zones plus bas, le devis reste calculable.
+                        Le service national d adresses (Geoplateforme de l IGN) ne repond pas en ce
+                        moment{" "}: la recherche est indisponible, ce n est pas ta saisie. DEVIA
+                        retente tout seul toutes les 30 secondes. En attendant, tape la commune a la
+                        main et impose l altitude et les zones plus bas{" "}: le devis reste calculable,
+                        seules les zones automatiques manquent.
                       </div>
                     ) : null}
                     {geocodagePanne === false && (commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
