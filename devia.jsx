@@ -187,6 +187,53 @@ const EC5_PLANCHER_Q = 150 * 0.0098;    // 150 kg/m2 : exploitation habitation, 
 const EC5_BALCON_G = 0.5;               // kN/m2 : lames + lambourdes
 const EC5_BALCON_Q = 3.5;               // kN/m2 : exploitation balcon, categorie A
 
+// ============================================================
+// GEOCODAGE : LA BAN A DEMENAGE
+// ============================================================
+// api-adresse.data.gouv.fr est DEPRECIE. Ses propres en-tetes HTTP portent un
+// "sunset" a fin janvier 2026 : le service peut s arreter sans preavis, et c est ce
+// qui a fini par arriver - le champ Localisation ne renvoyait plus rien, sans que
+// rien n ait change dans DEVIA.
+// Le geocodage de la Base Adresse Nationale est repris par la GEOPLATEFORME de l IGN
+// (data.geopf.fr/geocodage). Meme moteur, memes parametres, meme reponse GeoJSON :
+// seule la racine de l URL change.
+// On interroge donc la nouvelle adresse EN PREMIER, et on garde l ancienne en secours
+// tant qu elle repond. Le premier hote qui a repondu devient celui qu on essaie en
+// premier la fois suivante, pour ne pas payer un aller-retour inutile a chaque frappe.
+const BAN_HOTES = [
+  "https://data.geopf.fr/geocodage/search",
+  "https://api-adresse.data.gouv.fr/search/",
+];
+let banHote = 0;
+async function fetchBAN(params) {
+  // type=municipality n est pas documente sur la Geoplateforme. S il est refuse, on
+  // relance la MEME requete sans lui : le tri cote DEVIA remet les communes devant.
+  const variantes = (params.indexOf("type=") >= 0)
+    ? [params, params.replace(/&?type=[^&]*/g, "")]
+    : [params];
+  for (let k = 0; k < BAN_HOTES.length; k++) {
+    const i = (banHote + k) % BAN_HOTES.length;
+    for (const pr of variantes) {
+      try {
+        const r = await fetch(BAN_HOTES[i] + "?" + pr);
+        if (r.ok === true) {
+          if ((i === banHote) === false) {
+            banHote = i;
+            console.log("[DEVIA] Geocodage bascule sur " + BAN_HOTES[i]);
+          }
+          return r;
+        }
+        console.warn("[DEVIA] Geocodage " + BAN_HOTES[i] + " repond " + r.status);
+        if ((r.status === 400) === false) break;   // autre erreur : hote suivant
+      } catch (e) {
+        console.warn("[DEVIA] Geocodage injoignable : " + BAN_HOTES[i]);
+        break;
+      }
+    }
+  }
+  return null;
+}
+
 // Coefficient d EXPOSITION de la neige, EN 1991-1-3 par. 5.2. Il etait fige a 1.
 // Un site balaye par le vent garde moins de neige, un site abrite en garde plus.
 function ceNeige(expo) {
@@ -8313,6 +8360,7 @@ const [commune, setCommune] = useState("");
   const [communeSuggestions, setCommuneSuggestions] = useState([]); // liste de communes homonymes a proposer
   const [communeChoisie, setCommuneChoisie] = useState(false); // true quand l'user a clique une suggestion (evite re-recherche)
   const [rechercheAdresse, setRechercheAdresse] = useState(false); // true = saisie en cours, on ne reproche rien a l utilisateur
+const [geocodagePanne, setGeocodagePanne] = useState(false);      // true = aucun service d adresse ne repond
 const [altitude, setAltitude] = useState("200");
 const altitudeManuelle = useRef(false); // true = saisie par l'utilisateur (ne pas ecraser) / false = auto-remplie
 const [files, setFiles] = useState([]);
@@ -9374,9 +9422,8 @@ const fileInputRef = useRef(null);
       if (j.commune) {
         (async () => {
           try {
-            const urlC = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(j.commune) + "&type=municipality&limit=1";
-            const rC = await fetch(urlC);
-            if (rC.ok) {
+            const rC = await fetchBAN("q=" + encodeURIComponent(j.commune) + "&type=municipality&limit=1");
+            if (rC && rC.ok) {
               const dC = await rC.json();
               const f = dC.features && dC.features[0];
               if (f && f.properties) {
@@ -9580,12 +9627,12 @@ return out;
       try {
         // Deux requetes en parallele : les communes (gestion des homonymes) ET les
         // adresses completes, pour que la recherche trouve au fur et a mesure de la frappe.
-        const urlVilles = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(q) + "&type=municipality&limit=5";
-        const urlAdresses = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(q) + "&limit=8";
         const reponses = await Promise.all([
-          fetch(urlVilles).catch(() => null),
-          fetch(urlAdresses).catch(() => null)
+          fetchBAN("q=" + encodeURIComponent(q) + "&type=municipality&limit=5"),
+          fetchBAN("q=" + encodeURIComponent(q) + "&limit=8")
         ]);
+        // Les deux hotes muets : c est le service qui est a terre, pas la saisie.
+        setGeocodagePanne(reponses[0] === null && reponses[1] === null);
         const lire = async (rep) => {
           if (rep === null) return [];
           if (rep.ok === false) return [];
@@ -9842,9 +9889,8 @@ return out;
         let data = null;
         if (!isLikelyAddress) {
           // requete commune d'abord
-          const urlMuni = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&type=municipality&limit=1";
-          const respMuni = await fetch(urlMuni);
-          if (respMuni.ok) {
+          const respMuni = await fetchBAN("q=" + encodeURIComponent(query) + "&type=municipality&limit=1");
+          if (respMuni && respMuni.ok) {
             const dataMuni = await respMuni.json();
             if (dataMuni.features && dataMuni.features.length > 0) {
               data = dataMuni;
@@ -9853,9 +9899,8 @@ return out;
         }
         // 2eme tentative (fallback) : recherche generale si pas de commune trouvee ou si c'est une adresse complete
         if (!data) {
-          const url = "https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(query) + "&limit=1";
-          const resp = await fetch(url);
-          if (!resp.ok) continue;
+          const resp = await fetchBAN("q=" + encodeURIComponent(query) + "&limit=1");
+          if (resp === null || resp.ok === false) continue;
           data = await resp.json();
         }
         if (!data.features || data.features.length === 0) {
@@ -11237,7 +11282,14 @@ return (
                         trouve sa zone de neige, ou impose la zone ci-dessous.
                       </div>
                     ) : null}
-                    {(commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
+                    {geocodagePanne === true ? (
+                      <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.45)", color: themeMode === "light" ? "#92400e" : "#fcd34d", fontSize: 12, lineHeight: 1.5 }}>
+                        Le service national d adresses ne repond pas en ce moment{" "}: la recherche est
+                        indisponible, ce n est pas ta saisie. Tu peux saisir la commune a la main et
+                        imposer l altitude et les zones plus bas, le devis reste calculable.
+                      </div>
+                    ) : null}
+                    {geocodagePanne === false && (commune || "").trim().length >= 3 && rechercheAdresse === false && communeSuggestions.length === 0 && (addressData ? false : true) ? (
                       <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: themeMode === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.03)", border: themeMode === "light" ? "1px solid rgba(0,0,0,0.10)" : "1px solid rgba(255,255,255,0.08)", color: cl("#9ca0b8", "#565a6c"), fontSize: 12, lineHeight: 1.5 }}>
                         Aucune adresse trouvee pour le moment. Continue a taper le numero, la rue et la
                         ville : la recherche se fait a chaque frappe.
