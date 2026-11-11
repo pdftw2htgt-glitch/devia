@@ -5265,11 +5265,22 @@ setPiece("Empannon");
     // Un empannon est un chevron raccourci : meme section que le chevron. Avant il
     // sortait en carre de 0,9 x chH, donc 126 x 126 au lieu de 100 x 140 - plus epais
     // et moins haut que le chevron d a cote, ce qui n a aucun sens a la pose.
-    const empannonsParCote = Math.max(2, Math.floor(reculCroupe / espChevron));
+    // ===== UNE SEULE GRILLE LE LONG DE L ARETIER =====
+    // Les empannons des DEUX pans qui bordent un aretier doivent le rencontrer AUX
+    // MEMES POINTS : sur un chantier on les cloue par paires, de part et d autre, et
+    // c est ce qui fait tenir l aretier.
+    // Chacun avait sa propre repartition : celui de grand pan decoupait le recul de
+    // croupe en 9 intervalles, celui de croupe decoupait toute la largeur en 19. Les
+    // deux grilles derivaient le long de l aretier - 42 mm au premier empannon, 332 mm
+    // au dernier, sur un simple 10 x 8. C est ce decalage qu on voyait.
+    // Maintenant une seule grille, parametree LE LONG DE L ARETIER : k = 0 au coin,
+    // k = nEmpAret au bout du faitage. Son pas vaut l entraxe de chevron sur les deux
+    // pans a la fois, puisque l aretier avance d autant en x et en z.
+    const nEmpAret = Math.max(2, Math.round(zEg4 / espChevron));
     [1, -1].forEach((signZ) => {
       [[xFaitGauche, -xEg4], [xFaitDroit, xEg4]].forEach(([xf, xCoin]) => {
-        for (let i = 1; i <= empannonsParCote; i++) {
-          const f = i / (empannonsParCote + 1);
+        for (let k = 1; k < nEmpAret; k++) {
+          const f = k / nEmpAret;
           const xb = xCoin + (xf - xCoin) * f;
           const yh = yChevBas + (hf + dyEg4) * f;
           const zh = signZ * zEg4 * (1 - f);
@@ -5283,20 +5294,23 @@ setPiece("Empannon");
 
 setPiece("Empannon de croupe");
     // ===== EMPANNONS DE CROUPE (les deux triangles de bout) =====
+    // Meme grille que les empannons de grand pan, parcourue depuis les DEUX coins de la
+    // croupe vers le milieu : chaque empannon de croupe a donc son jumeau de l autre
+    // cote de l aretier, au meme point. Au dernier rang les deux se rejoignent sur
+    // l axe : c est le chevron central de la croupe, et il n y en a qu un.
     [-1, 1].forEach((signX) => {
       const xCoin = signX * xEg4;
       const xf = signX * (Lfait / 2);
-      // La croupe fait TOUTE la largeur : compter sur lg/2 donnait un entraxe de 0,889 m
-      // la ou les grands pans sont a 0,44. Defaut herite de l ancienne version.
-      const nbEmp = Math.max(2, Math.floor((2 * zEg4) / espChevron));
-      for (let i = 1; i <= nbEmp; i++) {
-        const f = i / (nbEmp + 1);
-        const zb = -zEg4 + f * 2 * zEg4;
-        const fAr = 1 - Math.abs(zb) / zEg4;
-        const xh = xCoin + (xf - xCoin) * fAr;
-        const yh = yChevBas + (hf + dyEg4) * fAr;
-        addBeamRectCoupe(xCoin, yChevBas, zb, xh, yh, zb, chB, chH,
-          planEgX(signX), undefined);
+      for (let k = 1; k <= nEmpAret; k++) {
+        const f = k / nEmpAret;
+        const zAbs = zEg4 * (1 - f);
+        const xh = xCoin + (xf - xCoin) * f;
+        const yh = yChevBas + (hf + dyEg4) * f;
+        const cotes = (zAbs < 0.02) ? [0] : [1, -1];
+        cotes.forEach((sz) => {
+          addBeamRectCoupe(xCoin, yChevBas, sz * zAbs, xh, yh, sz * zAbs, chB, chH,
+            planEgX(signX), undefined);
+        });
       }
     });
 
