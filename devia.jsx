@@ -10729,31 +10729,35 @@ return (
               <div style={{ marginBottom: 18 }}>
                 <button type="button" onClick={() => setFormTerrainOuvert(formTerrainOuvert === false)}
                   style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, textAlign: "left",
                     padding: "10px 12px", borderRadius: 8, cursor: "pointer",
                     background: cl("#181a26", "#ffffff"), border: cl("1px solid rgba(255,255,255,0.10)", "1px solid rgba(0,0,0,0.14)"),
                     color: themeMode === "light" ? "#474b5c" : cl("#9ca0b8", "#565a6c"),
                     fontSize: 11, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  <span>Analyse de terrain</span>
-                  <span style={{ fontSize: 13 }}>{formTerrainOuvert ? "\u2212" : "+"}</span>
-                </button>
-                {/* Menu ferme : l essentiel reste lisible sans l ouvrir. */}
-                {formTerrainOuvert ? null : (
-                  <div style={{ marginTop: 6, fontSize: 10.5, lineHeight: 1.6, color: cl("#9ca0b8", "#565a6c") }}>
-                    {commune ? (
-                      <span>
-                        {commune}{altitude ? (", " + altitude + " m") : ""}
-                        {zoneInfo ? (" \u00b7 neige " + (zoneInfo.neige || "-") + " (" +
-                          (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + " kN/m2)") : ""}
-                        {zoneInfo ? (" \u00b7 vent " + (zoneInfo.vent || "-")) : ""}
-                        {(sismiqueOfficiel || (zoneInfo && zoneInfo.sismique)) ? (" \u00b7 sismique " +
-                          (sismiqueOfficiel ? sismiqueOfficiel : zoneInfo.sismique)) : ""}
-                        {formSiteExpo === "balaye" ? " \u00b7 site balaye" : (formSiteExpo === "abrite" ? " \u00b7 site abrite" : "")}
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block" }}>Analyse de terrain</span>
+                    {/* Le resume vit DANS le bouton : ferme, il tient sur une ligne. */}
+                    {formTerrainOuvert ? null : (
+                      <span style={{ display: "block", marginTop: 3, fontSize: 10, fontWeight: 400,
+                        letterSpacing: "normal", textTransform: "none", lineHeight: 1.5,
+                        color: commune ? cl("#9ca0b8", "#565a6c") : "#545870",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {commune ? (
+                          commune + (altitude ? (", " + altitude + " m") : "") +
+                          (zoneInfo ? (" \u00b7 neige " + (zoneInfo.neige || "-") + " " +
+                            (zoneInfo.skAltitude != null ? zoneInfo.skAltitude : zoneInfo.sk) + " kN/m2") : "") +
+                          (zoneInfo ? (" \u00b7 vent " + (zoneInfo.vent || "-")) : "") +
+                          ((sismiqueOfficiel || (zoneInfo && zoneInfo.sismique))
+                            ? (" \u00b7 sismique " + (sismiqueOfficiel ? sismiqueOfficiel : zoneInfo.sismique)) : "") +
+                          (argilesNiveau ? (" \u00b7 argiles " + argilesNiveau) : "") +
+                          (formSiteExpo === "balaye" ? " \u00b7 site balaye"
+                            : (formSiteExpo === "abrite" ? " \u00b7 site abrite" : ""))
+                        ) : "Donnees a renseigner"}
                       </span>
-                    ) : (
-                      <span style={{ color: "#f59e0b" }}>Aucune localisation : neige, vent et sismique sont supposes.</span>
                     )}
-                  </div>
-                )}
+                  </span>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{formTerrainOuvert ? "\u2212" : "+"}</span>
+                </button>
                 {formTerrainOuvert ? (
                   <div style={{ marginTop: 10, padding: "12px", borderRadius: 8,
                     background: cl("rgba(255,255,255,0.02)", "rgba(0,0,0,0.02)"),
@@ -10856,6 +10860,18 @@ return (
                         {zoneInfo.ventForce === true ? <Badge color="#22c55e">Vent impose a la main</Badge> : null}
                       </div>
                     )}
+
+                    {/* Argiles et radon : Georisques les renvoie seuls, on les affiche ici.
+                        Leur affichage avait disparu en meme temps que l ancien releve statique. */}
+                    <div style={{ fontSize: 11, lineHeight: 1.7, color: cl("#c8ccdd", "#3a3e50"), marginBottom: 6 }}>
+                      <div>Argiles{" "}: {argilesNiveau ? argilesNiveau : (commune ? "non renvoye par Georisques" : "donnee a renseigner")}</div>
+                      <div>Radon{" "}: {radonClasse ? ("classe " + radonClasse) : (commune ? "non renvoye par Georisques" : "donnee a renseigner")}</div>
+                    </div>
+                    {argilesNiveau ? (
+                      <div style={{ color: "#f59e0b", fontSize: 10, marginBottom: 14, lineHeight: 1.45 }}>
+                        Le retrait-gonflement conditionne les fondations{" "}: plots, semelles, profondeur hors-gel. DEVIA ne les calcule pas.
+                      </div>
+                    ) : <div style={{ marginBottom: 14 }} />}
 
                     {/* Environnement : c est le seul champ qui change le calcul */}
                     <label style={{ display: "block", color: cl("#9ca0b8", "#565a6c"), fontSize: 11, marginBottom: 6, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Environnement du site</label>
