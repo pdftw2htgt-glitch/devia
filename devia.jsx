@@ -5093,8 +5093,18 @@ setPiece("Aretier");
     // intersection, donc l aretier, se remonte d autant.
     // Section RECTANGULAIRE, hauteur dans le plan vertical, et pied pose sur la ligne
     // d egout et non plus sur l axe du mur.
-    const yAretBas = Ht + LEVEE_DESSUS - dyEg4 - arrH / 2;
-    const yAretHaut = yApex + LEVEE_DESSUS - arrH / 2;
+    // Un aretier n est pas une boite : son dessus est DELARDE aux deux pentes qu il
+    // separe, c est meme sa taille la plus caracteristique. Represente en boite pleine,
+    // ses deux aretes hautes ressortent AU DESSUS des deux pans - mesure a 26 mm sur un
+    // 7 x 9 a 45 degres, 31 mm sur un 9 x 7 a 55 - et transpercent la couverture.
+    // On le descend de ce que le delardement lui enleverait : la boite reste sous les
+    // deux plans, et les empannons la retrouvent toujours puisqu ils sont bien plus bas.
+    const dAret4 = Math.sqrt((xEg4 - Lfait / 2) * (xEg4 - Lfait / 2) + zEg4 * zEg4);
+    const nXAr4 = zEg4 / Math.max(0.001, dAret4);               // perpendiculaire en plan
+    const nZAr4 = (xEg4 - Lfait / 2) / Math.max(0.001, dAret4);
+    const retraitAret = (arrB / 2) * Math.max(nXAr4 * tanC4, nZAr4 * tanQ) + 0.006;
+    const yAretBas = Ht + LEVEE_DESSUS - dyEg4 - arrH / 2 - retraitAret;
+    const yAretHaut = yApex + LEVEE_DESSUS - arrH / 2 - retraitAret;
     [[-1, xFaitGauche], [1, xFaitDroit]].forEach(([sx, xf]) => {
       [1, -1].forEach((sz) => {
         addBeamRect(sx * xEg4, yAretBas, sz * zEg4, xf, yAretHaut, 0, arrB, arrH);
@@ -5148,9 +5158,57 @@ setPiece("Empannon de croupe");
       }
     });
 
-    // ===== COUVERTURE 4 PANS : posee sur le DESSUS des chevrons =====
-    const yC = Ht + LEVEE_DESSUS - dyEg4;  // egout, depasse comprise
-    const yF = yApex + LEVEE_DESSUS;       // faitage
+setPiece("Liteau");
+    // ===== LITEAUX : ils manquaient COMPLETEMENT sur le 4 pans =====
+    // Deux consequences, une visible et une chere.
+    // VISIBLE : la couverture etait posee PILE sur le dessus des chevrons - mesure a
+    // 0,1 mm pres. Deux surfaces dans le meme plan, la carte graphique ne sait pas
+    // laquelle est devant, et la charpente transperce la toiture par plaques. C est
+    // tout le "bug" de la toiture.
+    // CHERE : aucun liteau au devis. Sur un 10 x 8 il en manque environ 300 metres
+    // lineaires, soit toute la fourniture de lattage d une toiture de 110 m2.
+    // Tous les autres types de toit en posent et remontent leur couverture d autant
+    // (epLiteau = 0,03 en trad, en hangar, en monopente). Le 4 pans ne faisait ni l un
+    // ni l autre.
+    const epLit4 = 0.025, lgLit4 = 0.04;
+    const espLit4 = couv.espLiteau;
+    const cosC4b = 1 / Math.sqrt(1 + tanC4 * tanC4);
+    const yEgChev = Ht + LEVEE_DESSUS - dyEg4;   // dessus des chevrons sur la ligne d egout
+    const reculCr4 = Math.max(0.001, xEg4 - Lfait / 2);
+
+    // Grands pans : liteaux filant selon X, coupes sur les deux aretiers.
+    const nbLitGP = Math.max(3, Math.round((zEg4 / cosQ) / espLit4));
+    for (let i = 0; i <= nbLitGP; i++) {
+      const z = zEg4 * (1 - i / nbLitGP);
+      if (z < lgLit4) continue;                   // le dernier tomberait sur le faitage
+      const f = 1 - z / zEg4;                     // 0 a l egout, 1 au faitage
+      const lgL = 2 * (xEg4 + (Lfait / 2 - xEg4) * f);
+      if (lgL < 0.2) continue;
+      const y = yEgChev + (zEg4 - z) * tanQ + epLit4 / 2;
+      addBox(lgL, epLit4, lgLit4, 0, y, z, woodMat);
+      addBox(lgL, epLit4, lgLit4, 0, y, -z, woodMat);
+    }
+
+    // Croupes : liteaux filant selon Z, coupes sur les memes aretiers. La croupe a sa
+    // propre pente des que reculCroupe est bride, donc sa propre montee.
+    const nbLitCR = Math.max(3, Math.round((reculCr4 / cosC4b) / espLit4));
+    for (let i = 0; i <= nbLitCR; i++) {
+      const x = xEg4 - (i / nbLitCR) * reculCr4;
+      const f = (xEg4 - x) / reculCr4;
+      const lgL = 2 * zEg4 * (1 - f);
+      if (lgL < 0.2) continue;
+      const y = yEgChev + (xEg4 - x) * tanC4 + epLit4 / 2;
+      addBox(lgLit4, epLit4, lgL, x, y, 0, woodMat);
+      addBox(lgLit4, epLit4, lgL, -x, y, 0, woodMat);
+    }
+
+    // ===== COUVERTURE 4 PANS : posee sur les LITEAUX, plus sur les chevrons =====
+    // On la remonte au dessus du liteau, plus la demi-largeur du liteau fois la pente :
+    // un liteau est pose a plat, donc son arete aval remonte quand la pente augmente.
+    // Sans ce terme la toiture replongeait dans le lattage des 45 degres.
+    const LIFT4 = epLit4 + (lgLit4 / 2) * Math.max(tanQ, tanC4) + 0.008;
+    const yC = Ht + LEVEE_DESSUS - dyEg4 + LIFT4;  // egout, depasse comprise
+    const yF = yApex + LEVEE_DESSUS + LIFT4;       // faitage
     const pan = (sommets) => {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(sommets), 3));
