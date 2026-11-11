@@ -1930,6 +1930,34 @@ function buildScene3D(scene, params, opts) {
     if (plein === false) metre[metre.length - 1].profil = { pts: pts, len: lgX, axe: "x" };
   };
 
+  // ===== PANNE DELARDEE FILANT SELON Z =====
+  // addPanneDelardee n extrude que selon X. Les pannes de CROUPE d un toit a quatre
+  // pans filent selon Z : elles sortaient donc en boites d aplomb, dessus plat, pendant
+  // que leurs voisines de grand pan avaient un dessus delarde. Au droit de l aretier les
+  // deux dessus ne se rejoignaient pas. Meme dessin, meme coupes biaises, autre axe.
+  // Pas de profil IFC : l export ne sait extruder un profil que selon X.
+  const addPanneDelardeeZ = (lgZ, h, b, px, py, pz, tanP, signAval, del, mat, nomForce, kG, kD) => {
+    const pts = sectionDelardee(h, b, tanP, signAval, del);
+    const z1 = pz - lgZ / 2, z2 = pz + lgZ / 2;
+    const bG = kG || 0, bD = kD || 0;
+    const S1 = pts.map((q) => [px + q[1], py + q[0], z1 + q[1] * bG]);
+    const S2 = pts.map((q) => [px + q[1], py + q[0], z2 + q[1] * bD]);
+    const pos = [];
+    const tri = (a, c, e) => { pos.push(a[0],a[1],a[2], c[0],c[1],c[2], e[0],e[1],e[2]); };
+    for (let i = 1; i < pts.length - 1; i++) { tri(S1[0], S1[i], S1[i + 1]); tri(S2[0], S2[i + 1], S2[i]); }
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      tri(S1[i], S2[j], S1[j]); tri(S1[i], S2[i], S2[j]);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat || woodMat);
+    m.castShadow = true;
+    scene.add(m);
+    logPiece(b, h, lgZ, { pos: [px, py, pz], rot: null, quat: null }, nomForce);
+  };
+
   // ===== POINCON A TETE ENCOCHEE =====
   // Le poincon monte jusqu au DESSUS de la panne faitiere et la recoit dans une encoche :
   // deux joues de part et d autre, la faitiere assise entre elles. C est l assemblage de base
@@ -4910,8 +4938,20 @@ setPiece("Echantignole");
     // hauteur qui comble exactement l ecart. Dans le cas courant les deux tombent
     // ensemble et elle sort a la section de panne standard.
     const LEVEE_SUR_PANNE = (arH / 2) / cosQ + ph + eEch - delardement + pw * tanQ + (chH / 2) / cosQ;
-    const LEVEE_SUR_SABL = sbH + ph + (pw / 2) * tanQ + (chH / 2) / cosQ;
-    const LEVEE = Math.max(LEVEE_SUR_PANNE, LEVEE_SUR_SABL);
+    // UNE SEULE SABLIERE. Il y en avait deux empilees : la sabliere scellee sur le mur,
+    // et une panne sabliere posee dessus qui portait les chevrons. Or les entraits sont
+    // loges dans des encoches du beton, pas sur la sabliere : celle du bas ne portait
+    // donc rien. On n en garde qu une, debitee a la hauteur reelle qui separe le mur du
+    // plan des chevrons. Elle s elargit si son elancement depasse 3, limite de l EC5.
+    const leveeSurSabl = (w, hS) => hS + (w / 2) * tanQ + (chH / 2) / cosQ;
+    let sbB4 = sbB;
+    let LEVEE = Math.max(LEVEE_SUR_PANNE, leveeSurSabl(sbB4, sbH));
+    let hSabl4 = LEVEE - (sbB4 / 2) * tanQ - (chH / 2) / cosQ;
+    if (hSabl4 > 2.9 * sbB4) {
+      sbB4 = hSabl4 / 2.9;
+      LEVEE = Math.max(LEVEE, leveeSurSabl(sbB4, sbH));
+      hSabl4 = LEVEE - (sbB4 / 2) * tanQ - (chH / 2) / cosQ;
+    }
     const dPerpChev = LEVEE * cosQ;             // montee perpendiculaire equivalente
     const LEVEE_DESSUS = LEVEE + (chH / 2) / cosQ;   // -> DESSUS des chevrons (plan de couverture)
     const ySousFaitiere = yApex + (dPerpChev - chH / 2) / cosQ - pfH;
@@ -4919,9 +4959,6 @@ setPiece("Echantignole");
     // Sous-face du chevron a l aplomb de l axe du mur, et le long du rampant.
     const yChevSousMur = Ht + LEVEE - (chH / 2) / cosQ;
     const yChevSousZ = (z) => yChevSousMur + (lg / 2 - Math.abs(z)) * tanQ;
-    // Hauteur de debit de la panne sabliere : de la sabliere jusqu au plan des chevrons,
-    // son arete haute aval venant pile dessous.
-    const hPanneSabl = Math.max(0.08, LEVEE - sbH - (pw / 2) * tanQ - (chH / 2) / cosQ);
 
     // ===== DEPASSE DE TOITURE =====
     // Deux defauts corriges ici d un coup.
@@ -4938,6 +4975,7 @@ setPiece("Echantignole");
     // deux cotes, sinon la gouttiere fait une marche dans chaque angle.
     const NU_MUR_4P = 0.10;                     // demi-epaisseur de mur : on part de sa face
     const tanC4 = (reculCroupe > 0.01) ? (hf / reculCroupe) : tanQ;
+    const cosC4a = 1 / Math.sqrt(1 + tanC4 * tanC4);
     const extZ4 = NU_MUR_4P + debord;           // projection horizontale au dela de l axe, grands pans
     const extX4 = (tanC4 > 0.0001) ? (extZ4 * tanQ / tanC4) : extZ4;   // idem en croupe
     const dyEg4 = extZ4 * tanQ;                 // de combien l egout descend
@@ -5010,17 +5048,9 @@ setPiece("Sabliere");
     // MAINTENANT c est un CADRE COUPE A L ONGLET, le meme dessin que le cadre de
     // lambourdes de la terrasse sur dalle : chaque angle se partage a 45 degres, aucun
     // recouvrement, et c est sur cet angle que vient tomber l aretier.
-    poseCadreOnglet(L / 2 + sbB / 2, lg / 2 + sbB / 2, sbB, hMur, sbH, woodMat);
-
-setPiece("Panne sabliere");
-    // ===== PANNE SABLIERE : L APPUI QUI MANQUAIT A L EGOUT =====
-    // Il n y avait aucune panne au niveau t = 0. Les chevrons et les empannons
-    // demarraient donc dans le vide, 270 a 361 mm au dessus de la sabliere.
-    // Elle se pose A PLAT sur la sabliere - pas sur echantignole, elle porte sur toute
-    // sa longueur - et son arete haute aval arrive exactement sous les chevrons.
-    // Cadre a l onglet lui aussi : sinon ses quatre elements se croisent dans les angles
-    // comme le faisaient les sablieres.
-    poseCadreOnglet(L / 2 + pw / 2, lg / 2 + pw / 2, pw, hMur + sbH, hPanneSabl, woodMat);
+    // Une seule piece, du dessus du mur jusqu au plan des chevrons : c est elle qui les
+    // porte a l egout, son arete haute aval arrivant exactement dessous.
+    poseCadreOnglet(L / 2 + sbB4 / 2, lg / 2 + sbB4 / 2, sbB4, hMur, hSabl4, woodMat);
 
     // ===== FERMES COMPLETES SOUS LE FAITAGE =====
     // Le poteau doit avoir de la JOUE de chaque cote de son encoche, sinon la faitiere
@@ -5131,19 +5161,17 @@ setPiece("Panne");
       if (zHip4(xCroupe + pw / 2) > 0.15) {
         // La croupe a sa propre pente des que reculCroupe est bride : sa panne se cale
         // sur le plan de croupe, sinon elle sort du rampant quand les deux pentes
-        // different. Elle reste d aplomb et non delardee, mais elle est maintenant
-        // coupee a l onglet sur les deux aretiers, comme sa voisine de grand pan.
-        const cosC4 = 1 / Math.sqrt(1 + tanC4 * tanC4);
-        const ySousCroupe = (Ht + hf + LEVEE) - (chH / 2) / cosC4
+        // different. Elle est maintenant DELARDEE comme sa voisine de grand pan - elles
+        // avaient deux dessus differents qui ne se rejoignaient pas sur l aretier - et
+        // coupee a l onglet sur les deux aretiers.
+        const ySousCroupe = (Ht + hf + LEVEE) - (chH / 2) / cosC4a
           - Math.max(0, xCroupe - Lfait / 2) * tanC4;
         const yPC = ySousCroupe - (pw / 2) * tanC4 - ph / 2 + delardement;
-        const xa = xCroupe - pw / 2, xb = xCroupe + pw / 2;
-        const za = zHip4(xa), zb = zHip4(xb);
-        [1, -1].forEach((sx) => {
-          addPlanPrisme([[sx * xa, -za], [sx * xa, za], [sx * xb, zb], [sx * xb, -zb]],
-            yPC - ph / 2, ph, woodMat);
-          logPiece(pw, ph, 2 * zb, { pos: [sx * xCroupe, yPC, 0], rot: null, quat: null });
-        });
+        const biaisC = 1 / Math.max(0.001, kHip4);
+        addPanneDelardeeZ(2 * zHip4(xCroupe), ph, pw, xCroupe, yPC, 0, tanC4, 1,
+          delardement, woodMat, undefined, -biaisC, biaisC);
+        addPanneDelardeeZ(2 * zHip4(xCroupe), ph, pw, -xCroupe, yPC, 0, tanC4, -1,
+          delardement, woodMat, undefined, biaisC, -biaisC);
       }
     }
 
@@ -5339,7 +5367,14 @@ setPiece("Liteau");
     // un liteau est pose a plat, donc son arete aval remonte quand la pente augmente.
     // Sans ce terme la toiture replongeait dans le lattage des 45 degres.
     const LIFT4 = epLit4 + (lgLit4 / 2) * Math.max(tanQ, tanC4) + 0.008;
-    const yC = Ht + LEVEE_DESSUS - dyEg4 + LIFT4;  // egout, depasse comprise
+    // SAILLIE D EGOUT : la couverture ressort un peu au dela du bout des chevrons, pour
+    // que l eau tombe dans la gouttiere et pas sur l about du bois. Elle s arretait pile
+    // sur la coupe d aplomb des chevrons. 50 mm en projection horizontale, et la saillie
+    // de croupe est corrigee comme la depasse pour que la ligne d egout reste de niveau.
+    const SAI4 = 0.05;
+    const saiX4 = (tanC4 > 0.0001) ? (SAI4 * tanQ / tanC4) : SAI4;
+    const zCv4 = zEg4 + SAI4, xCv4 = xEg4 + saiX4;
+    const yC = Ht + LEVEE_DESSUS - dyEg4 + LIFT4 - SAI4 * tanQ;  // egout, saillie comprise
     const yF = yApex + LEVEE_DESSUS + LIFT4;       // faitage
     const pan = (sommets) => {
       const geo = new THREE.BufferGeometry();
@@ -5348,12 +5383,12 @@ setPiece("Liteau");
       geo.computeVertexNormals();
       scene.add(new THREE.Mesh(geo, roof4Mat));
     };
-    pan([-xEg4, yC, zEg4,   xEg4, yC, zEg4,   xFaitDroit, yF, 0,
-         -xEg4, yC, zEg4,   xFaitDroit, yF, 0,   xFaitGauche, yF, 0]);
-    pan([-xEg4, yC, -zEg4,   xFaitGauche, yF, 0,   xFaitDroit, yF, 0,
-         -xEg4, yC, -zEg4,   xFaitDroit, yF, 0,   xEg4, yC, -zEg4]);
-    pan([-xEg4, yC, -zEg4,   -xEg4, yC, zEg4,   xFaitGauche, yF, 0]);
-    pan([xEg4, yC, -zEg4,   xFaitDroit, yF, 0,   xEg4, yC, zEg4]);
+    pan([-xCv4, yC, zCv4,   xCv4, yC, zCv4,   xFaitDroit, yF, 0,
+         -xCv4, yC, zCv4,   xFaitDroit, yF, 0,   xFaitGauche, yF, 0]);
+    pan([-xCv4, yC, -zCv4,   xFaitGauche, yF, 0,   xFaitDroit, yF, 0,
+         -xCv4, yC, -zCv4,   xFaitDroit, yF, 0,   xCv4, yC, -zCv4]);
+    pan([-xCv4, yC, -zCv4,   -xCv4, yC, zCv4,   xFaitGauche, yF, 0]);
+    pan([xCv4, yC, -zCv4,   xFaitDroit, yF, 0,   xCv4, yC, zCv4]);
   };
 
   const drawPenetration = () => {
