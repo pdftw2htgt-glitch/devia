@@ -1900,11 +1900,15 @@ function buildScene3D(scene, params, opts) {
     metre[metre.length - 1].profil = { pts: pts, len: ep, axe: "x" };
   };
 
-  const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce) => {
+  // kG et kD : BIAIS EN PLAN de chaque about, en dx par dz. Zero = coupe d equerre,
+  // comme avant. Sert aux pannes d un toit en croupe, qui doivent mourir a l onglet sur
+  // l aretier et non pas croiser la panne du pan voisin.
+  const addPanneDelardee = (lgX, h, b, px, py, pz, tanP, signAval, del, mat, nomForce, kG, kD) => {
     const pts = sectionDelardee(h, b, tanP, signAval, del);
     const x1 = px - lgX / 2, x2 = px + lgX / 2;
-    const S1 = pts.map((q) => [x1, py + q[0], pz + q[1]]);
-    const S2 = pts.map((q) => [x2, py + q[0], pz + q[1]]);
+    const bG = kG || 0, bD = kD || 0;
+    const S1 = pts.map((q) => [x1 + q[1] * bG, py + q[0], pz + q[1]]);
+    const S2 = pts.map((q) => [x2 + q[1] * bD, py + q[0], pz + q[1]]);
     const pos = [];
     const tri = (a, c, e) => { pos.push(a[0],a[1],a[2], c[0],c[1],c[2], e[0],e[1],e[2]); };
     for (let i = 1; i < pts.length - 1; i++) { tri(S1[0], S1[i + 1], S1[i]); tri(S2[0], S2[i], S2[i + 1]); }
@@ -2047,6 +2051,63 @@ function buildScene3D(scene, params, opts) {
     m.castShadow = true;
     scene.add(m);
     logPiece(b, h, len, { pos: [cx, cy, cz], rot: null, quat: [q.x, q.y, q.z, q.w] }, nomForce);
+  };
+
+  // ===== POUTRE RECTANGULAIRE A COUPES D ABOUT SUR UN PLAN =====
+  // addBeamRect coupe ses abouts D EQUERRE sur l axe. Sur un rampant, l angle haut de
+  // la piece ressort alors au dela de l egout : 40 mm pour un chevron de 140 a 35
+  // degres, 42 mm pour un aretier dans l angle. Un charpentier ne coupe jamais comme
+  // ca en pied : il coupe D APLOMB, a la verticale, au nu de l egout.
+  // Ici chaque about recoit son propre PLAN de coupe - un point et une normale - et la
+  // piece est arretee dessus, fibre par fibre. Sert aussi a faire mourir un empannon
+  // sur le flanc de l aretier plutot que de le laisser le traverser.
+  const addBeamRectCoupe = (x1, y1, z1, x2, y2, z2, b, h, c1, c2, nomForce) => {
+    const P1 = new THREE.Vector3(x1, y1, z1), P2 = new THREE.Vector3(x2, y2, z2);
+    const len0 = P1.distanceTo(P2);
+    if (len0 < 0.02) return;
+    const uz = P2.clone().sub(P1).normalize();
+    let ux = new THREE.Vector3(0, 1, 0).cross(uz);
+    if (ux.length() < 0.000001) ux = new THREE.Vector3(1, 0, 0);
+    ux.normalize();
+    const uy = new THREE.Vector3().crossVectors(uz, ux).normalize();
+    // Les 4 fibres d angle de la section, dans le repere de la piece.
+    const fib = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([sx, sy]) =>
+      ux.clone().multiplyScalar(sx * b / 2).add(uy.clone().multiplyScalar(sy * h / 2)));
+    // Ou chaque fibre rencontre le plan de coupe. Plan rasant : on garde la coupe droite.
+    const station = (f, pl, defaut) => {
+      if (pl === null || pl === undefined) return defaut;
+      const den = pl.n.dot(uz);
+      if (Math.abs(den) < 0.05) return defaut;
+      return pl.n.dot(pl.q.clone().sub(P1).sub(f)) / den;
+    };
+    // Garde-fou : une coupe ne rallonge jamais une fibre de plus d un demi-metre.
+    // Sans ca, un plan presque parallele a la piece l etire a l infini.
+    const A = fib.map((f) => { const t = station(f, c1, 0); return (t < -0.5) ? 0 : t; });
+    const B = fib.map((f) => { const t = station(f, c2, len0); return (t > len0 + 0.5) ? len0 : t; });
+    const V = [];
+    for (let k = 0; k < 4; k++) V.push(P1.clone().add(fib[k]).addScaledVector(uz, A[k]));
+    for (let k = 0; k < 4; k++) V.push(P1.clone().add(fib[k]).addScaledVector(uz, B[k]));
+    const pos = [];
+    const tri = (a, c, e) => { pos.push(V[a].x, V[a].y, V[a].z, V[c].x, V[c].y, V[c].z, V[e].x, V[e].y, V[e].z); };
+    tri(0, 1, 2); tri(0, 2, 3);                 // about du bas
+    tri(4, 6, 5); tri(4, 7, 6);                 // about du haut
+    for (let k = 0; k < 4; k++) {
+      const j = (k + 1) % 4;
+      tri(k, k + 4, j + 4); tri(k, j + 4, j);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.computeVertexNormals();
+    const msh = new THREE.Mesh(g, woodMat);
+    msh.castShadow = true;
+    scene.add(msh);
+    // Metre : la LONGUEUR DE DEBIT, donc la fibre la plus longue - c est ce qu on scie.
+    let lgDeb = 0, sA = 0, sB = 0;
+    for (let k = 0; k < 4; k++) { lgDeb = Math.max(lgDeb, B[k] - A[k]); sA += A[k]; sB += B[k]; }
+    const ctr = P1.clone().addScaledVector(uz, (sA + sB) / 8);
+    const qt = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(ux, uy, uz));
+    logPiece(b, h, Math.max(0.02, lgDeb), { pos: [ctr.x, ctr.y, ctr.z], rot: null,
+      quat: [qt.x, qt.y, qt.z, qt.w] }, nomForce);
   };
 
   // ===== LIEN A COUPES D ABOUT, SUR N IMPORTE QUEL AZIMUT =====
@@ -4883,6 +4944,38 @@ setPiece("Echantignole");
     const zEg4 = lg / 2 + extZ4;                // ligne d egout des grands pans
     const xEg4 = L / 2 + extX4;                 // ligne d egout des croupes
 
+    // ===== LA LIGNE D ARETIER, EN PLAN =====
+    // C est la meme droite qu on sorte du nu du mur ou du nu de l egout : extX4 et extZ4
+    // ont ete calcules dans ce rapport la. Tout ce qui meurt sur un aretier - pannes,
+    // liteaux, empannons - s y refere maintenant, au lieu que chacun recalcule son bout.
+    const kHip4 = (xEg4 - Lfait / 2) / Math.max(0.001, zEg4);   // dx par dz le long de l aretier
+    const xHip4 = (z) => Lfait / 2 + kHip4 * Math.abs(z);
+    const zHip4 = (x) => Math.max(0, (Math.abs(x) - Lfait / 2) / Math.max(0.001, kHip4));
+    // Plans de coupe VERTICAUX : d aplomb sur un egout, le long d un aretier, ou
+    // perpendiculaire a l aretier pour sa propre coupe de pied.
+    const planEgZ = (sz) => ({ n: new THREE.Vector3(0, 0, 1), q: new THREE.Vector3(0, 0, sz * zEg4) });
+    const planEgX = (sx) => ({ n: new THREE.Vector3(1, 0, 0), q: new THREE.Vector3(sx * xEg4, 0, 0) });
+    const planFaitage = { n: new THREE.Vector3(0, 0, 1), q: new THREE.Vector3(0, 0, 0) };
+    const planBoutFait = (sx) => ({ n: new THREE.Vector3(1, 0, 0), q: new THREE.Vector3(sx * Lfait / 2, 0, 0) });
+    const planLeLongAret = (sx, sz) => {
+      const dx = sx * (Lfait / 2 - xEg4), dz = -sz * zEg4;
+      return { n: new THREE.Vector3(dz, 0, -dx).normalize(),
+        q: new THREE.Vector3(sx * xEg4, 0, sz * zEg4) };
+    };
+    const planPiedAret = (sx, sz) => {
+      const dx = sx * (Lfait / 2 - xEg4), dz = -sz * zEg4;
+      const d = Math.max(0.001, Math.sqrt(dx * dx + dz * dz));
+      const ex = dx / d, ez = dz / d;
+      // On RECULE la coupe le long de l aretier de ce qu il faut pour que ses deux
+      // angles de pied restent dans l emprise de la toiture : la coupe est d aplomb,
+      // donc un angle sortait en x et l autre en z - 42 mm mesures a 45 degres.
+      const rec = Math.min(0.4, (arrB / 2) * Math.max(
+        Math.abs(ez) / Math.max(0.05, Math.abs(ex)),
+        Math.abs(ex) / Math.max(0.05, Math.abs(ez))));
+      return { n: new THREE.Vector3(ex, 0, ez),
+        q: new THREE.Vector3(sx * xEg4 + ex * rec, 0, sz * zEg4 + ez * rec) };
+    };
+
     // ===== MURS : l entrait se loge sous la sabliere, le bois reste AU-DESSUS du beton =====
     const hMur = Ht;
     const yEntrait = hMur - enH / 2;
@@ -5022,25 +5115,35 @@ setPiece("Panne");
       // commande le plan, l echantignole grandit d autant - c est son role.
       const yP = yChevSousZ(zRef) - (pw / 2) * tanQ - ph / 2 + delardement;
       niveauxPanne.push({ t: t, yRef: yRef, zRef: zRef, yP: yP });
-      // Grands pans : la panne va d un aretier a l autre.
-      const lenPanne = L - (L - Lfait) * t;
-      addPanneDelardee(lenPanne, ph, pw, 0, yP, zRef, tanQ, 1, delardement, woodMat);
-      addPanneDelardee(lenPanne, ph, pw, 0, yP, -zRef, tanQ, -1, delardement, woodMat);
+      // Grands pans : la panne va d un aretier a l autre, abouts coupes EN BIAIS pour
+      // mourir dessus. Avant ils etaient d equerre : la panne de grand pan et celle de
+      // croupe occupaient le meme volume de 60 x 60 mm dans chacun des quatre angles,
+      // et laissaient un creux de 60 x 60 juste a cote. Quatre fois par niveau.
+      const lenPanne = 2 * xHip4(zRef);
+      addPanneDelardee(lenPanne, ph, pw, 0, yP, zRef, tanQ, 1, delardement, woodMat,
+        undefined, -kHip4, kHip4);
+      addPanneDelardee(lenPanne, ph, pw, 0, yP, -zRef, tanQ, -1, delardement, woodMat,
+        undefined, kHip4, -kHip4);
       // Croupes : meme niveau, filant selon Z entre les deux aretiers du bout.
       // /!\ addPanneDelardee n extrude que selon X : la panne de croupe est une boite
       // d aplomb, sans delardement. A reprendre quand l aide saura filer selon Z.
       const xCroupe = L / 2 - reculCroupe * t;
-      const lenCroupe = lg * (1 - t);
-      if (lenCroupe > 0.3) {
+      if (zHip4(xCroupe + pw / 2) > 0.15) {
         // La croupe a sa propre pente des que reculCroupe est bride : sa panne se cale
         // sur le plan de croupe, sinon elle sort du rampant quand les deux pentes
-        // different. Elle reste une boite d aplomb, non delardee.
+        // different. Elle reste d aplomb et non delardee, mais elle est maintenant
+        // coupee a l onglet sur les deux aretiers, comme sa voisine de grand pan.
         const cosC4 = 1 / Math.sqrt(1 + tanC4 * tanC4);
         const ySousCroupe = (Ht + hf + LEVEE) - (chH / 2) / cosC4
           - Math.max(0, xCroupe - Lfait / 2) * tanC4;
         const yPC = ySousCroupe - (pw / 2) * tanC4 - ph / 2 + delardement;
-        addBox(pw, ph, lenCroupe, xCroupe, yPC, 0, woodMat);
-        addBox(pw, ph, lenCroupe, -xCroupe, yPC, 0, woodMat);
+        const xa = xCroupe - pw / 2, xb = xCroupe + pw / 2;
+        const za = zHip4(xa), zb = zHip4(xb);
+        [1, -1].forEach((sx) => {
+          addPlanPrisme([[sx * xa, -za], [sx * xa, za], [sx * xb, zb], [sx * xb, -zb]],
+            yPC - ph / 2, ph, woodMat);
+          logPiece(pw, ph, 2 * zb, { pos: [sx * xCroupe, yPC, 0], rot: null, quat: null });
+        });
       }
     }
 
@@ -5105,9 +5208,14 @@ setPiece("Aretier");
     const retraitAret = (arrB / 2) * Math.max(nXAr4 * tanC4, nZAr4 * tanQ) + 0.006;
     const yAretBas = Ht + LEVEE_DESSUS - dyEg4 - arrH / 2 - retraitAret;
     const yAretHaut = yApex + LEVEE_DESSUS - arrH / 2 - retraitAret;
+    // Pied coupe D APLOMB au nu de l egout, tete coupee d aplomb au bout du faitage :
+    // avant, l about d equerre faisait ressortir l angle bas de 42 mm hors de la toiture.
     [[-1, xFaitGauche], [1, xFaitDroit]].forEach(([sx, xf]) => {
       [1, -1].forEach((sz) => {
-        addBeamRect(sx * xEg4, yAretBas, sz * zEg4, xf, yAretHaut, 0, arrB, arrH);
+        // Tete laissee d equerre : au sommet les quatre pans se replient, et une coupe
+        // d aplomb y rallongeait les fibres hautes jusqu a ressortir du toit de 54 mm.
+        addBeamRectCoupe(sx * xEg4, yAretBas, sz * zEg4, xf, yAretHaut, 0, arrB, arrH,
+          planPiedAret(sx, sz), undefined);
       });
     });
 
@@ -5118,8 +5226,10 @@ setPiece("Chevron");
     const nbChevGrandPan = Math.max(2, Math.floor(Lfait / espChevron));
     for (let i = 0; i <= nbChevGrandPan; i++) {
       const x = xFaitGauche + (i / nbChevGrandPan) * Lfait;
-      addBeamRect(x, yChevBas, zEg4, x, yChevHaut, 0, chB, chH);
-      addBeamRect(x, yChevBas, -zEg4, x, yChevHaut, 0, chB, chH);
+      // Pied d aplomb au nu de l egout, tete d aplomb au faitage : les deux versants
+      // se rencontrent alors face contre face sur la faitiere.
+      addBeamRectCoupe(x, yChevBas, zEg4, x, yChevHaut, 0, chB, chH, planEgZ(1), planFaitage);
+      addBeamRectCoupe(x, yChevBas, -zEg4, x, yChevHaut, 0, chB, chH, planEgZ(-1), planFaitage);
     }
 
 setPiece("Empannon");
@@ -5135,7 +5245,10 @@ setPiece("Empannon");
           const xb = xCoin + (xf - xCoin) * f;
           const yh = yChevBas + (hf + dyEg4) * f;
           const zh = signZ * zEg4 * (1 - f);
-          addBeamRect(xb, yChevBas, signZ * zEg4, xb, yh, zh, chB, chH);
+          // Pied d aplomb a l egout ; tete laissee d equerre, elle meurt DANS l aretier
+          // et une coupe d aplomb y rallongeait les fibres hautes au dela de l arete.
+          addBeamRectCoupe(xb, yChevBas, signZ * zEg4, xb, yh, zh, chB, chH,
+            planEgZ(signZ), undefined);
         }
       });
     });
@@ -5154,7 +5267,8 @@ setPiece("Empannon de croupe");
         const fAr = 1 - Math.abs(zb) / zEg4;
         const xh = xCoin + (xf - xCoin) * fAr;
         const yh = yChevBas + (hf + dyEg4) * fAr;
-        addBeamRect(xCoin, yChevBas, zb, xh, yh, zb, chB, chH);
+        addBeamRectCoupe(xCoin, yChevBas, zb, xh, yh, zb, chB, chH,
+          planEgX(signX), undefined);
       }
     });
 
@@ -5170,36 +5284,54 @@ setPiece("Liteau");
     // Tous les autres types de toit en posent et remontent leur couverture d autant
     // (epLiteau = 0,03 en trad, en hangar, en monopente). Le 4 pans ne faisait ni l un
     // ni l autre.
-    const epLit4 = 0.025, lgLit4 = 0.04;
+    // SECTION : elle depend de l ECARTEMENT DES CHEVRONS, c est la regle du NF DTU
+    // 40.21. 25 x 40 etait sous-dimensionne pour a peu pres toutes les couvertures.
+    const secLit4 = (espChevron <= 0.45) ? [0.027, 0.040]
+      : ((espChevron <= 0.60) ? [0.032, 0.050] : [0.040, 0.060]);
+    const epLit4 = secLit4[0], lgLit4 = secLit4[1];
     const espLit4 = couv.espLiteau;
     const cosC4b = 1 / Math.sqrt(1 + tanC4 * tanC4);
     const yEgChev = Ht + LEVEE_DESSUS - dyEg4;   // dessus des chevrons sur la ligne d egout
-    const reculCr4 = Math.max(0.001, xEg4 - Lfait / 2);
 
-    // Grands pans : liteaux filant selon X, coupes sur les deux aretiers.
-    const nbLitGP = Math.max(3, Math.round((zEg4 / cosQ) / espLit4));
+    // Chaque liteau est dessine par son CONTOUR EN PLAN : ses deux bouts suivent
+    // l aretier, donc ils sont coupes a l onglet et non plus d equerre. Et le premier
+    // rang est pose au NU de l egout, pas a cheval dessus - il ressortait de 20 mm.
+    const poseLitX = (z, yBas) => {
+      const za = Math.abs(z) - lgLit4 / 2, zb = Math.abs(z) + lgLit4 / 2;
+      const xa = xHip4(za), xb = xHip4(zb);
+      if (xb < 0.12) return;
+      const sz = (z >= 0) ? 1 : -1;
+      addPlanPrisme([[-xa, sz * za], [xa, sz * za], [xb, sz * zb], [-xb, sz * zb]], yBas, epLit4, woodMat);
+      logPiece(2 * xb, epLit4, lgLit4, { pos: [0, yBas + epLit4 / 2, z], rot: null, quat: null });
+    };
+    const poseLitZ = (x, yBas) => {
+      const xa = Math.abs(x) - lgLit4 / 2, xb = Math.abs(x) + lgLit4 / 2;
+      const za = zHip4(xa), zb = zHip4(xb);
+      if (zb < 0.12) return;
+      const sx = (x >= 0) ? 1 : -1;
+      addPlanPrisme([[sx * xa, -za], [sx * xa, za], [sx * xb, zb], [sx * xb, -zb]], yBas, epLit4, woodMat);
+      logPiece(lgLit4, epLit4, 2 * zb, { pos: [x, yBas + epLit4 / 2, 0], rot: null, quat: null });
+    };
+
+    // Grands pans : du nu de l egout jusqu au faitage.
+    const zBasL4 = zEg4 - lgLit4 / 2, zHautL4 = lgLit4 / 2;
+    const nbLitGP = Math.max(2, Math.ceil((zBasL4 - zHautL4) / Math.max(0.05, espLit4 * cosQ)));
     for (let i = 0; i <= nbLitGP; i++) {
-      const z = zEg4 * (1 - i / nbLitGP);
-      if (z < lgLit4) continue;                   // le dernier tomberait sur le faitage
-      const f = 1 - z / zEg4;                     // 0 a l egout, 1 au faitage
-      const lgL = 2 * (xEg4 + (Lfait / 2 - xEg4) * f);
-      if (lgL < 0.2) continue;
-      const y = yEgChev + (zEg4 - z) * tanQ + epLit4 / 2;
-      addBox(lgL, epLit4, lgLit4, 0, y, z, woodMat);
-      addBox(lgL, epLit4, lgLit4, 0, y, -z, woodMat);
+      const z = zBasL4 - (i / nbLitGP) * (zBasL4 - zHautL4);
+      const yBas = yEgChev + (zEg4 - z) * tanQ;
+      poseLitX(z, yBas);
+      poseLitX(-z, yBas);
     }
 
-    // Croupes : liteaux filant selon Z, coupes sur les memes aretiers. La croupe a sa
-    // propre pente des que reculCroupe est bride, donc sa propre montee.
-    const nbLitCR = Math.max(3, Math.round((reculCr4 / cosC4b) / espLit4));
+    // Croupes : du nu de l egout jusqu au bout de faitage. Elles ont leur propre pente
+    // des que reculCroupe est bride, donc leur propre montee.
+    const xBasL4 = xEg4 - lgLit4 / 2, xHautL4 = Lfait / 2 + lgLit4 / 2;
+    const nbLitCR = Math.max(2, Math.ceil((xBasL4 - xHautL4) / Math.max(0.05, espLit4 * cosC4b)));
     for (let i = 0; i <= nbLitCR; i++) {
-      const x = xEg4 - (i / nbLitCR) * reculCr4;
-      const f = (xEg4 - x) / reculCr4;
-      const lgL = 2 * zEg4 * (1 - f);
-      if (lgL < 0.2) continue;
-      const y = yEgChev + (xEg4 - x) * tanC4 + epLit4 / 2;
-      addBox(lgLit4, epLit4, lgL, x, y, 0, woodMat);
-      addBox(lgLit4, epLit4, lgL, -x, y, 0, woodMat);
+      const x = xBasL4 - (i / nbLitCR) * (xBasL4 - xHautL4);
+      const yBas = yEgChev + (xEg4 - x) * tanC4;
+      poseLitZ(x, yBas);
+      poseLitZ(-x, yBas);
     }
 
     // ===== COUVERTURE 4 PANS : posee sur les LITEAUX, plus sur les chevrons =====
