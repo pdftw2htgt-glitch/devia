@@ -4921,8 +4921,12 @@ setPiece("Echantignole");
       ];
     };
 
-    // Un poteau tous les 3,5 m au plus, et chacun porte une demi-ferme complete.
-    const nbTrav = Math.max(1, Math.ceil(L / 3.5));
+    // Un poteau tous les 4,5 m au plus, et chacun porte une demi-ferme complete.
+    // A 3,5 m un appentis de 4 m sortait avec TROIS demi-fermes alors que deux
+    // suffisent largement. Verification de la sabliere a 4,5 m de portee, section
+    // 150 x 260 en C24 sous une couverture tuile : 9,8 m admissibles a l ELU et 9,0 m
+    // a la fleche. La portee n est pas ce qui commande ici, c est le bon sens.
+    const nbTrav = Math.max(1, Math.ceil(L / 4.5));
     const xs = [];
     for (let i = 0; i <= nbTrav; i++) xs.push(-L / 2 + (i / nbTrav) * L);
 
