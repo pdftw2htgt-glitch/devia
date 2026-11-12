@@ -4835,137 +4835,221 @@ setPiece("Echantignole");
 
   const drawAppentis = () => {
     // ============================================================
-    // APPENTIS PARAMETRIQUE - charpente complete adaptative
-    // S'adapte aux dimensions et a la couverture demandees.
-    // (sections indicatives - calcul structurel = phase 2.B)
+    // APPENTIS - LA MEME LOGISTIQUE QUE LE CARPORT
     // ============================================================
+    // AVANT : des pannes posees dans le vide sur la ligne de rampant - aucun
+    // arbaletrier, aucun entrait, aucun lien, rien dessous. Les chevrons etaient cales
+    // par un decalage empirique (secChevron x 0,8) au lieu de porter sur le
+    // delardement. Les liteaux faisaient 25 x 40. Les poteaux partaient de y = 0, donc
+    // noyes de 140 mm dans la dalle. Et la muraillere etait enfoncee de 115 mm DANS le
+    // mur beton au lieu d etre plaquee contre lui.
+    // MAINTENANT c est la demi-ferme du carport : poteau -> arbaletrier encastre dans
+    // sa tete -> entrait MOISE qui serre le poteau et le lien au passage -> toutes les
+    // pannes assises sur l arbaletrier par echantignole, donc dans un seul plan ->
+    // chevrons poses sur le delardement -> liteaux -> couverture.
+    // Le poteau haut du carport est remplace par le MUR d adossement : c est la
+    // muraillere qui joue son role, plaquee contre le nu interieur du mur.
+    const EP_MUR_AP = 0.25;
+    const Y0A = 0.14;                                   // dessus de la dalle beton
     const denivele = lg * Math.tan((pente * Math.PI) / 180);
-    const Hbas = Ht;             // hauteur cote avant (libre)
-    const Hhaut = Ht + denivele; // hauteur mur arriere (mur maison)
-    const ang = Math.atan(denivele / lg);
-    const longueurRampant = lg / Math.cos(ang);  // longueur du pan incline
-    const yCentre = Hbas + denivele/2;
-    // ===== DEPASSE DE TOITURE =====
-    // L appentis est adosse : le cote z positif EST le mur de la maison, il ne peut pas
-    // deborder. depGa est donc volontairement ignore ici, seuls les deux pignons et
-    // l egout bas sont pilotables. Les 0.15 / 0.30 d origine deviennent le minimum.
-    const dpAp = okDeb(0) ? Math.max(0.15, depAv) : 0;   // pignon x positif = la facade
-    const dpAm = okDeb(1) ? Math.max(0.15, depAr) : 0;   // pignon x negatif
-    const lgFilA = L + dpAp + dpAm;      // longueur des pieces filantes
-    const cxFilA = (dpAp - dpAm) / 2;    // leur centre
-    const extBasA = okDeb(3) ? Math.max(0.15, depDr / Math.cos(ang)) : 0;  // egout bas, z-
-    const supBasA = extBasA - 0.15;      // ce qui s ajoute au debord de principe deja la
+    const Hbas = Ht + Y0A;                              // hauteur LIBRE sous l abri
+    const angA = Math.atan(denivele / lg);
+    const cosA = Math.cos(angA), sinA = Math.sin(angA), tanA = Math.tan(angA);
+    const plA = lg / cosA;
 
-    // ===== REGLES METIER ADAPTATIVES =====
-    // 1) Couverture -> couleur + espacement chevrons + espacement liteaux
+    // ===== DEPASSE =====
+    // Adosse : le cote z positif EST le mur, il ne peut pas deborder. Seuls les deux
+    // pignons et l egout bas sont pilotables, et la depasse de toiture saisie ne part
+    // que de l egout - c est la que l eau tombe.
+    const dpAp = okDeb(0) ? Math.max(0.15, depAv) : 0;  // pignon x positif
+    const dpAm = okDeb(1) ? Math.max(0.15, depAr) : 0;  // pignon x negatif
+    const lgFilA = L + dpAp + dpAm;
+    const cxFilA = (dpAp - dpAm) / 2;
+    const extAv = Math.max(0.10, debord);               // egout bas, z negatif
+
     const couv = getCouverture(opts && opts.couverture);
-    const couvColor = couv.couleur;
     const espChevron = couv.espChevron;
-    const espLiteau = couv.espLiteau;
-    const appentisRoofMat = makeRoofMaterial(couv, L, longueurRampant);
 
-    // 2) Nb de pannes : un chevron ne franchit pas plus de ~2.2 m sans appui
-    const porteeMaxChevron = 2.2;
-    const nbPannes = Math.max(1, Math.ceil(longueurRampant / porteeMaxChevron) - 1);
+    // ===== SECTIONS =====
+    // Une seule section de panne pour les trois roles - sabliere, intermediaires,
+    // muraillere - c est la condition pour qu elles soient toutes dans le meme plan.
+    const [potB] = sec("Poteau", 0.20, 0.20);
+    const [arB, arH] = sec("Arbaletrier", 0.16, 0.24);
+    const [enB, enH] = sec("Entrait", 0.08, 0.22);      // enB = UNE joue de la moise
+    const [chB, chH] = sec("Chevron", 0.10, 0.16);
+    const [liB, liH] = sec("Lien", 0.16, 0.16);
+    const [pw, ph] = sec("Panne", 0.15, 0.22);
+    const eEch = 0.03;
 
-    // 3) Section chevrons : grossit avec la longueur du rampant
-    const secChevron = longueurRampant > 4.5 ? 0.10 : (longueurRampant > 3 ? 0.09 : 0.08);
+    const yLigne = (z) => Hbas + (z + lg / 2) * tanA;   // sous-face de l arbaletrier
+    const yDessusArb = (z) => yLigne(z) + arH / cosA;   // plan d assise des pannes
+    const yPanne = (z) => yDessusArb(z) + (pw / 2) * tanA + eEch + ph / 2;
+    const dAxeArb = (arH / 2) / cosA;
+    const dPerp = arH / 2 + (ph + eEch - delardement) * cosA + pw * sinA + chH / 2;
+    const LEVEE = dAxeArb + dPerp / cosA;
+    const LEVEE_DESSUS = LEVEE + (chH / 2) / cosA;
+    const sousCh = (z) => yLigne(z) + LEVEE - (chH / 2) / cosA;
+    const dessCh = (z) => yLigne(z) + LEVEE + (chH / 2) / cosA;
 
-    // 4) Poteaux avant : 1 tous les ~3.5 m
-    const nbPoteauxLong = Math.max(1, Math.ceil(L / 3.5));
+    const zMurInt = lg / 2 - EP_MUR_AP / 2;             // nu interieur du mur
+    const zSab = -lg / 2;                               // axe de la sabliere
+    const zMu = zMurInt - pw / 2;                       // axe de la muraillere, plaquee
 
-    // 5) Section pannes : grossit avec la portee entre poteaux
-    const porteePanne = L / nbPoteauxLong;
-    const secPanne = porteePanne > 3.5 ? 0.18 : (porteePanne > 2 ? 0.15 : 0.13);
-
-    // 6) Section sablieres : un peu plus fortes que les pannes
-    const secSabliere = Math.min(0.20, secPanne + 0.02);
-
-    // ===== MUR ARRIERE D'ADOSSEMENT (mur existant maison, beton) - masque si ancre sur un batiment =====
-    if (!(opts && opts.sansMurAncrage)) {
-      addBox(L + 0.5, Hhaut + 0.3, 0.25, 0, (Hhaut + 0.3)/2, lg/2, betonMat);
+    // ===== MUR D ADOSSEMENT =====
+    // Il monte jusqu au dessus de la couverture, pas une hauteur devinee.
+    const hMurAp = dessCh(zMurInt) + 0.30;
+    if ((opts && opts.sansMurAncrage) ? false : true) {
+      addBox(L + 0.5, hMurAp, EP_MUR_AP, 0, hMurAp / 2, lg / 2, betonMat);
     }
-    // Dalle beton apparente (deborde legerement)
     drawDalleBeton(L, lg, 0.2);
 
-setPiece("Poteau");
-    // ===== POTEAUX AVANT (cote ouvert, nb adaptatif) =====
-    const secPoteau = 0.18;
-    for (let i = 0; i <= nbPoteauxLong; i++) {
-      const x = -L/2 + (i / nbPoteauxLong) * L;
-      addBox(secPoteau, Hbas, secPoteau, x, Hbas/2, -lg/2, woodMat);
-    }
+    // ===== TETE DE POTEAU =====
+    // Meme dessin que le carport : un LOGEMENT au rampant ou meurt l about
+    // d arbaletrier, une ENCOCHE qui recoit la sabliere a son niveau exact, et une
+    // JOUE exterieure qui monte au ras du dessus de panne et la retient.
+    const contPotAp = () => {
+      const zi = zSab - potB / 2;                       // face exterieure, cote ouvert
+      const zo = zSab + potB / 2;                       // face interieure
+      const zc1 = zSab - pw / 2, zc2 = zSab + pw / 2;
+      const ySeat = yPanne(zSab) - ph / 2;
+      const yJoue = yPanne(zSab) + ph / 2;
+      return [
+        [zi, Y0A], [zo, Y0A],
+        [zo, yLigne(zo)], [zc2, yLigne(zc2)],
+        [zc2, ySeat], [zc1, ySeat],
+        [zc1, yJoue], [zi, yJoue],
+      ];
+    };
 
-    // (Appentis OUVERT : pas de murs lateraux, structure apparente)
+    // Un poteau tous les 3,5 m au plus, et chacun porte une demi-ferme complete.
+    const nbTrav = Math.max(1, Math.ceil(L / 3.5));
+    const xs = [];
+    for (let i = 0; i <= nbTrav; i++) xs.push(-L / 2 + (i / nbTrav) * L);
 
-setPiece("Sabliere");
-    // ===== SABLIERE (basse avant, sur les poteaux) =====
-    const [sbB, sbH] = sec("Sabliere", secSabliere, secSabliere);
-    addBox(lgFilA, sbH, sbB, cxFilA, Hbas, -lg/2, woodMat);
+    setPiece("Poteau");
+    const hPotAp = yPanne(zSab) + ph / 2 - Y0A;         // longueur de DEBIT
+    xs.forEach((x) => { addProfilZY(x, potB, contPotAp(), hPotAp, potB, "Poteau"); });
 
-setPiece("Muraillere");
-    // ===== MURAILLERE (panne fixee au mur d'adossement, recoit les abouts hauts des chevrons) =====
-    const [muB, muH] = sec("Muraillere", secSabliere, secSabliere);
-    const zMuraillere = lg/2 - muB/2 - 0.01; // plaquee contre le nu interieur du mur
-    addBox(lgFilA, muH, muB, cxFilA, Hhaut - muH/2, zMuraillere, woodMat);
+    setPiece("Arbaletrier");
+    // About bas coupe d aplomb AVANT le poteau, il meurt dans son logement sous
+    // l encoche de sabliere. About haut contre le nu du mur.
+    const zArbBas = zSab + pw / 2, zArbHaut = zMurInt;
+    const contArbA = [
+      [zArbBas, yLigne(zArbBas)], [zArbHaut, yLigne(zArbHaut)],
+      [zArbHaut, yDessusArb(zArbHaut)], [zArbBas, yDessusArb(zArbBas)],
+    ];
+    const lgArbA = (zArbHaut - zArbBas) / cosA;
+    xs.forEach((x) => { addProfilZY(x, arB, contArbA, lgArbA, arH, "Arbaletrier"); });
 
-setPiece("Panne");
-    // ===== PANNES INTERMEDIAIRES (nb adaptatif, bien reparties) =====
-    const pannePositions = [];
-    for (let i = 0; i < nbPannes; i++) {
-      const t = (i + 1) / (nbPannes + 1);
-      const z = -lg/2 + t * lg;
-      const y = Hbas + t * denivele;
-      const [pnB, pnH] = sec("Panne", secPanne, secPanne);
-      addBox(lgFilA, pnH, pnB, cxFilA, y, z, woodMat);
-      pannePositions.push({ y, z });
-    }
+    // ===== NIVEAUX DE PANNE =====
+    const nbInter = Math.max(0, Math.ceil(plA / 2.2) - 1);
+    const pasA = (zMu - zSab) / (nbInter + 1);
+    const zCroise = zSab + 0.5 * pasA;
+    const yEntraitHaut = yLigne(zCroise);
+    const yEntraitBas = yEntraitHaut - enH;
+    const xMoise = liB / 2 + enB / 2;
+    const dPied = Math.min(0.6, Math.max(0.3, Ht * 0.25));
+    const yPiedLien = yEntraitBas - dPied;
 
-setPiece("Chevron");
-    // ===== CHEVRONS (espacement + section adaptatifs) =====
-    const nbChevrons = Math.max(2, Math.floor(L / espChevron));
-    const chevronXs = [];
-    for (let i = 0; i <= nbChevrons; i++) {
-      const x = -L/2 + (i / nbChevrons) * L;
-      chevronXs.push(x);
-      const [chB, chH] = sec("Chevron", secChevron, secChevron);
-      // Le chevron va du debord avant jusqu'a la muraillere (about hors du mur)
-      const rampantUtile = longueurRampant - (muB + 0.01) / Math.cos(ang) + extBasA; // -epaisseur muraillere, +depasse basse
-      const decalRampant = -((longueurRampant + 0.2) - rampantUtile) / 2; // recentre vers l'avant (bas de pente)
-      const dyC = decalRampant * Math.sin(ang);
-      const dzC = decalRampant * Math.cos(ang);
-      addBox(chB, chH, rampantUtile, x, yCentre + secChevron*0.8 + dyC, dzC, woodMat, [-ang, 0, 0]);
-    }
-
-setPiece("Liteau");
-    // ===== LITEAUX (perpendiculaires aux chevrons, espacement adaptatif) =====
-    const zLitBasA = -lg/2 - (okDeb(3) ? depDr : 0);
-    const nbLiteaux = Math.max(4, Math.floor((longueurRampant + supBasA) / espLiteau));
-    for (let i = 0; i <= nbLiteaux; i++) {
-      const t = i / nbLiteaux;
-      const z = zLitBasA + t * (lg/2 - zLitBasA);
-      const y = Hbas + ((z + lg/2) / lg) * denivele + secChevron + 0.07;
-      addBox(lgFilA + 0.1, 0.025, 0.04, cxFilA, y, z, woodMat);
-    }
-
-setPiece("Echantignole");
-    // ===== ECHANTIGNOLES (cale a chaque croisement chevron x panne) =====
-    // Petits taquets qui calent le chevron sur chaque panne (cote aval)
-    chevronXs.forEach((x) => {
-      pannePositions.forEach((p) => {
-        const yEch = p.y + secPanne/2 + 0.03;
-        const zEch = p.z - 0.07;
-        addBox(secChevron * 0.9, 0.06, 0.10, x, yEch, zEch, woodMat);
+    setPiece("Lien");
+    // Lien de ferme : pied coupe d aplomb contre le poteau, tete coupee parallele au
+    // rampant pour porter a plat SOUS l arbaletrier. Les joues de l entrait le serrent
+    // au croisement - c est ce qui fait tenir l assemblage.
+    const zTeteL = zSab + 0.35 * lg;
+    xs.forEach((x) => {
+      addLienCoupe(x, liB, zSab + potB / 2, yPiedLien, zTeteL, yLigne(zTeteL), liH, tanA, "Lien");
+    });
+    // Liens LONGITUDINAUX, un de chaque cote du poteau, sous la sabliere : c est eux
+    // qui empechent la file de poteaux de se coucher dans le sens de la longueur.
+    const ySousSabl = yPanne(zSab) - ph / 2;
+    const demiTrav = (L / nbTrav) / 2 - potB / 2 - 0.05;
+    xs.forEach((x, k) => {
+      [Math.PI / 2, -Math.PI / 2].forEach((az) => {
+        const versDroite = (az > 0);
+        if (versDroite && (k === xs.length - 1)) return;   // rien a brider au dela du dernier
+        if ((versDroite === false) && (k === 0)) return;
+        const u0 = potB / 2;
+        const u1 = Math.min(u0 + (ySousSabl - yPiedLien), u0 + demiTrav);
+        if (u1 <= u0 + 0.20) return;
+        addLienAzimut(x, zSab, az, liB, u0, yPiedLien, u1, ySousSabl, liH, 0, "Lien");
       });
     });
 
-    // ===== COUVERTURE (1 pan, semi-transparente, couleur selon type) =====
-    const rg = new THREE.PlaneGeometry(lgFilA + 0.1, longueurRampant + 0.3 + supBasA);
-    const roof = new THREE.Mesh(rg, appentisRoofMat);
-    roof.position.set(cxFilA, yCentre + secChevron + 0.12 - (supBasA/2) * Math.sin(ang),
-      -(supBasA/2) * Math.cos(ang));
-    roof.rotation.x = Math.PI/2 - ang;
-    scene.add(roof);
+    setPiece("Entrait");
+    // LA MOISE : deux joues, une de chaque cote, qui serrent le poteau, le lien et le
+    // talon d arbaletrier. C est ce qui lui permet de passer PLUS HAUT que la sous-face
+    // d arbaletrier, entre la sabliere et la premiere panne intermediaire.
+    const zEnA = zSab - potB / 2, zEnB = zMurInt;
+    xs.forEach((x) => {
+      [-1, 1].forEach((cote) => {
+        addBox(enB, enH, zEnB - zEnA, x + cote * xMoise,
+          yEntraitHaut - enH / 2, (zEnA + zEnB) / 2, woodMat);
+      });
+    });
+
+    // ===== PANNES : sabliere, intermediaires, muraillere, toutes dans le meme plan =====
+    const nivA = [];
+    for (let i = 0; i <= nbInter + 1; i++) {
+      const z = zSab + i * pasA;
+      const nom = (i === 0) ? "Sabliere" : ((i === nbInter + 1) ? "Muraillere" : "Panne");
+      nivA.push({ z: z, yRef: yDessusArb(z), yP: yPanne(z), nom: nom, bout: (i === 0) });
+    }
+    nivA.forEach((n) => {
+      setPiece(n.nom);
+      addPanneDelardee(lgFilA, ph, pw, cxFilA, n.yP, n.z, tanA, -1, delardement, woodMat, n.nom);
+    });
+
+    setPiece("Echantignole");
+    // La sabliere est tenue par l encoche du poteau : pas d echantignole la.
+    nivA.filter((n) => (n.bout === false)).forEach((n) => {
+      xs.forEach((x) => { addEchantignoleGen(x, -n.z, n.yRef, -1, arB, pw, tanA, eEch); });
+    });
+
+    setPiece("Chevron");
+    // Poses a plat sur le delardement, abouts coupes d aplomb. Ils descendent jusqu a
+    // la depasse saisie et montent mourir au nu du mur.
+    const zChB = zSab - extAv, zChH = zMurInt;
+    const contChA = [
+      [zChB, sousCh(zChB)], [zChH, sousCh(zChH)], [zChH, dessCh(zChH)], [zChB, dessCh(zChB)],
+    ];
+    const lgChA = (zChH - zChB) / cosA;
+    const nbChA = Math.max(2, Math.floor(lgFilA / espChevron));
+    for (let i = 0; i <= nbChA; i++) {
+      const x = -L / 2 - dpAm + (i / nbChA) * lgFilA;
+      addProfilZY(x, chB, contChA, lgChA, chH, "Chevron");
+    }
+
+    setPiece("Liteau");
+    // Section selon le NF DTU 40.21, d apres l ecartement des chevrons. Avant : 25 x 40
+    // partout, quelle que soit la couverture.
+    const secLitA = (espChevron <= 0.45) ? [0.027, 0.040]
+      : ((espChevron <= 0.60) ? [0.032, 0.050] : [0.040, 0.060]);
+    const epLitA = secLitA[0], lgLitA = secLitA[1];
+    const zLitB = zChB + lgLitA / 2, zLitH = zChH - lgLitA / 2;
+    const nbLitA = Math.max(2, Math.ceil((zLitH - zLitB) / Math.max(0.05, couv.espLiteau * cosA)));
+    for (let i = 0; i <= nbLitA; i++) {
+      const z = zLitB + (i / nbLitA) * (zLitH - zLitB);
+      addBox(lgFilA + chB, epLitA, lgLitA, cxFilA, dessCh(z) + epLitA / 2, z, woodMat);
+    }
+
+    // ===== COUVERTURE : posee sur les liteaux, arretee au nu du mur =====
+    const LIFT_A = epLitA + (lgLitA / 2) * tanA + 0.008;
+    const zAvA = zChB - 0.04, zArA = zMurInt;
+    const yAvA = yLigne(zAvA) + LEVEE_DESSUS + LIFT_A;
+    const yArA = yLigne(zArA) + LEVEE_DESSUS + LIFT_A;
+    const xAA = -L / 2 - dpAm - chB / 2, xBA = L / 2 + dpAp + chB / 2;
+    const somA = [
+      xAA, yAvA, zAvA,  xBA, yAvA, zAvA,  xBA, yArA, zArA,
+      xAA, yAvA, zAvA,  xBA, yArA, zArA,  xAA, yArA, zArA,
+    ];
+    const gA = new THREE.BufferGeometry();
+    gA.setAttribute("position", new THREE.BufferAttribute(new Float32Array(somA), 3));
+    gA.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvDuPan(somA)), 2));
+    gA.computeVertexNormals();
+    scene.add(new THREE.Mesh(gA, makeRoofMaterial(couv, lgFilA, lgChA)));
+    console.log("[DEVIA] Appentis : " + xs.length + " demi-ferme(s), " + nivA.length +
+      " pannes alignees, " + (nbLitA + 1) + " liteaux " +
+      Math.round(lgLitA * 1000) + "x" + Math.round(epLitA * 1000));
   };
 
   // ============================================================
