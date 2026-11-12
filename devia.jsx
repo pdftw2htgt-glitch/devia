@@ -4930,9 +4930,23 @@ setPiece("Echantignole");
     const xs = [];
     for (let i = 0; i <= nbTrav; i++) xs.push(-L / 2 + (i / nbTrav) * L);
 
+    // ===== TETE DE POTEAU ARRIERE =====
+    // Plaque contre le nu interieur du mur, sa face exterieure au contact. Sa tete est
+    // coupee PARALLELE AU RAMPANT : c est elle qui recoit l about haut de
+    // l arbaletrier, qui portait jusqu ici sur le mur seul.
+    const zPotArr = zMurInt - potB / 2;
+    const contPotArr = () => {
+      const zi = zMurInt, zo = zMurInt - potB;
+      return [[zi, Y0A], [zo, Y0A], [zo, yLigne(zo)], [zi, yLigne(zi)]];
+    };
+
     setPiece("Poteau");
     const hPotAp = yPanne(zSab) + ph / 2 - Y0A;         // longueur de DEBIT
-    xs.forEach((x) => { addProfilZY(x, potB, contPotAp(), hPotAp, potB, "Poteau"); });
+    const hPotArr = yLigne(zMurInt) - Y0A;
+    xs.forEach((x) => {
+      addProfilZY(x, potB, contPotAp(), hPotAp, potB, "Poteau");
+      addProfilZY(x, potB, contPotArr(), hPotArr, potB, "Poteau");
+    });
 
     setPiece("Arbaletrier");
     // About bas coupe d aplomb AVANT le poteau, il meurt dans son logement sous
@@ -4960,8 +4974,13 @@ setPiece("Echantignole");
     // rampant pour porter a plat SOUS l arbaletrier. Les joues de l entrait le serrent
     // au croisement - c est ce qui fait tenir l assemblage.
     const zTeteL = zSab + 0.35 * lg;
+    const zTeteArr = zMurInt - 0.35 * lg;
     xs.forEach((x) => {
+      // Celui du poteau avant reprend l arbaletrier cote sabliere.
       addLienCoupe(x, liB, zSab + potB / 2, yPiedLien, zTeteL, yLigne(zTeteL), liH, tanA, "Lien");
+      // Celui du poteau ARRIERE part sous l entrait, TRAVERSE la moise - les deux joues
+      // le serrent au passage - et vient porter a plat sous l arbaletrier.
+      addLienCoupe(x, liB, zMurInt - potB, yPiedLien, zTeteArr, yLigne(zTeteArr), liH, tanA, "Lien");
     });
     // Liens LONGITUDINAUX, un de chaque cote du poteau, sous la sabliere : c est eux
     // qui empechent la file de poteaux de se coucher dans le sens de la longueur.
