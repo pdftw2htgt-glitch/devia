@@ -11,6 +11,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accepte, setAccepte] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,8 +23,13 @@ export default function Login() {
       return;
     }
 
-    if (mode === "signup" && password.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caracteres.");
+    if (mode === "signup" && password.length < 12) {
+      setError("Le mot de passe doit faire au moins 12 caracteres, avec des lettres et des chiffres.");
+      return;
+    }
+
+    if (mode === "signup" && accepte === false) {
+      setError("Cochez la case pour accepter les CGU et la politique de confidentialite.");
       return;
     }
 
@@ -99,12 +105,24 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "Minimum 8 caracteres" : ""}
+                placeholder={mode === "signup" ? "12 caracteres minimum, lettres et chiffres" : ""}
                 style={styles.input}
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 required
               />
             </>
+          )}
+
+          {mode === "signup" && (
+            <label style={styles.accepte}>
+              <input type="checkbox" checked={accepte} onChange={(e) => setAccepte(e.target.checked)} required style={{ marginTop: 3 }} />
+              <span>
+                J'accepte les{" "}
+                <a href="https://devia-site.vercel.app/cgu" target="_blank" rel="noopener noreferrer" style={styles.lienLegal}>conditions generales d'utilisation</a>
+                {" "}et la{" "}
+                <a href="https://devia-site.vercel.app/confidentialite" target="_blank" rel="noopener noreferrer" style={styles.lienLegal}>politique de confidentialite</a>.
+              </span>
+            </label>
           )}
 
           {error && <div style={styles.error}>{error}</div>}
@@ -241,6 +259,18 @@ const styles = {
     flexDirection: "column",
     gap: "8px",
     alignItems: "center",
+  },
+  accepte: {
+    display: "flex",
+    gap: 8,
+    alignItems: "flex-start",
+    fontSize: 13,
+    lineHeight: 1.45,
+    color: "#555",
+    margin: "4px 0 14px",
+  },
+  lienLegal: {
+    color: "#4a6cf7",
   },
   linkBtn: {
     background: "none",
