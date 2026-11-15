@@ -391,7 +391,12 @@ function metreTexteDepuisParams(p) {
       const refTxt = refs.length > 0 ? " | ref stock : " + refs.map((r) => r.ref + " (" + r.fam + (r.ess ? " " + r.ess : "") + ", " + r.lg.join("/") + " m)").join(", ") : "";
       return "- " + g.nom + " " + g.section[0] + "x" + g.section[1] + " mm : " + g.nombre + " piece(s), " + g.longueurTotale.toFixed(1) + " ml au total" + refTxt;
     });
-    return "METRE EXACT DU MOTEUR 3D (source de verite : utilise EXACTEMENT ces quantites pour les postes bois, n'en invente aucune) :\n" + lignes.join("\n");
+    const piecesTxt = (agg.aLaPiece || []).map((a) => "- " + a.nom + (a.matiere === "beton" ? " beton" : " (acier)") +
+      " : " + a.nombre + " piece(s)" + (a.matiere === "beton" ? ", " + a.volume.toFixed(3) + " m3" : ""));
+    const blocPieces = piecesTxt.length > 0
+      ? "\n\nQUINCAILLERIE ET PLOTS COMPTES PAR LE MOTEUR 3D (un poste chacun, quantite EXACTE a la piece) :\n" + piecesTxt.join("\n")
+      : "";
+    return "METRE EXACT DU MOTEUR 3D (source de verite : utilise EXACTEMENT ces quantites pour les postes bois, n'en invente aucune) :\n" + lignes.join("\n") + blocPieces;
   } catch (eMet) {
     return "";
   }
@@ -435,8 +440,32 @@ function recalerQuantitesDevis(parsed, agg) {
       ["poteau mob", ["Poteau MOB"]], ["poteau", ["Poteau"]],
     ];
     let nbRecales = 0;
+    const parPiece = {};
+    (agg.aLaPiece || []).forEach((a) => { parPiece[a.nom] = a; });
+    const unitePiece = (u) => u === "" || ["u", "u.", "pce", "pc", "pcs", "nb", "piece", "pieces", "unite", "unites"].indexOf(u) >= 0;
     (parsed.postes || []).forEach((po) => {
       const cat = stripQ(po.categorie);
+      // Sabots et plots comptes par le moteur : a la piece (au m3 pour un plot chiffre au volume).
+      // "Poteau sur sabot" reste un poste bois : un libelle qui nomme une piece de bois n est
+      // pas un poste de quincaillerie, sauf s il est range en quincaillerie.
+      const dP = stripQ(po.designation);
+      const uP = stripQ(po.unite).trim();
+      const boisDansLibelle = ["poteau", "solive", "lambourde", "panne", "chevron", "poutre", "moise"].some((m) => dP.includes(m));
+      let aP = undefined;
+      if (dP.includes("sabot") && (cat.includes("quincaillerie") || boisDansLibelle === false)) aP = parPiece["Sabot"];
+      else if (dP.includes("plot") && boisDansLibelle === false) aP = parPiece["Plot"];
+      if ((aP === undefined) === false) {
+        const auVolume = uP.includes("m3") || uP.includes("cube");
+        if (auVolume || unitePiece(uP)) {
+          const qP = auVolume ? Math.round(aP.volume * 1000) / 1000 : aP.nombre;
+          if (qP > 0) {
+            po.quantite = qP;
+            po.totalHT = Math.round(qP * (Number(po.prixUnitaireHT) || 0) * 100) / 100;
+            nbRecales += 1;
+          }
+          return;
+        }
+      }
       if (cat.includes("pose") || cat.includes("etude") || cat.includes("quincaillerie")) return;
       const d = stripQ(po.designation);
       for (const paire of MAPQ) {
@@ -1919,7 +1948,7 @@ function buildScene3D(scene, params, opts) {
       aireE += u[0] * w[1] - w[0] * u[1];
     }
     if (aireE < 0) ptsE = ptsE.slice().reverse();
-    logPiece(eB2, pw * tanP + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+    logPiece(eB2, (yTop - yD) + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
     metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
   };
 
@@ -2840,7 +2869,7 @@ setPiece("Echantignole");
         aireE += u[0] * w[1] - w[0] * u[1];
       }
       if (aireE < 0) ptsE = ptsE.slice().reverse();   // profil IFC : aire positive obligatoire
-      logPiece(eB2, pnB * tanA + hT, pnB + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+      logPiece(eB2, (yTop - yD) + hT, pnB + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
       metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
     };
     pannesInfo.forEach(({ zRef, yRef }) => {
@@ -4419,7 +4448,7 @@ setPiece("Echantignole");
         aireE += u[0] * w[1] - w[0] * u[1];
       }
       if (aireE < 0) ptsE = ptsE.slice().reverse();   // profil IFC : aire positive obligatoire
-      logPiece(eB2, pw * tanAH + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
+      logPiece(eB2, (yTop - yD) + hT, pw + tT, { pos: [fx, yCe, zCe], rot: null, quat: null });
       metre[metre.length - 1].profil = { pts: ptsE, len: eB2, axe: "x" };
     };
     pannesInfoH.forEach((pi) => {
@@ -4946,6 +4975,7 @@ setPiece("Echantignole");
       for (const sz of [-1, 1]) {
         const zS = sz * (lgSolive / 2 - 0.03);
         addBox(soB + 0.008, soH * 0.75, 0.06, x, ySolive - soH * 0.1, zS, sabotMat);
+        logPiece(soB + 0.008, soH * 0.75, 0.06, { pos: [x, ySolive - soH * 0.1, zS], rot: null, quat: null }, "Sabot", "acier");
       }
     }
 
@@ -7605,7 +7635,14 @@ function genererIFC(metre, params) {
 function agregerMetre(metre, densiteBois) {
   if (!metre || metre.length === 0) return { groupes: [], totalVolume: 0, totalPoids: 0, nbPieces: 0 };
   const map = {};
+  const aLaPieceMap = {};
   metre.forEach((p) => {
+    if (p.matiere === "acier" || (p.matiere === "beton" && p.nom === "Plot")) {
+      const kP = p.matiere + "|" + p.nom;
+      if (aLaPieceMap[kP] === undefined) aLaPieceMap[kP] = { nom: p.nom, matiere: p.matiere, nombre: 0, volume: 0 };
+      aLaPieceMap[kP].nombre += 1;
+      aLaPieceMap[kP].volume += p.volume;
+    }
     if (p.matiere === "beton") return; // la maconnerie n est pas du bois : hors metre et hors EC5
     if (p.matiere === "acier") return; // sabots et quincaillerie : comptes a la piece, pas au m3
     if (p.matiere === "couverture") return; // la couverture est chiffree au m2, pas au volume de bois
@@ -7635,7 +7672,8 @@ function agregerMetre(metre, densiteBois) {
   const totalVolume = groupes.reduce((s, g) => s + g.volume, 0);
   const totalPoids = groupes.reduce((s, g) => s + g.poids, 0);
   const nbPieces = groupes.reduce((s, g) => s + g.nombre, 0);
-  return { groupes, totalVolume, totalPoids, nbPieces, portees: (metre && metre.portees) || null };
+  return { groupes, totalVolume, totalPoids, nbPieces, portees: (metre && metre.portees) || null,
+    aLaPiece: Object.values(aLaPieceMap) };
 }
 
 // ============================================================
@@ -7727,6 +7765,23 @@ function PanneauTechnique({ data, params, zoneInfo, sectionMode = "conseillee" }
             </tbody>
           </table>
         </div>
+        {(data.aLaPiece || []).length > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: cl("#e8eaf2", "#1a1d2a"), marginBottom: 6 }}>Quincaillerie et plots (a la piece)</div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody>
+                {data.aLaPiece.map((a, i) => (
+                  <tr key={i}>
+                    <td style={{ ...td, color: cl("#e8eaf2", "#1a1d2a"), fontWeight: 500 }}>{a.nom}</td>
+                    <td style={td}>{a.matiere === "beton" ? "beton" : "acier"}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{a.nombre}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{a.matiere === "beton" ? fmt(a.volume, 3) + " m3" : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
         <div style={{ fontSize: 11, color: "#545870", marginTop: 8, fontStyle: "italic" }}>
           Essence : {data.essence || params.essence || "sapin"} - sections indicatives, a valider (DTU / Eurocode 5).<br/>
           Dimensionnement EC5 (flexion) : portee = longueur piece, entraxe et descente de charge selon hypotheses - <b>valeurs a valider par un professionnel</b>.
