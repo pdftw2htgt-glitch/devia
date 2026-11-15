@@ -452,7 +452,8 @@ function recalerQuantitesDevis(parsed, agg) {
       const uP = stripQ(po.unite).trim();
       const boisDansLibelle = ["poteau", "solive", "lambourde", "panne", "chevron", "poutre", "moise"].some((m) => dP.includes(m));
       let aP = undefined;
-      if (dP.includes("sabot") && (cat.includes("quincaillerie") || boisDansLibelle === false)) aP = parPiece["Sabot"];
+      if (dP.trim().startsWith("poteau") === false && (dP.includes("pied de poteau") || dP.includes("pieds de poteau") || dP.includes("platine"))) aP = parPiece["Pied de poteau"];
+      else if (dP.includes("sabot") && (cat.includes("quincaillerie") || boisDansLibelle === false)) aP = parPiece["Sabot"];
       else if (dP.includes("plot") && boisDansLibelle === false) aP = parPiece["Plot"];
       if ((aP === undefined) === false) {
         const auVolume = uP.includes("m3") || uP.includes("cube");
@@ -6207,6 +6208,20 @@ setPiece("Liteau");
     if (pans.length > 0) console.log("[DEVIA] Couverture exportee : " + pans.length + " pan(s), " + infoC.nom);
   })();
 
+  const POTEAU_AU_SOL = 0.30;   // bas du poteau a moins de 30 cm du terrain : dalle, plot ou sol
+  const piedsAuSol = metre.filter((pq) => {
+    if ((pq.nom === "Poteau" && pq.matiere === "bois" && Array.isArray(pq.pos)) === false) return false;
+    let yBas;
+    if (pq.profil && pq.profil.axe === "x" && Array.isArray(pq.profil.pts) && pq.profil.pts.length > 0) {
+      yBas = pq.pos[1] + Math.min(...pq.profil.pts.map((u) => u[0]));
+    } else if ((pq.rot === null || pq.rot === undefined) && (pq.quat === null || pq.quat === undefined) && Array.isArray(pq.dimsBrutes)) {
+      yBas = pq.pos[1] - pq.dimsBrutes[1] / 2;
+    } else {
+      return false;
+    }
+    return yBas <= POTEAU_AU_SOL;
+  });
+  piedsAuSol.forEach(() => { logPiece(0.15, 0.01, 0.15, null, "Pied de poteau", "acier"); });
   metre.portees = porteesReelles;
   return { yCentre, metre, densiteBois, essence };
 }
