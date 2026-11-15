@@ -2307,6 +2307,59 @@ function buildScene3D(scene, params, opts) {
     return { ...c, code: key };
   };
 
+  // ===== SAILLIE DE LA COUVERTURE AU DELA DES ABOUTS DE CHEVRONS =====
+  // Mathis, 15/11 : la toiture doit depasser d au moins 20 cm le bout des chevrons.
+  // Monopente et carports ; jamais cote faitiere d une monopente.
+  const SAILLIE_COUV = 0.20;
+
+  // ===== NOMBRE DE PANNES : CALCULE A L EC5, PLUS SUPPOSE =====
+  // AVANT : une regle fixe - 2 pannes par pan en trad et en hangar, une tous les 2,20 m
+  // de rampant ailleurs. Ce n etait pas un calcul, c etait ce qu on aimerait voir.
+  // MAINTENANT : le plus petit nombre de pannes intermediaires pour que
+  //   - le CHEVRON tienne sa portee (flexion et fleches) avec la section du plancher
+  //     metier (100 x 140 : ni la 3D ni le devis ne descendent en dessous), a
+  //     l ecartement de la couverture et sous les charges du chantier ;
+  //   - la PANNE tienne aussi, sur sa portee entre fermes et sur la largeur de toit
+  //     qu elle reprend alors. Moins de pannes = des pannes plus chargees : si elles ne
+  //     passent plus, on en garde une de plus.
+  const chargeToitEC5 = ec5DescenteCharge((opts && opts.couverture) || params.couverture || "tuile_terre",
+    params.sk || 0.45, pente, params.dS || 0, params.solaire ? true : false, params.site_expo || undefined);
+  const ec5Commun = {
+    G: chargeToitEC5.G, Q: chargeToitEC5.Q, S: chargeToitEC5.S,
+    classeService: 2, typeBatiment: (typeProjet === "hangar") ? "agricole" : "courant",
+    dureeVariable: "court", altitude: Number(params.altitude) || 0, console: false,
+  };
+  const chevronTientEC5 = (portee) => {
+    const secCh = PLANCHER_METIER.Chevron;
+    const r = ec5VerifierFlexion({ ...ec5Commun, portee: portee,
+      entraxe: getCouverture(opts && opts.couverture).espChevron,
+      b: secCh[0], h: secCh[1], classe: "C24" });
+    return r.tauxMax <= 100;
+  };
+  // rampant = longueur de chevron d un appui d egout a l appui du haut ; porteePanne =
+  // sa portee entre fermes (0 : l ouvrage ajoute lui-meme des appuis si besoin).
+  // Largeur de toit reprise par la panne la plus chargee. Toit a deux pans : la
+  // faitiere et les pannes reprennent un pas entier. Toit a UN pan (ovBas = depasse
+  // d egout, mesuree le long du rampant) : sans panne intermediaire, c est la sabliere
+  // basse qui porte le plus, un demi-pas plus la depasse.
+  const lwPanneDe = (pas, n, ovBas) => ((ovBas === undefined) ? pas
+    : Math.max((n > 0) ? pas : 0, pas / 2 + ovBas));
+  // strict : renvoie -1 si aucun nombre ne fait tenir la panne (l ouvrage doit alors
+  // ajouter des appuis) ; sinon on garde le nombre qui fait tenir le chevron.
+  const nbPannesEC5 = (rampant, porteePanne, strict, ovBas) => {
+    let nChevron = -1;
+    for (let n = 0; n <= 8; n++) {
+      const pas = rampant / (n + 1);
+      if (chevronTientEC5(pas) === false) continue;
+      if (nChevron < 0) nChevron = n;
+      const panneOk = ((porteePanne > 0) === false) ||
+        ((dimensionnerPiece("Panne", { ...ec5Commun, portee: porteePanne, entraxe: lwPanneDe(pas, n, ovBas) }) === null) === false);
+      if (panneOk) return n;
+    }
+    if (strict === true) return -1;
+    return (nChevron < 0) ? 8 : nChevron;
+  };
+
   // ============================================================
   // TEXTURES PROCEDURALES DE COUVERTURE (mode realiste)
   // ============================================================
@@ -2494,7 +2547,11 @@ function buildScene3D(scene, params, opts) {
     const sinA0 = Math.sin(ang);
     const [pfB0, pfH0] = sec("Panne faitiere", 0.12, 0.24);
     const reservPignon = [];
-    const nbPannesPan0 = 2;
+    // Pannes par pan : calculees (nbPannesEC5), plus fixees a 2. Les fermes ont deja ete
+    // comptees avec la meme regle que plus bas : la panne est verifiee sur leur entraxe.
+    const entraxeTrad0 = entraxeFermesOptimal(L, params && params.couverture, params && params.sk, params && params.pente,
+      params && params.dS, params && params.solaire, (params && Number(params.altitude)) || 0);
+    const nbPannesPan0 = nbPannesEC5((lg / 2) / Math.cos(ang), L / Math.max(1, Math.round(L / entraxeTrad0)));
     for (let p0 = 1; p0 <= nbPannesPan0; p0++) {
       const t0 = p0 / (nbPannesPan0 + 1);
       const yRef0 = Ht + hf * t0 + (arH0 / 2) * cosA0;
@@ -2722,7 +2779,13 @@ setPiece("Panne faitiere");
 setPiece("Panne");
     // ===== PANNES D'APLOMB (droites, coin amont pose sur l'extrados, calees par echantignoles) =====
     const tanA = Math.tan(ang);
-    const nbPannesParPan = 2;
+    const nbPannesParPan = nbPannesPan0;
+    // Ce que chaque piece porte reellement, pour le calcul des sections.
+    const pasTrad = ((lg / 2) / Math.cos(ang)) / (nbPannesParPan + 1);
+    declarePortee("Chevron", pasTrad, getCouverture(opts && opts.couverture).espChevron);
+    declarePortee("Panne", 0, pasTrad);
+    declarePortee("Panne faitiere", 0, pasTrad);
+    declarePortee("Sabliere", 0, pasTrad / 2 + (Math.max(depGa, depDr) + 0.10) / Math.cos(ang));
     const pannesInfo = [];
     for (let p = 1; p <= nbPannesParPan; p++) {
       const t = p / (nbPannesParPan + 1);
@@ -3044,8 +3107,14 @@ setPiece("Chevron");
     const ySousFait = yPfait - ph / 2;
     const yJoueFait = yPfait + ph / 2 - delardement;       // les joues s arretent au ras des aretes
 
-    const nbIntG = Math.max(0, Math.ceil(plG / 2.2) - 1);
-    const nbIntP = Math.max(0, Math.ceil(plP / 2.2) - 1);
+    const porteeP2 = L / Math.max(1, Math.ceil(L / 10));
+    const nbIntG = nbPannesEC5(plG, porteeP2);
+    const nbIntP = nbPannesEC5(plP, porteeP2);
+    const pasRG = plG / (nbIntG + 1), pasRP = plP / (nbIntP + 1);
+    declarePortee("Chevron", Math.max(pasRG, pasRP), getCouverture(opts && opts.couverture).espChevron);
+    declarePortee("Panne", 0, Math.max(pasRG, pasRP));
+    declarePortee("Panne faitiere", 0, (pasRG + pasRP) / 2);
+    declarePortee("Sabliere", 0, Math.max(pasRG, pasRP) / 2 + Math.max(depGa, depDr, 0.10) / cosP);
     const pasG = lgG / (nbIntG + 1), pasP = lgP / (nbIntP + 1);
 
     // L entrait est horizontal, son dessus a la sous-face de la sabliere du petit pan.
@@ -3210,8 +3279,8 @@ setPiece("Chevron");
     // Posee SUR les liteaux : leur epaisseur, plus la demi-largeur fois la pente, car
     // un liteau pose a plat remonte de son arete aval quand la pente augmente.
     const epLiteau = epLit2 + (lgLit2 / 2) * tanP + 0.008;
-    const debEgG = extG + 0.04, debEgP = extP + 0.04;
-    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
+    const debEgG = extG + SAILLIE_COUV, debEgP = extP + SAILLIE_COUV;
+    const xA = -L / 2 - dpG - chB / 2 - SAILLIE_COUV, xB = L / 2 + dpD + chB / 2 + SAILLIE_COUV;
     const yFaitT = yFait + LEVEE_DESSUS + epLiteau;
     const bords = [
       [zEgG + sG * debEgG, yEgG + LEVEE_DESSUS + epLiteau - debEgG * tanP],
@@ -3262,7 +3331,8 @@ setPiece("Chevron");
     // Croupe standard = recul egal a la demi-largeur, soit l aretier a 45 degres.
     // Le champ ne joue que sur celle de devant, en pour cent de ce standard.
     const brutC = (params && params.carport_croupe);
-    const pctC = ((brutC === undefined) || (brutC === null) || (brutC === "")) ? 70 : (parseFloat(brutC) || 70);
+    // 100 par defaut : les deux croupes egales, le sommet au milieu (Mathis, 15/11).
+    const pctC = ((brutC === undefined) || (brutC === null) || (brutC === "")) ? 100 : (parseFloat(brutC) || 100);
     const kAv = Math.min(1.2, Math.max(0.3, pctC / 100));
     const reculAr = Math.min(lg / 2, (L - 0.8) / 2);
     const reculAv = Math.min((lg / 2) * kAv, (L - 0.8) - reculAr);
@@ -3281,7 +3351,14 @@ setPiece("Chevron");
     const ySousFait = yPfait - ph / 2;
     const yTetePoincon = ySousFait + EMBREV;
 
-    const nbInter = Math.max(0, Math.ceil(plC / 2.2) - 1);
+    const nbInter = nbPannesEC5(plC, L / Math.max(2, Math.ceil(L / 4)));
+    const pasR4 = plC / (nbInter + 1);
+    ["Chevron", "Empannon", "Empannon de croupe"].forEach((nomCh) => {
+      declarePortee(nomCh, pasR4, getCouverture(opts && opts.couverture).espChevron);
+    });
+    declarePortee("Panne", 0, pasR4);
+    declarePortee("Panne faitiere", 0, pasR4);
+    declarePortee("Sabliere", 0, pasR4 / 2 + Math.max(0.10, debord) / cosC);
     const pas = (lg / 2) / (nbInter + 1);
     const yEntraitHaut = yL(lg / 2 - 0.5 * pas);
     const yEntraitBas = yEntraitHaut - enH;
@@ -3591,7 +3668,7 @@ setPiece("Chevron");
     setPiece("Divers");
     const mat4 = makeRoofMaterial(couv4, L, plC);
     const LIFT4c = epLit4c + (lgLit4c / 2) * Math.max(tanC, crAv.tanCr, crAr.tanCr) + 0.008;
-    const SAI4c = 0.05;
+    const SAI4c = SAILLIE_COUV;
     const zCv = zEg4c + SAI4c;
     const yC = T_gp(zEg4c) + LIFT4c - SAI4c * tanC, yF = T_gp(0) + LIFT4c;
     const xE1 = -(crAv.xEgA + SAI4c * crAv.kH), xE2 = crAr.xEgA + SAI4c * crAr.kH;
@@ -3681,12 +3758,17 @@ setPiece("Chevron");
     };
 
     // Nombre de pannes intermediaires : il fixe aussi la hauteur de l entrait.
-    const nbInter = Math.max(0, Math.ceil(plM / 2.2) - 1);
+    const nbInter = nbPannesEC5(plM, L / Math.max(1, Math.ceil(L / 10)), false, Math.max(0.10, depDr) / cosM);
+    const pasR1 = plM / (nbInter + 1);
+    declarePortee("Chevron", pasR1, getCouverture(opts && opts.couverture).espChevron);
+    declarePortee("Panne", 0, pasR1);
+    declarePortee("Panne faitiere", 0, pasR1 / 2 + 0.10 / cosM);
+    declarePortee("Sabliere", 0, pasR1 / 2 + Math.max(0.10, depDr) / cosM);
     const pasPanne = lg / (nbInter + 1);
     // L entrait coupe la sous-face d arbaletrier a mi-chemin entre la sabliere et la
     // premiere panne intermediaire : c est la hauteur demandee.
     const zCroise = -lg / 2 + 0.5 * pasPanne;
-    const yEntraitHaut = yLigne(zCroise);
+    const yEntraitHaut = Math.min(yLigne(zCroise), yPanne(-lg / 2) - ph / 2);
     const yEntraitBas = yEntraitHaut - enH;
     const xMoise = liB / 2 + enB / 2;                  // joue collee au flanc du lien
 
@@ -3818,12 +3900,12 @@ setPiece("Liteau");
     const epLiteau = epLitC + (lgLitC / 2) * tanM + 0.008;
     // Elle depasse aussi l about des chevrons, sinon leurs 10 derniers centimetres
     // sortent de la couverture a l egout comme au faitage.
-    const zAv = zChB - 0.04, zAr = zChH + 0.04;
+    const zAv = zChB - SAILLIE_COUV, zAr = zChH + 0.04;
     const yAvT = yLigne(zAv) + LEVEE_DESSUS + epLiteau;
     const yArT = yLigne(zAr) + LEVEE_DESSUS + epLiteau;
     // Elle va jusqu au bord EXTERIEUR du chevron de rive, pas jusqu a son axe :
     // sinon la derniere demi-largeur de chevron reste a decouvert de chaque cote.
-    const xA = -L / 2 - dpG - chB / 2, xB = L / 2 + dpD + chB / 2;
+    const xA = -L / 2 - dpG - chB / 2 - SAILLIE_COUV, xB = L / 2 + dpD + chB / 2 + SAILLIE_COUV;
     const somM = [
       xA, yAvT, zAv,  xB, yAvT, zAv,  xB, yArT, zAr,
       xA, yAvT, zAv,  xB, yArT, zAr,  xA, yArT, zAr,
@@ -3877,7 +3959,7 @@ setPiece("Liteau");
     {
       const y0 = 1.0, y1 = Math.min(2.0, Hhaut - 0.3);
       const fen = [{ cx: -L/4, w: 1.2 }, { cx: L/4, w: 1.2 }].filter(f => f.cx - f.w/2 > -L/2 + 0.3 && f.cx + f.w/2 < L/2 - 0.3);
-      let cursor = -L/2;
+      let cursor = -L/2 + epMur/2;
       for (const f of fen.sort((a,b) => a.cx - b.cx)) {
         const x0 = f.cx - f.w/2, x1 = f.cx + f.w/2;
         if (x0 > cursor) addBox(x0 - cursor, Hhaut, epMur, (cursor + x0)/2, Hhaut/2, lg/2, betonMat);
@@ -3885,25 +3967,26 @@ setPiece("Liteau");
         if (Hhaut > y1) addBox(f.w, Hhaut - y1, epMur, f.cx, (y1 + Hhaut)/2, lg/2, betonMat);
         cursor = x1;
       }
-      if (cursor < L/2) addBox(L/2 - cursor, Hhaut, epMur, (cursor + L/2)/2, Hhaut/2, lg/2, betonMat);
+      const xFinAr = L/2 - epMur/2;
+      if (cursor < xFinAr) addBox(xFinAr - cursor, Hhaut, epMur, (cursor + xFinAr)/2, Hhaut/2, lg/2, betonMat);
     }
     // Mur avant (Z-, bas) : porte centree
     {
       const pw = 0.9, ph = Math.min(2.1, Hbas - 0.2);
       if (L >= 1.6 && ph > 1.6) {
-        const seg = L/2 - pw/2;
+        const seg = (L - epMur)/2 - pw/2;
         addBox(seg, Hbas, epMur, -(pw/2 + seg/2), Hbas/2, -lg/2, betonMat);
         addBox(seg, Hbas, epMur, (pw/2 + seg/2), Hbas/2, -lg/2, betonMat);
         if (Hbas > ph) addBox(pw, Hbas - ph, epMur, 0, (ph + Hbas)/2, -lg/2, betonMat);
       } else {
-        addBox(L, Hbas, epMur, 0, Hbas/2, -lg/2, betonMat);
+        addBox(L - epMur, Hbas, epMur, 0, Hbas/2, -lg/2, betonMat);
       }
     }
     // Murs pignons : le rectangle bas reste ici (il porte le metre et l export IFC
     // du mur) ; la partie haute est dessinee plus bas avec le toit, car son rampant se
     // calcule sur les pannes et les chevrons.
-    addBox(epMur, Hbas, lg, -L/2, Hbas/2, 0, betonMat);
-    addBox(epMur, Hbas, lg, L/2, Hbas/2, 0, betonMat);
+    addBox(epMur, Hbas, lg + epMur, -L/2, Hbas/2, 0, betonMat);
+    addBox(epMur, Hbas, lg + epMur, L/2, Hbas/2, 0, betonMat);
 
     // Dalle interieure
     drawDalleBeton(L, lg, 0);
@@ -3961,12 +4044,38 @@ setPiece("Liteau");
     voilePignon(L / 2);
 
     // Un chevron ne franchit pas plus de 2,2 m sans appui.
-    const nbInterM = Math.max(1, Math.ceil(plMp / 2.2) - 1);
+    // Appuis et pannes choisis ENSEMBLE, sur le bois qu ils consomment.
+    // Pour 1 a 6 travees entre pignons : le moins de pannes qui fasse tenir chevrons et
+    // pannes sur cette portee, leur section EC5, et l arbaletrier qu il faut a chaque
+    // appui intermediaire. On garde la combinaison qui demande le MOINS DE BOIS (a
+    // egalite, le moins d appuis). Plus de nombre choisi d avance : sur un 12 m, tout
+    // porter de pignon a pignon demandait 10 pannes de 200 x 300.
+    const aireM = (nom, dim) => {
+      const pl = PLANCHER_METIER[nom] || [0, 0];
+      const c = dim.conseillee;
+      return (Math.max(c.b, pl[0]) / 1000) * (Math.max(c.h, pl[1]) / 1000);
+    };
+    const ovBasM = (depDr + epMur / 2) / cosM;
+    let nbTravChoixM = 1, nbInterM = -1, boisMiniM = 1e9;
+    for (let t = 1; t <= 6; t++) {
+      const nT = nbPannesEC5(plMp, L / t, true, ovBasM);
+      if (nT < 0) continue;
+      const dP = dimensionnerPiece("Panne", { ...ec5Commun, portee: L / t, entraxe: lwPanneDe(plMp / (nT + 1), nT, ovBasM) });
+      if (dP === null) continue;
+      let bois = (nT + 2) * lgFilM * aireM("Panne", dP);
+      if (t > 1) {
+        const dA = dimensionnerPiece("Arbaletrier", { ...ec5Commun, portee: lg / cosM, entraxe: L / t });
+        if (dA === null) continue;
+        bois = bois + (t - 1) * ((lg + epMur) / cosM) * aireM("Arbaletrier", dA);
+      }
+      if (bois < boisMiniM - 0.001) { boisMiniM = bois; nbTravChoixM = t; nbInterM = nT; }
+    }
+    if (nbInterM < 0) nbInterM = nbPannesEC5(plMp, 0, false, ovBasM);
     const nivM = [];
     for (let i = 0; i <= nbInterM + 1; i++) {
       const z = -lg / 2 + (i / (nbInterM + 1)) * lg;
       const bout = (i === 0) || (i === nbInterM + 1);
-      nivM.push({ z: z, nom: bout ? "Sabliere" : "Panne" });
+      nivM.push({ z: z, nom: (i === 0) ? "Sabliere" : (bout ? "Panne faitiere" : "Panne") });
     }
     nivM.forEach((n) => {
       setPiece(n.nom);
@@ -3984,10 +4093,13 @@ setPiece("Liteau");
     // rampant). Quand il en faut, l appui intermediaire est un arbaletrier rampant
     // scelle dans les deux murs de facade, les pannes calees dessus par echantignoles.
     const pasRampM = plMp / (nbInterM + 1);
+    // Sans panne intermediaire, la piece la plus chargee est la sabliere basse : la
+    // moitie du rampant plus la depasse d egout.
+    const lwPanneM = (nbInterM > 0) ? pasRampM : (pasRampM / 2 + (depDr + epMur / 2) / cosM);
     const chargeM = ec5DescenteCharge((opts && opts.couverture) || params.couverture || "tuile_terre",
       params.sk || 0.45, pente, params.dS || 0, params.solaire ? true : false, params.site_expo || undefined);
     const panneTientM = (portee) => dimensionnerPiece("Panne", {
-      portee: portee, entraxe: pasRampM, G: chargeM.G, Q: chargeM.Q, S: chargeM.S,
+      portee: portee, entraxe: lwPanneM, G: chargeM.G, Q: chargeM.Q, S: chargeM.S,
       classeService: 2, typeBatiment: "courant", dureeVariable: "court",
       altitude: Number(params.altitude) || 0, console: false });
     // L arbaletrier intermediaire doit tenir lui aussi : il franchit toute la profondeur
@@ -3996,11 +4108,10 @@ setPiece("Liteau");
       portee: lg / cosM, entraxe: L / n, G: chargeM.G, Q: chargeM.Q, S: chargeM.S,
       classeService: 2, typeBatiment: "courant", dureeVariable: "court",
       altitude: Number(params.altitude) || 0, console: false });
-    let nbTravM = 1;
-    while ((nbTravM < 8) && ((panneTientM(L / nbTravM) === null) ||
-      ((nbTravM > 1) && (arbTientM(nbTravM) === null)))) nbTravM = nbTravM + 1;
-    declarePortee("Panne", L / nbTravM, pasRampM);
-    declarePortee("Sabliere", L / nbTravM, pasRampM / 2 + Math.max(depDr, depGa) / cosM, "Panne");
+    const nbTravM = nbTravChoixM;
+    declarePortee("Panne", L / nbTravM, lwPanneM);
+    declarePortee("Sabliere", L / nbTravM, pasRampM / 2 + (depDr + epMur / 2) / cosM, "Panne");
+    declarePortee("Panne faitiere", L / nbTravM, pasRampM / 2, "Panne");
     if (nbTravM > 1) {
       const [arBM, arHM] = sec("Arbaletrier", 0.16, 0.24);
       const eEchM = 0.03;
@@ -4016,7 +4127,7 @@ setPiece("Liteau");
         addProfilZY(xA, arBM, contArbM, (zArbB - zArbA) / cosM, arHM, "Arbaletrier");
         setPiece("Echantignole");
         nivM.forEach((n) => {
-          if (n.nom === "Sabliere") return;                  // les sablieres sont sur les murs
+          if (n.nom === "Sabliere" || n.nom === "Panne faitiere") return;   // posees sur les murs
           addEchantignoleGen(xA, -n.z, dessArbM(n.z), -1, arBM, pwM, tanM, eEchM);
         });
       }
@@ -4029,7 +4140,9 @@ setPiece("Liteau");
     // Abouts coupes d aplomb aux deux egouts, depasse saisie de chaque cote, comptee
     // depuis le NU EXTERIEUR du mur. Une rive decochee : coupe au nu du mur.
     const extBasM = depDr + epMur / 2;
-    const extHautM = depGa + epMur / 2;
+    // Cote faitiere, jamais de depasse (Mathis, 15/11) : les chevrons s arretent au nu
+    // exterieur du mur haut, quoi que dise la case.
+    const extHautM = epMur / 2;
     const zChBM = -lg / 2 - extBasM, zChHM = lg / 2 + extHautM;
     const contChM = [
       [zChBM, sousChM(zChBM)], [zChHM, sousChM(zChHM)], [zChHM, dessChM(zChHM)], [zChBM, dessChM(zChBM)],
@@ -4072,9 +4185,9 @@ setPiece("Liteau");
     setPiece("Divers");
     // Le dessus des liteaux est un plan parallele aux chevrons, a epLit au dessus.
     const LIFT_M = epLitM / cosM + 0.008;
-    const zCvB = zChBM - 0.04, zCvH = zChHM + 0.04;
+    const zCvB = zChBM - SAILLIE_COUV, zCvH = zChHM;
     const yCvB = dessChM(zCvB) + LIFT_M, yCvH = dessChM(zCvH) + LIFT_M;
-    const xCvA = -L / 2 - dpMm - 0.03, xCvB = L / 2 + dpMp + 0.03;   // 30 mm au dela des rives
+    const xCvA = -L / 2 - dpMm - SAILLIE_COUV, xCvB = L / 2 + dpMp + SAILLIE_COUV;   // 20 cm au dela des rives
     const somM = [
       xCvA, yCvB, zCvB,  xCvB, yCvB, zCvB,  xCvB, yCvH, zCvH,
       xCvA, yCvB, zCvB,  xCvB, yCvH, zCvH,  xCvA, yCvH, zCvH,
@@ -4246,7 +4359,12 @@ setPiece("Panne faitiere");
     setPiece("Panne");
     const [arBH, arHH] = sec("Arbaletrier", 0.16, 0.16);
     const cosAH = Math.cos(ang), sinAH = Math.sin(ang), tanAH = Math.tan(ang);
-    const nbPannesParPan = 2;
+    const nbPannesParPan = nbPannesEC5((lg / 2) / Math.cos(ang), L / Math.max(2, Math.ceil(L / 4)));
+    const pasHang = ((lg / 2) / Math.cos(ang)) / (nbPannesParPan + 1);
+    declarePortee("Chevron", pasHang, getCouverture(opts && opts.couverture).espChevron);
+    declarePortee("Panne", 0, pasHang);
+    declarePortee("Panne faitiere", 0, pasHang);
+    declarePortee("Sabliere", 0, pasHang / 2 + (Math.max(depGa, depDr) + 0.10) / Math.cos(ang));
     const [pw, ph] = sec("Panne", 0.12, 0.12);
     const eEchH = 0.03;
     const pannesInfoH = [];
@@ -5246,10 +5364,13 @@ setPiece("Echantignole");
     xs.forEach((x) => { addProfilZY(x, arB, contArbA, lgArbA, arH, "Arbaletrier"); });
 
     // ===== NIVEAUX DE PANNE =====
-    const nbInter = Math.max(0, Math.ceil(plA / 2.2) - 1);
+    const nbInter = nbPannesEC5(plA, L / nbTrav, false, extAv / cosA);
     const pasA = (zMu - zSab) / (nbInter + 1);
     const zCroise = zSab + 0.5 * pasA;
-    const yEntraitHaut = yLigne(zCroise);
+    // Avec moins de pannes, le premier intervalle s allonge et la moise montait avec
+    // lui : a l avant elle ressortait de la couverture. Elle ne passe jamais plus haut
+    // que le dessous de la sabliere.
+    const yEntraitHaut = Math.min(yLigne(zCroise), yPanne(zSab) - ph / 2);
     const yEntraitBas = yEntraitHaut - enH;
     const xMoise = liB / 2 + enB / 2;
     const dPied = Math.min(0.6, Math.max(0.3, Ht * 0.25));
@@ -5404,7 +5525,14 @@ setPiece("Echantignole");
     const roof4Mat = makeRoofMaterial(couv, L, plQ + 0.1 / cosQ + (parseFloat(params.debord) || 0) / cosQ);
     // Connu ici parce que les contrefiches doivent venir buter SOUS une panne, comme sur
     // une coupe de charpentier - et pas a 55 % de l arbaletrier, au hasard.
-    const nbPannes = Math.max(1, Math.ceil(plQ / 2.2) - 1);
+    const nbPannes = nbPannesEC5(plQ, Math.max(Lfait / Math.max(1, Math.round(Lfait / 3.0)), (L - Lfait) / 2));
+    const pasR4p = plQ / (nbPannes + 1);
+    ["Chevron", "Empannon", "Empannon de croupe"].forEach((nomCh) => {
+      declarePortee(nomCh, pasR4p, getCouverture(opts && opts.couverture).espChevron);
+    });
+    declarePortee("Panne", 0, pasR4p);
+    declarePortee("Panne faitiere", 0, pasR4p);
+    declarePortee("Sabliere", 0, pasR4p / 2 + (debord + 0.10) / Math.cos(Math.atan(Math.tan((pente * Math.PI) / 180))));
     const tPanneBasse = 1 / (nbPannes + 1);
 
     // ===== SECTIONS =====
@@ -8639,7 +8767,7 @@ const [formFinitionMur, setFormFinitionMur] = useState(""); // aspect de la maco
 const [formPignon, setFormPignon] = useState("plein"); // plein | egout | aucun
 const [formCarportPans, setFormCarportPans] = useState("1"); // carport : 1 pan (defaut historique) | 2 | 4
 const [formCarportFaitage, setFormCarportFaitage] = useState("33"); // carport 2 pans : position du faitage en pour cent de la largeur
-const [formCarportCroupe, setFormCarportCroupe] = useState("70"); // carport 4 pans : croupe avant en pour cent de la croupe standard
+const [formCarportCroupe, setFormCarportCroupe] = useState("100"); // carport 4 pans : croupe avant en pour cent de la croupe standard
 const [formHauteurRef, setFormHauteurRef] = useState("sabliere"); // la hauteur saisie se lit a la sabliere ou au faitage
 const [formDebordCotes, setFormDebordCotes] = useState("1111"); // depasse de toiture : avant / arriere / gauche / droite
 const [formZoneNeige, setFormZoneNeige] = useState(""); // "" = selon la commune, sinon A1..E imposee a la main
