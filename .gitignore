@@ -32,3 +32,6 @@ _sauvegardes/
 
 # Donnees INSEE brutes (2,6 Mo) : servent a fabriquer la table, jamais commitees
 insee/
+
+# Dossier de sortie de Claude (rendus, notes) : reste sur le disque, hors du depot
+Claude outputs/

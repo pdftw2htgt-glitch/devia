@@ -6884,6 +6884,11 @@ function generatePDF(result, params, zoneInfo, nomProjet, view3DParams) {
     doc.text("Genere par DEVIA - " + dateDevis, margin, phF - 10);
     doc.text(params.mentions || "Devis valable 30 jours", pwF / 2, phF - 10, { align: "center" });
     doc.text("Page " + i + "/" + totalPages, pwF - margin, phF - 10, { align: "right" });
+    doc.setFontSize(6);
+    const avertSections = doc.splitTextToSize(
+      "Sections de bois indicatives : predimensionnement Eurocode 5 etabli par logiciel d apres les plans, " +
+      "a confirmer avant execution. Ne vaut pas note de calcul de structure.", pwF - 2 * margin);
+    doc.text(avertSections, pwF / 2, phF - 6, { align: "center" });
   }
 
   // ============ TELECHARGER ============
