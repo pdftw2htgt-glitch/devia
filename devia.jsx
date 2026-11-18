@@ -811,6 +811,21 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
       if (cible && result[cible]) result[nom] = JSON.parse(JSON.stringify(result[cible]));
     });
   }
+  // TRAD (Mathis, 18/11) : l entrait n est jamais plus petit que l arbaletrier, en
+  // largeur comme en hauteur. Le dessin applique la meme regle, y compris quand l EC5
+  // ne trouve aucune section d entrait (il garde alors son avertissement).
+  const TYPES_SANS_FERME_TRAD = ["carport", "monopente", "hangar", "appentis", "4_pans", "terrasse",
+    "sas_liaison", "etage", "balcon", "garde_corps"];
+  if (TYPES_SANS_FERME_TRAD.indexOf(TYPE_SEC) < 0 && result["Entrait"] && result["Arbaletrier"]) {
+    ["mini", "conseillee"].forEach((mode) => {
+      const en = result["Entrait"][mode], ar = result["Arbaletrier"][mode];
+      if (en && ar && (en.b < ar.b || en.h < ar.h)) {
+        en.b = Math.max(en.b, ar.b);
+        en.h = Math.max(en.h, ar.h);
+        en.aligneArbaletrier = true;
+      }
+    });
+  }
   // HARMONISATION : le poteau s'aligne sur la largeur de la sabliere (lignes continues)
   if (result["Poteau"] && result["Sabliere"]) {
     const wSab = result["Sabliere"].conseillee.b;
@@ -2646,7 +2661,11 @@ function buildScene3D(scene, params, opts) {
     if (sansFermeGauche || sansFermeDroite) console.log("[DEVIA] Ferme de rive supprimee : le pignon maconne porte les pannes");
     // L ENTRAIT se loge JUSTE SOUS LA SABLIERE : son dessus affleure l arase, et la sabliere
     // vient porter sur son bout. Avant il flottait 90 mm plus bas, noye dans le beton.
-    const [enB0, enH0] = sec("Entrait", 0.16, 0.16);
+    // Jamais plus petit que l arbaletrier, en largeur comme en hauteur (Mathis, 18/11) :
+    // quand l EC5 ne lui trouvait pas de section, il restait au 160 x 160 par defaut
+    // sous des arbaletriers de 160 x 300. Son dessus reste a l arase : il grandit vers le bas.
+    const [enBs0, enHs0] = sec("Entrait", 0.16, 0.16);
+    const enB0 = Math.max(enBs0, arB0), enH0 = Math.max(enHs0, arH0);
     const yEntrait = hMurSousSabliere - enH0 / 2;
     // Le beton remonte sous la sabliere, mais il DESCEND au droit de chaque ferme pour
     // laisser passer le bout d entrait : encoche ouverte par le haut, comme celles des
@@ -2721,8 +2740,7 @@ setPiece("Ferme");
       // porter sur son bout. Avant il etait cale sur Ht, donc 90 mm plus bas, avec une
       // dalle de beton prise en sandwich entre lui et la panne basse.
       setPiece("Entrait");
-      const [enB, enH] = sec("Entrait", 0.16, 0.16);
-      addBox(enB, enH, lg, x, yEntrait, 0, woodMat);
+      addBox(enB0, enH0, lg, x, yEntrait, 0, woodMat);
 
       // ARBALETRIERS (les 2 pans inclines, section forte) : aboutes en onglet au faitage
       setPiece("Arbaletrier");
