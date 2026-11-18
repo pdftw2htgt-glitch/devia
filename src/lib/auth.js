@@ -39,7 +39,9 @@ export async function signOut() {
  */
 export async function resetPassword(email) {
   const { data, error } = await supabase.auth.resetPasswordForEmail(
-    email.trim().toLowerCase()
+    email.trim().toLowerCase(),
+    // Sans adresse de retour, Supabase renvoie sur son "Site URL" : c etait DEVIA Stats.
+    { redirectTo: window.location.origin }
   );
   return { data, error };
 }

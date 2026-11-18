@@ -6254,6 +6254,7 @@ async function enTetesIA() {
 import { useLicense } from "./src/hooks/useLicense.js";
 import ActivateLicense from "./src/components/ActivateLicense.jsx";
 import LicenceExpiree from "./src/components/LicenceExpiree.jsx";
+import NouveauMotDePasse from "./src/components/NouveauMotDePasse.jsx";
 import SubscriptionBanner from "./src/components/SubscriptionBanner.jsx";
 import UserMenu from "./src/components/UserMenu.jsx";
 import jsPDF from "jspdf";
@@ -15984,7 +15985,7 @@ return (
 // ============================================================
 
 function DeviaAuthGate() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, recovery, finRecovery } = useAuth();
   const { license, loading: licenseLoading, refresh: refreshLicense } = useLicense();
 
   // Spinner pendant le chargement initial
@@ -16008,6 +16009,11 @@ function DeviaAuthGate() {
   // Pas connecte -> ecran login
   if (!user) {
     return <Login />;
+  }
+
+  // Arrive par le lien "mot de passe oublie" : on choisit le nouveau mot de passe d abord.
+  if (recovery === true) {
+    return <NouveauMotDePasse email={user.email} onFini={finRecovery} />;
   }
 
   // Connecte mais pas de licence -> ecran d'activation
