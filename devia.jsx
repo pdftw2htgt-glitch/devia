@@ -628,11 +628,12 @@ function calculerSectionsCharpente(metreAgrege, params, sk) {
   // changeraient de sections - Mathis a demande qu on ajoute sans rien retirer.
   const pansCarportSec = String((params && params.carport_pans) || "1");
   const carportCharpente = ((TYPE_SEC === "carport") && (pansCarportSec === "4"));
-  // Carport 1 pan : deux demi-fermes suffisent jusqu a 5 m de long. Meme regle que
-  // celle dessinee en 3D, sinon les pannes seraient dimensionnees sur une portee fausse.
+  // Carport 1 et 2 pans : une ferme tous les 5 m au plus (Mathis, 18/11 : 10 m de long =
+  // 3 fermes). Meme regle que celle dessinee en 3D, sinon les pannes seraient
+  // dimensionnees sur une portee fausse.
   const carport1Pan = ((TYPE_SEC === "carport") && ((pansCarportSec === "1") || (pansCarportSec === "2")));
   const ENTRAXE_FERMES = carport1Pan
-    ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 10)))
+    ? (L_BAT_SEC / Math.max(1, Math.ceil(L_BAT_SEC / 5)))
     : ((TYPE_SEC === "hangar") || carportCharpente)
     ? (L_BAT_SEC / Math.max(2, Math.ceil(L_BAT_SEC / 4)))
     : ((TYPE_SEC === "4_pans")
@@ -2319,6 +2320,36 @@ function buildScene3D(scene, params, opts) {
       rot: null, quat: null }, nomForce);
   };
 
+  // ===== LIEN DE CONTREVENTEMENT EN LONG, AU POTEAU D ANGLE =====
+  // Carport 1 et 2 pans (Mathis, 18/11) : rien ne tenait l ouvrage dans le sens de la
+  // longueur. Un lien a 45 degres par poteau d angle, dans le plan de sa file de poteaux,
+  // tourne vers l interieur de la travee : pied coupe d aplomb contre le poteau, tete
+  // coupee a l horizontale sous la sabliere ou la faitiere que le poteau porte.
+  // La moise de la ferme serre le poteau juste a cote : le lien passe AU DESSUS d elle
+  // s il en a la place, sinon il part plus bas et passe DESSOUS avant de monter.
+  // yMH, yMB : dessus et dessous de la moise a ce poteau (null : pas de moise).
+  // ep : jamais plus large que le poteau ni que la piece qui recoit la tete.
+  const addLienContrevent = (xP, zP, yTete, yMH, yMB, potB, liB, liH, enB, ep) => {
+    const sIn = (xP < 0) ? 1 : -1;
+    const az = (sIn > 0) ? Math.PI / 2 : -Math.PI / 2;
+    const u0 = potB / 2;                     // face du poteau
+    const k = liH / Math.SQRT2;              // demi-hauteur d une coupe sur un lien a 45 degres
+    const JEU = 0.02;
+    let y0 = yTete - 0.70;                   // 70 cm de portee horizontale, a 45 degres
+    if ((yMH === null) === false) {
+      // La joue interieure de la moise occupe u de liB/2 a liB/2 + enB.
+      const yMiniDessus = yMH + JEU + k - Math.max(0, liB / 2 - u0);
+      const yMaxiDessous = yMB - JEU - k - (liB / 2 + enB - u0);
+      if (y0 < yMiniDessus) {
+        // Pas la place des 70 cm au dessus : un lien plus court au dessus s il garde au
+        // moins 45 cm de portee, sinon il passe dessous (2 pans etroit : 1,30 m sinon).
+        if (yTete - yMiniDessus >= 0.45) y0 = yMiniDessus;
+        else y0 = Math.min(y0, yMaxiDessous);
+      }
+    }
+    addLienAzimut(xP, zP, az, ep, u0, y0, u0 + (yTete - y0), yTete, liH, 0, "Lien");
+  };
+
   // ============================================================
   // REGISTRE DES COUVERTURES (source unique de verite)
   // ============================================================
@@ -3137,8 +3168,11 @@ setPiece("Chevron");
     const ySousFait = yPfait - ph / 2;
     const yJoueFait = yPfait + ph / 2 - delardement;       // les joues s arretent au ras des aretes
 
-    const porteeP2 = L / Math.max(1, Math.ceil(L / 10));
-    const nbIntG = nbPannesEC5(plG, porteeP2);
+    // Une ferme tous les 5 m au plus (Mathis, 18/11) : 10 m de long = 3 fermes.
+    const porteeP2 = L / Math.max(1, Math.ceil(L / 5));
+    // Au moins une panne intermediaire sur le grand pan : c est a son nu que s arrete
+    // l entrait moise (Mathis, 18/11). Sans elle, il s arretait en plein arbaletrier.
+    const nbIntG = Math.max(1, nbPannesEC5(plG, porteeP2));
     const nbIntP = nbPannesEC5(plP, porteeP2);
     const pasRG = plG / (nbIntG + 1), pasRP = plP / (nbIntP + 1);
     declarePortee("Chevron", Math.max(pasRG, pasRP), getCouverture(opts && opts.couverture).espChevron);
@@ -3151,7 +3185,8 @@ setPiece("Chevron");
     const yEntraitHaut = yPanP(zEgP) - ph / 2;
     const yEntraitBas = yEntraitHaut - enH;
     // Cote grand pan il s arrete sous la panne intermediaire la plus proche de ce niveau.
-    let zEntG = zFait + sG * 0.5 * lgG;
+    // On part d une VRAIE panne : le milieu du pan pouvait gagner sans en porter aucune.
+    let zEntG = zEgG - sG * pasG;
     for (let i = 1; i <= nbIntG; i++) {
       const z = zEgG - sG * i * pasG;
       if (Math.abs(yG(z) - yEntraitHaut) < Math.abs(yG(zEntG) - yEntraitHaut)) zEntG = z;
@@ -3163,7 +3198,7 @@ setPiece("Chevron");
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    const nbInt = Math.max(1, Math.ceil(L / 10));
+    const nbInt = Math.max(1, Math.ceil(L / 5));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
     // Poteau A : meme tete que sur le 1 pan, encoche de sabliere plus logement d about.
@@ -3228,6 +3263,16 @@ setPiece("Chevron");
       [-1, 1].forEach((cote) => {
         addBox(enB, enH, lgEnt, x + cote * xMoise, yEntraitHaut - enH / 2, zEntC, woodMat);
       });
+    });
+
+    // CONTREVENTEMENT EN LONG : un lien par poteau d angle (Mathis, 18/11). Poteau
+    // d egout du grand pan : tete sous sa sabliere, pas de moise a cet endroit. Poteau
+    // sous la faitiere : tete sous la faitiere, la moise le serre.
+    setPiece("Lien");
+    const epLc2 = Math.min(liB, potB, pw);
+    [xs[0], xs[xs.length - 1]].forEach((x) => {
+      addLienContrevent(x, zEgG, yPanG(zEgG) - ph / 2, null, null, potB, liB, liH, enB, epLc2);
+      addLienContrevent(x, zFait, ySousFait, yEntraitHaut, yEntraitBas, potB, liB, liH, enB, epLc2);
     });
 
     // PANNES : sabliere du grand pan dans l encoche du poteau A, sabliere du petit pan
@@ -3788,7 +3833,7 @@ setPiece("Chevron");
     };
 
     // Nombre de pannes intermediaires : il fixe aussi la hauteur de l entrait.
-    const nbInter = nbPannesEC5(plM, L / Math.max(1, Math.ceil(L / 10)), false, Math.max(0.10, depDr) / cosM);
+    const nbInter = nbPannesEC5(plM, L / Math.max(1, Math.ceil(L / 5)), false, Math.max(0.10, depDr) / cosM);
     const pasR1 = plM / (nbInter + 1);
     declarePortee("Chevron", pasR1, getCouverture(opts && opts.couverture).espChevron);
     declarePortee("Panne", 0, pasR1);
@@ -3805,8 +3850,9 @@ setPiece("Chevron");
     drawDalleBeton(L, lg, 0.3);
 
     setPiece("Poteau");
-    // Meme regle que la trad : sous 10 m de long, les deux demi-fermes de rive suffisent.
-    const nbInt = Math.max(1, Math.ceil(L / 10));
+    // Une demi-ferme tous les 5 m au plus (Mathis, 18/11) : 10 m de long = 3 demi-fermes.
+    // Avec 2 seulement, les pannes portaient 10 m et il en fallait 6 lignes.
+    const nbInt = Math.max(1, Math.ceil(L / 5));
     const xs = [];
     for (let i = 0; i <= nbInt; i++) xs.push(-L / 2 + (i / nbInt) * L);
     const hPotAv = yPanne(-lg / 2) + ph / 2 - Y0C;   // longueur de DEBIT, depuis la dalle
@@ -3849,10 +3895,21 @@ setPiece("Chevron");
     setPiece("Entrait");
     // LA MOISE : deux joues, une de chaque cote, qui serrent au passage les deux poteaux,
     // les deux liens et le talon d arbaletrier qu elles recouvrent pres de la sabliere.
+    // D un bout a l autre : jusqu au nu exterieur des deux poteaux (Mathis, 18/11).
+    // Avant, elles s arretaient a l axe des poteaux et n en serraient que la moitie.
     xs.forEach((x) => {
       [-1, 1].forEach((cote) => {
-        addBox(enB, enH, lg, x + cote * xMoise, yEntraitHaut - enH / 2, 0, woodMat);
+        addBox(enB, enH, lg + potB, x + cote * xMoise, yEntraitHaut - enH / 2, 0, woodMat);
       });
+    });
+
+    // CONTREVENTEMENT EN LONG : un lien par poteau d angle (Mathis, 18/11), tete sous la
+    // sabliere devant, sous la faitiere derriere.
+    setPiece("Lien");
+    const epLc1 = Math.min(liB, potB, pw);
+    [xs[0], xs[xs.length - 1]].forEach((x) => {
+      addLienContrevent(x, -lg / 2, yPanne(-lg / 2) - ph / 2, yEntraitHaut, yEntraitBas, potB, liB, liH, enB, epLc1);
+      addLienContrevent(x, lg / 2, yPanne(lg / 2) - ph / 2, yEntraitHaut, yEntraitBas, potB, liB, liH, enB, epLc1);
     });
 
     // PANNES : sabliere en bas, faitiere en haut, intermediaires entre les deux,
