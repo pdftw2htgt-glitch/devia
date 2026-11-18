@@ -2407,10 +2407,16 @@ function buildScene3D(scene, params, opts) {
     : Math.max((n > 0) ? pas : 0, pas / 2 + ovBas));
   // strict : renvoie -1 si aucun nombre ne fait tenir la panne (l ouvrage doit alors
   // ajouter des appuis) ; sinon on garde le nombre qui fait tenir le chevron.
+  // REGLE METIER, AVANT L EC5 (Mathis, 18/11) : un chevron ne porte jamais plus de
+  // 2,50 m entre deux appuis, mesure le long du rampant. Sans elle, l EC5 laissait un
+  // 100 x 140 franchir 4,90 m : une trad 10 x 8 sortait sans aucune panne intermediaire,
+  // un hangar 10 x 8 ou un 4 pans 8 x 6 aussi. L EC5 peut toujours en ajouter.
+  const PORTEE_CHEVRON_MAXI = 2.50;
   const nbPannesEC5 = (rampant, porteePanne, strict, ovBas) => {
     let nChevron = -1;
     for (let n = 0; n <= 8; n++) {
       const pas = rampant / (n + 1);
+      if (pas > PORTEE_CHEVRON_MAXI + 0.0005) continue;
       if (chevronTientEC5(pas) === false) continue;
       if (nChevron < 0) nChevron = n;
       const panneOk = ((porteePanne > 0) === false) ||
