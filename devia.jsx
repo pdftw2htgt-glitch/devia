@@ -8997,6 +8997,9 @@ const [commune, setCommune] = useState("");
   const [renameError, setRenameError] = useState(null);
   const [showInfosEntreprise, setShowInfosEntreprise] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(null);
+  // Formule de la licence : la case du suivi personnalise ne s affiche qu en formule
+  // personnalisee. Colonne absente ou lecture impossible : la case reste cachee.
+  const [formuleLicence, setFormuleLicence] = useState(null);
   const [avatarHover, setAvatarHover] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarFileInputRef = useRef(null);
@@ -9254,6 +9257,23 @@ const [projects, setProjects] = useState([]);
       }
     };
     loadProfile();
+
+    const loadFormule = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user === null) return;
+        const { data, error } = await supabase
+          .from("licenses")
+          .select("formule")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error || data === null) return;
+        setFormuleLicence(data.formule || null);
+      } catch (e) {
+        console.warn("[DEVIA] formule de licence illisible", e);
+      }
+    };
+    loadFormule();
   }, []);
 
   // Ferme le menu '...' au clic externe
@@ -14795,6 +14815,25 @@ return (
           </div>
           <textarea value={params.mentions} onChange={e => setParams(prev => ({ ...prev, mentions: e.target.value }))} rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
         </div>
+
+        {/* Suivi personnalise : formule personnalisee seulement (Mathis, 20/11) */}
+        {formuleLicence === "personnalisee" ? (
+          <div style={cardStyle}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: cl("#e8eaf2", "#1a1d2a") }}>Suivi personnalisé</div>
+              <div style={{ color: cl("#7a7d92", "#5f6374"), fontSize: 12 }}>Formule personnalisée</div>
+            </div>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, lineHeight: 1.55, color: cl("#c9ccdb", "#2a2d3a") }}>
+              <input type="checkbox" checked={params.suiviPersonnalise === true}
+                onChange={e => {
+                  const oui = e.target.checked;
+                  setParams(prev => ({ ...prev, suiviPersonnalise: oui, suiviPersonnaliseLe: oui ? new Date().toISOString() : null }));
+                }}
+                style={{ marginTop: 3 }} />
+              <span>{"J'autorise le suivi personnalisé : l'équipe DEVIA peut consulter mon profil, mes réglages de chiffrage, mon catalogue et mes devis pour m'accompagner. Ces données ne sont jamais communiquées à des tiers. Je peux décocher cette case à tout moment."}</span>
+            </label>
+          </div>
+        ) : null}
 
         {/* Bouton Sauvegardér */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
